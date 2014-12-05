@@ -1,0 +1,490 @@
+#include "libmeryl.H"
+
+#define LIBMERYL_HISTOGRAM_MAX  1048576
+
+//                      0123456789012345
+static char *ImagicV = "merylStreamIv03\n";
+static char *ImagicX = "merylStreamIvXX\n";
+static char *DmagicV = "merylStreamDv03\n";
+static char *DmagicX = "merylStreamDvXX\n";
+static char *PmagicV = "merylStreamPv03\n";
+static char *PmagicX = "merylStreamPvXX\n";
+
+merylStreamReader::merylStreamReader(const char *fn, uint32 ms) {
+
+  if (fn == 0L) {
+    fprintf(stderr, "ERROR - no counted database file specified.\n");
+    exit(1);
+  }
+
+  //  Open the files
+  //
+  char *inpath = new char [strlen(fn) + 8];
+
+  sprintf(inpath, "%s.mcidx", fn);
+  _IDX = new bitPackedFile(inpath);
+
+  sprintf(inpath, "%s.mcdat", fn);
+  _DAT = new bitPackedFile(inpath);
+
+  sprintf(inpath, "%s.mcpos", fn);
+  if (fileExists(inpath))
+    _POS = new bitPackedFile(inpath);
+  else
+    _POS = 0L;
+
+  delete [] inpath;
+
+  //  Verify that they are what they should be, and read in the header
+  //
+  char    Imagic[16] = {0};
+  char    Dmagic[16] = {0};
+  char    Pmagic[16] = {0};
+  bool    fail       = false;
+
+  for (uint32 i=0; i<16; i++) {
+    Imagic[i] = _IDX->getBits(8);
+    Dmagic[i] = _DAT->getBits(8);
+    if (_POS)
+      Pmagic[i] = _POS->getBits(8);
+  }
+  if (strncmp(Imagic, ImagicX, 16) == 0) {
+    fprintf(stderr, "merylStreamReader()-- ERROR: %s.mcidx is an INCOMPLETE merylStream index file!\n", fn);
+    fail = true;
+  }
+  if (strncmp(Imagic, ImagicX, 13) != 0) {
+    fprintf(stderr, "merylStreamReader()-- ERROR: %s.mcidx is not a merylStream index file!\n", fn);
+    fail = true;
+  }
+  if (strncmp(Dmagic, DmagicX, 16) == 0) {
+    fprintf(stderr, "merylStreamReader()-- ERROR: %s.mcdat is an INCOMPLETE merylStream data file!\n", fn);
+    fail = true;
+  }
+  if (strncmp(Dmagic, DmagicX, 13) != 0) {
+    fprintf(stderr, "merylStreamReader()-- ERROR: %s.mcdat is not a merylStream data file!\n", fn);
+    fail = true;
+  }
+  if ((Imagic[13] != Dmagic[13]) ||
+      (Imagic[14] != Dmagic[14])) {
+    fprintf(stderr, "merylStreamReader()-- ERROR: %s.mcidx and %s.mcdat are different versions!\n", fn, fn);
+    fail = true;
+  }
+#warning not checking pmagic
+
+  if (fail)
+    exit(1);
+
+  _idxIsPacked    = _IDX->getBits(32);
+  _datIsPacked    = _IDX->getBits(32);
+  _posIsPacked    = _IDX->getBits(32);
+
+  _merSizeInBits  = _IDX->getBits(32) << 1;
+  _merCompression = _IDX->getBits(32);
+  _prefixSize     = _IDX->getBits(32);
+  _merDataSize    = _merSizeInBits - _prefixSize;
+
+  _numUnique      = _IDX->getBits(64);
+  _numDistinct    = _IDX->getBits(64);
+  _numTotal       = _IDX->getBits(64);
+
+  _histogramHuge     = 0;
+  _histogramLen      = 0;
+  _histogramMaxValue = 0;
+  _histogram         = 0L;
+
+  uint32 version = atoi(Imagic + 13);
+
+  if (version > 1) {
+    _histogramHuge     = _IDX->getBits(64);
+    _histogramLen      = _IDX->getBits(64);
+    _histogramMaxValue = _IDX->getBits(64);
+    _histogram         = new uint64 [_histogramLen];
+
+    for (uint32 i=0; i<_histogramLen; i++)
+      _histogram[i] = _IDX->getBits(64);
+  }
+
+  _thisBucket     = uint64ZERO;
+  _thisBucketSize = getIDXnumber();
+  _numBuckets     = uint64ONE << _prefixSize;
+
+  _thisMer.setMerSize(_merSizeInBits >> 1);
+  _thisMer.clear();
+  _thisMerCount   = uint64ZERO;
+
+  _thisMerPositionsMax = 0;
+  _thisMerPositions    = 0L;
+
+  _validMer       = true;
+
+#ifdef SHOW_VARIABLES
+  fprintf(stderr, "_merSizeInBits  = "uint32FMT"\n", _merSizeInBits);
+  fprintf(stderr, "_merCompression = "uint32FMT"\n", _merCompression);
+  fprintf(stderr, "_prefixSize     = "uint32FMT"\n", _prefixSize);
+  fprintf(stderr, "_merDataSize    = "uint32FMT"\n", _merDataSize);
+  fprintf(stderr, "_numUnique      = "uint64FMT"\n", _numUnique);
+  fprintf(stderr, "_numDistinct    = "uint64FMT"\n", _numDistinct);
+  fprintf(stderr, "_numTotal       = "uint64FMT"\n", _numTotal);
+  fprintf(stderr, "_thisBucket     = "uint64FMT"\n", _thisBucket);
+  fprintf(stderr, "_thisBucketSize = "uint64FMT"\n", _thisBucketSize);
+  fprintf(stderr, "_thisMerCount   = "uint64FMT"\n", _thisMerCount);
+#endif
+
+  if ((ms > 0) && (_merSizeInBits >> 1 != ms)) {
+    fprintf(stderr, "merylStreamReader()-- ERROR: User requested mersize "uint32FMT" but '%s' is mersize "uint32FMT"\n",
+            ms, fn, _merSizeInBits >> 1);
+    exit(1);
+  }
+}
+
+
+merylStreamReader::~merylStreamReader() {
+  delete _IDX;
+  delete _DAT;
+  delete _POS;
+  delete [] _thisMerPositions;
+  delete [] _histogram;
+}
+
+
+
+bool
+merylStreamReader::nextMer(void) {
+
+  //  Use a while here, so that we skip buckets that are empty
+  //
+  while ((_thisBucketSize == 0) && (_thisBucket < _numBuckets)) {
+    _thisBucketSize = getIDXnumber();
+    _thisBucket++;
+  }
+
+  if (_thisBucket >= _numBuckets)
+    return(_validMer = false);
+
+  //  Before you get rid of the clear() -- if, say, the list of mers
+  //  is sorted and we can shift the mer to make space for the new
+  //  stuff -- make sure that nobody is calling reverseComplement()!
+  //
+  _thisMer.clear();
+  _thisMer.readFromBitPackedFile(_DAT, _merDataSize);
+  _thisMer.setBits(_merDataSize, _prefixSize, _thisBucket);
+
+  _thisMerCount = getDATnumber();
+
+  _thisBucketSize--;
+
+  if (_POS) {
+    if (_thisMerPositionsMax < _thisMerCount) {
+      delete [] _thisMerPositions;
+      _thisMerPositionsMax = _thisMerCount + 1024;
+      _thisMerPositions    = new uint32 [_thisMerPositionsMax];
+    }
+    for (uint32 i=0; i<_thisMerCount; i++) {
+      _thisMerPositions[i] = _POS->getBits(32);
+    }
+  }
+
+  return(true);
+}
+
+
+
+
+
+
+merylStreamWriter::merylStreamWriter(const char *fn,
+                                     uint32 merSize,
+                                     uint32 merComp,
+                                     uint32 prefixSize,
+                                     bool   positionsEnabled) {
+
+  char *outpath = new char [strlen(fn) + 17];
+
+  sprintf(outpath, "%s.mcidx", fn);
+  _IDX = new bitPackedFile(outpath, 0, true);
+
+  sprintf(outpath, "%s.mcdat", fn);
+  _DAT = new bitPackedFile(outpath, 0, true);
+
+  if (positionsEnabled) {
+    sprintf(outpath, "%s.mcpos", fn);
+    _POS = new bitPackedFile(outpath, 0, true);
+  } else {
+    _POS = 0L;
+  }
+
+  delete [] outpath;
+
+  //  Save really important stuff
+
+  //  unpacked --> write 0.42M mers/sec on 8 threads, merge 3.3M mers/sec
+  //  packed   --> write 0.77M mers/sec on 8 threads, merge 3.9M mers/sec
+  //  
+  //  This sucks.
+  //
+  _idxIsPacked    = 1;
+  _datIsPacked    = 1;
+  _posIsPacked    = 0;
+
+  _merSizeInBits  = merSize * 2;
+  _merCompression = merComp;
+  _prefixSize     = prefixSize;
+  _merDataSize    = _merSizeInBits - _prefixSize;
+
+  _thisBucket     = uint64ZERO;
+  _thisBucketSize = uint64ZERO;
+  _numBuckets     = uint64ONE << _prefixSize;
+
+  _numUnique      = uint64ZERO;
+  _numDistinct    = uint64ZERO;
+  _numTotal       = uint64ZERO;
+
+  _thisMerIsBits  = false;
+  _thisMerIskMer  = false;
+
+  _thisMer.setMerSize(_merSizeInBits >> 1);
+  _thisMer.clear();
+
+  _thisMerPre     = uint64ZERO;
+  _thisMerMer     = uint64ZERO;
+
+  _thisMerPreSize = prefixSize;
+  _thisMerMerSize = 2 * merSize - prefixSize;
+
+  _thisMerCount   = uint64ZERO;
+
+  for (uint32 i=0; i<16; i++)
+    _IDX->putBits(ImagicX[i], 8);
+
+  _IDX->putBits(_idxIsPacked, 32);
+  _IDX->putBits(_datIsPacked, 32);
+  _IDX->putBits(_posIsPacked, 32);
+
+  _IDX->putBits(_merSizeInBits >> 1, 32);
+  _IDX->putBits(_merCompression, 32);
+  _IDX->putBits(_prefixSize,  32);
+  _IDX->putBits(_numUnique,   64);
+  _IDX->putBits(_numDistinct, 64);
+  _IDX->putBits(_numTotal,    64);
+
+  _histogramHuge     = 0;
+  _histogramLen      = LIBMERYL_HISTOGRAM_MAX;
+  _histogramMaxValue = 0;
+  _histogram         = new uint64 [_histogramLen];
+
+  for (uint32 i=0; i<_histogramLen; i++)
+    _histogram[i] = 0;
+
+  _IDX->putBits(_histogramHuge, 64);
+  _IDX->putBits(_histogramLen, 64);
+  _IDX->putBits(_histogramMaxValue, 64);
+  for (uint32 i=0; i<_histogramLen; i++)
+    _IDX->putBits(_histogram[i], 64);
+
+  for (uint32 i=0; i<16; i++)
+    _DAT->putBits(DmagicX[i], 8);
+
+  if (_POS)
+    for (uint32 i=0; i<16; i++)
+      _POS->putBits(PmagicX[i], 8);
+}
+
+
+merylStreamWriter::~merylStreamWriter() {
+
+  writeMer();
+
+  //  Finish writing the buckets.
+  //
+  while (_thisBucket < _numBuckets + 2) {
+    setIDXnumber(_thisBucketSize);
+    _thisBucketSize = 0;
+    _thisBucket++;
+  }
+
+  //  Seek back to the start and rewrite the magic numbers
+  //
+  _IDX->seek(0);
+  _DAT->seek(0);
+
+  for (uint32 i=0; i<16; i++)
+    _IDX->putBits(ImagicV[i], 8);
+
+  _IDX->putBits(_idxIsPacked, 32);
+  _IDX->putBits(_datIsPacked, 32);
+  _IDX->putBits(_posIsPacked, 32);
+
+  _IDX->putBits(_merSizeInBits >> 1, 32);
+  _IDX->putBits(_merCompression, 32);
+  _IDX->putBits(_prefixSize,  32);
+  _IDX->putBits(_numUnique,   64);
+  _IDX->putBits(_numDistinct, 64);
+  _IDX->putBits(_numTotal,    64);
+
+  _IDX->putBits(_histogramHuge, 64);
+  _IDX->putBits(_histogramLen, 64);
+  _IDX->putBits(_histogramMaxValue, 64);
+  for (uint32 i=0; i<_histogramLen; i++)
+    _IDX->putBits(_histogram[i], 64);
+  delete _IDX;
+
+  delete [] _histogram;
+
+  for (uint32 i=0; i<16; i++)
+    _DAT->putBits(DmagicV[i], 8);
+  delete _DAT;
+
+  if (_POS) {
+    for (uint32 i=0; i<16; i++)
+      _POS->putBits(PmagicV[i], 8);
+    delete _POS;
+  }
+}
+
+
+void
+merylStreamWriter::writeMer(void) {
+
+  if (_thisMerCount == 0)
+    return;
+
+  _numTotal += _thisMerCount;
+  _numDistinct++;
+
+  if (_thisMerCount < LIBMERYL_HISTOGRAM_MAX)
+    _histogram[_thisMerCount]++;
+  else
+    _histogramHuge++;
+  if (_histogramMaxValue < _thisMerCount)
+    _histogramMaxValue = _thisMerCount;
+
+  assert((_thisMerIsBits == false) || (_thisMerIskMer == false));
+
+  if (_thisMerIsBits) {
+    if (_thisMerCount == 1) {
+      _DAT->putBits(_thisMerMer, _thisMerMerSize);
+      setDATnumber(1);
+      _thisBucketSize++;
+      _numUnique++;
+    } else {
+      _DAT->putBits(_thisMerMer, _thisMerMerSize);
+      setDATnumber(_thisMerCount);
+      _thisBucketSize++;
+    }
+
+  } else {
+    if (_thisMerCount == 1) {
+      _thisMer.writeToBitPackedFile(_DAT, _merDataSize);
+      setDATnumber(1);
+      _thisBucketSize++;
+      _numUnique++;
+    } else if (_thisMerCount > 1) {
+      _thisMer.writeToBitPackedFile(_DAT, _merDataSize);
+      setDATnumber(_thisMerCount);
+      _thisBucketSize++;
+    }
+  }
+}
+
+
+
+void
+merylStreamWriter::addMer(kMer &mer, uint32 count, uint32 *positions) {
+  uint64  val;
+
+  if (_thisMerIskMer == false) {
+    _thisMerIskMer = true;
+    assert(_thisMerIsBits == false);
+  }
+
+  //  Fail if we see a smaller mer than last time.
+  //
+  if (mer < _thisMer) {
+    char str[1024];
+    fprintf(stderr, "merylStreamWriter::addMer()-- ERROR: your mer stream isn't sorted increasingly!\n");
+    fprintf(stderr, "merylStreamWriter::addMer()-- last: %s\n", _thisMer.merToString(str));
+    fprintf(stderr, "merylStreamWriter::addMer()-- this: %s\n", mer.merToString(str));
+    exit(1);
+  }
+
+  //  If there was a position given, write it.
+  //
+  if (positions && _POS)
+    for (uint32 i=0; i<count; i++)
+      _POS->putBits(positions[i], 32);
+
+  //  If the new mer is the same as the last one just increase the
+  //  count.
+  //
+  if (mer == _thisMer) {
+    _thisMerCount += count;
+    return;
+  }
+
+  //  Write thisMer to disk.  If the count is zero, we don't write
+  //  anything.  The count is zero for the first mer (all A) unless we
+  //  add that mer, and if the silly user gives us a mer with zero
+  //  count.
+  //
+  writeMer();
+
+  //  If the new mer is in a different bucket from the last mer, write
+  //  out some bucket counts.  We need a while loop (opposed to just
+  //  writing one bucket) because we aren't guaranteed that the mers
+  //  are in adjacent buckets.
+  //
+  val = mer.startOfMer(_prefixSize);
+
+  while (_thisBucket < val) {
+    setIDXnumber(_thisBucketSize);
+    _thisBucketSize = 0;
+    _thisBucket++;
+  }
+
+  //  Remember the new mer for the next time
+  //
+  _thisMer      = mer;
+  _thisMerCount = count;
+}
+
+
+
+void
+merylStreamWriter::addMer(uint64 prefix,  uint32 prefixBits,
+                          uint64 mer,     uint32 merBits,
+                          uint32 count,
+                          uint32 *positions) {
+
+  if (_thisMerIsBits == false) {
+    _thisMerIsBits = true;
+    assert(_thisMerIskMer == false);
+  }
+
+  assert(prefixBits           == _prefixSize);
+  assert(prefixBits           == _thisMerPreSize);
+  assert(merBits              == _thisMerMerSize);
+  assert(prefixBits + merBits == _merSizeInBits);
+
+  if ((prefix <  _thisMerPre) ||
+      (prefix <= _thisMerPre) && (mer < _thisMerMer)) {
+    assert(0);
+  }
+
+  if ((prefix == _thisMerPre) &&
+      (mer    == _thisMerMer)) {
+    _thisMerCount += count;
+    return;
+  }
+
+  writeMer();
+
+  while (_thisBucket < prefix) {
+    setIDXnumber(_thisBucketSize);
+    _thisBucketSize = 0;
+    _thisBucket++;
+  }
+
+  _thisMerPre   = prefix;
+  _thisMerMer   = mer;
+  _thisMerCount = count;
+}
