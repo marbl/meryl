@@ -1,0 +1,1 @@
+../../canu/src/canu_version_update.pl
