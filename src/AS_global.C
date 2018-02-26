@@ -1,0 +1,1 @@
+../../canu/src/AS_global.C
