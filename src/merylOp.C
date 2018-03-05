@@ -63,7 +63,7 @@ merylOperation::addInput(merylOperation *operation) {
 
 
 void
-merylOperation::addInput(char *name, kmerStreamReader *reader) {
+merylOperation::addInput(char *name, kmerCountFileReader *reader) {
   fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
           name, toString(_operation));
 
@@ -84,7 +84,7 @@ merylOperation::addInput(char *name, dnaSeqFile *sequence) {
 
 
 void
-merylOperation::addOutput(char *name, kmerStreamWriter *writer) {
+merylOperation::addOutput(char *name, kmerCountFileWriter *writer) {
   fprintf(stderr, "Adding output to file '%s' from operation '%s'\n",
           name, toString(_operation));
 

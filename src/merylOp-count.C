@@ -241,35 +241,22 @@ merylOperation::count(void) {
   delete [] kmers;
   delete [] buffer;
 
-  //  Sort each merCountArray.
+  //  MAke output files, one per thread.  Sort, dump and erase each block.
 
-  fprintf(stderr, "Sorting and dumping.\n");
+  fprintf(stderr, "Creating outputs.\n");
 
+  kmerCountFileWriter *out = new kmerCountFileWriter(_outputName, 6, kmer.merSize(), wPrefix, wData);
 
-  FILE **outputFiles = new FILE * [omp_get_max_threads()];
-
-  for (uint32 ii=0; ii<omp_get_max_threads(); ii++) {
-    char     outputName[FILENAME_MAX+1];
-
-    snprintf(outputName, FILENAME_MAX, "%s", _outputName);
-    AS_UTL_mkdir(outputName);
-
-    snprintf(outputName, FILENAME_MAX, "%s/%03" F_U32P ".%3" F_U32P ".merylData", _outputName, ii, 0);
-    outputFiles[ii] = AS_UTL_openOutputFile(outputName);
-  }
+  fprintf(stderr, "Writing outputs.\n");
 
 #pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
-    int32  tn = omp_get_thread_num();
-
     data[pp].sort(pp);
-    data[pp].dump(pp, tn, outputFiles[tn]);
+    data[pp].dump(pp, out);
     data[pp].clear();
   }
 
-  for (uint32 ii=0; ii<omp_get_max_threads(); ii++) {
-    AS_UTL_closeFile(outputFiles[ii]);
-  }
+  delete [] out;
 
   //  Dump.
 

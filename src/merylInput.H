@@ -28,21 +28,21 @@ class merylOperation;
 class merylInput {
 public:
   merylInput(merylOperation *o);
-  merylInput(char *n, kmerStreamReader *s);
+  merylInput(char *n, kmerCountFileReader *s);
   merylInput(char *n, dnaSeqFile *f);
   ~merylInput();
 
   void   nextMer(void);
 
-  merylOperation     *_operation;
-  kmerStreamReader   *_stream;
-  dnaSeqFile         *_sequence;
+  merylOperation        *_operation;
+  kmerCountFileReader   *_stream;
+  dnaSeqFile            *_sequence;
 
-  char                _name[FILENAME_MAX];
+  char                   _name[FILENAME_MAX];
 
-  kmer                _kmer;
-  uint64              _count;
-  bool                _valid;
+  kmer                   _kmer;
+  uint64                 _count;
+  bool                   _valid;
 };
 
 #endif  //  MERYLINPUT_H

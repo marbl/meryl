@@ -30,7 +30,7 @@ merylInput::merylInput(merylOperation *o) {
 
 
 
-merylInput::merylInput(char *n, kmerStreamReader *s) {
+merylInput::merylInput(char *n, kmerCountFileReader *s) {
   _operation   = NULL;
   _stream      = s;
   _sequence    = NULL;
