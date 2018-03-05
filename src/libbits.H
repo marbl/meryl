@@ -208,8 +208,70 @@ countNumberOfSetBits64(uint64 x) {
 
 
 
-class stuffedBitsBlock {
+
+class bitArray {
+public:
+  bitArray(uint64 maxNumBits) {
+    _maxBitSet   = 0;
+    _maxBitAvail = maxNumBits;
+    _bits        = NULL;
+  };
+
+  ~bitArray(void) {
+    delete [] _bits;
+  };
+
+  void     allocate(void) {
+    if (_bits == NULL) {
+      _bits = new uint64 [_maxBitAvail / 64 + 1];
+
+      clear();
+    }
+  };
+
+  void     clear(void) {
+    memset(_bits, 0, sizeof(uint64) * (_maxBitAvail / 64 + 1));
+  };
+
+  bool     getBit(uint64 position) {
+    uint64   w =      (position / 64);
+    uint64   b = 63 - (position % 64);
+
+    return((_bits[w] >> b) & 0x00000001);
+  };
+
+  void     setBit(uint64 position, bool value) {
+    uint64   w =      (position / 64);
+    uint64   b = 63 - (position % 64);
+    uint64   m = ((uint64)1) << b;
+
+    //fprintf(stderr, "SET pos %9" F_U64P " word %2" F_U64P " bit %2" F_U64P " value %c  0x%016" F_X64P " -> ",
+    //        position, w, b, (value) ? '1' : '0', _bits[w]);
+
+    _bits[w] &= ~m;
+    _bits[w] |= ((uint64)value) << b;
+
+    //fprintf(stderr, "0x%016" F_X64P "\n", _bits[w]);
+  };
+
+  bool     flipBit(uint64 position) {
+    uint64   w =      (position / 64);
+    uint64   b = 63 - (position % 64);
+    uint64   m = ((uint64)1) << b;
+    uint64   v = _bits[w] & m;
+
+    _bits[w] ^= v;
+
+    return(v >> b);
+  };
+
+private:
+  uint64   _maxBitSet;
+  uint64   _maxBitAvail;
+  uint64  *_bits;
 };
+
+
 
 
 class stuffedBits {

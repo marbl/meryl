@@ -853,7 +853,7 @@ public:
   };
 
 
-  void             dump(uint64 prefix, const char *outputNamePrefix) {
+  void             dump(uint64 prefix, int32 UNUSED(tn), FILE *outputFile) {
     stuffedBits   *dumpData = new stuffedBits;
 
     dumpData->setBinary(64, 0x7461446c7972656dllu);
@@ -912,24 +912,7 @@ public:
       dumpData->setBinary(binaryBits, _counts[kk]);
     }
 
-#if 1
-    char     outputName[FILENAME_MAX+1];
-
-    uint64   outDir  = prefix / 1000;
-    uint64   outFile = prefix;
-
-    snprintf(outputName, FILENAME_MAX, "%s", outputNamePrefix);
-    AS_UTL_mkdir(outputName);
-
-    snprintf(outputName, FILENAME_MAX, "%s/%03lu", outputNamePrefix, outDir);
-    AS_UTL_mkdir(outputName);
-
-    snprintf(outputName, FILENAME_MAX, "%s/%03lu/%06lu.merylData", outputNamePrefix, outDir, outFile);
-
-    FILE *F = AS_UTL_openOutputFile(outputName);
-    dumpData->dumpToFile(F);
-    AS_UTL_closeFile(F);
-#endif
+    dumpData->dumpToFile(outputFile);
 
     delete dumpData;
   };
@@ -1179,12 +1162,30 @@ merylOperation::count(void) {
 
   fprintf(stderr, "Sorting and dumping.\n");
 
+
+  FILE **outputFiles = new FILE * [omp_get_max_threads()];
+
+  for (uint32 ii=0; ii<omp_get_max_threads(); ii++) {
+    char     outputName[FILENAME_MAX+1];
+
+    snprintf(outputName, FILENAME_MAX, "%s", _outputName);
+    AS_UTL_mkdir(outputName);
+
+    snprintf(outputName, FILENAME_MAX, "%s/%03" F_U32P ".%3" F_U32P ".merylData", _outputName, ii, 0);
+    outputFiles[ii] = AS_UTL_openOutputFile(outputName);
+  }
+
 #pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
+    int32  tn = omp_get_thread_num();
+
     data[pp].sort(pp);
-    //data[pp].report(pp);
-    data[pp].dump(pp, _outputName);
+    data[pp].dump(pp, tn, outputFiles[tn]);
     data[pp].clear();
+  }
+
+  for (uint32 ii=0; ii<omp_get_max_threads(); ii++) {
+    AS_UTL_closeFile(outputFiles[ii]);
   }
 
   //  Dump.
