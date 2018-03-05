@@ -48,9 +48,9 @@ stuffedBits::stuffedBits(char const *name) {
 
 stuffedBits::~stuffedBits() {
 
-  fprintf(stderr, "stuffedBits()--  Deleting %u blocks storing " F_U64 " bits.\n",
-          _dataBlocksLen,
-          _dataBlockBgn[_dataBlocksLen - 1] + _dataBlockLen[_dataBlocksLen - 1]);
+  //fprintf(stderr, "stuffedBits()--  Deleting %u blocks storing " F_U64 " bits.\n",
+  //        _dataBlocksLen,
+  //        _dataBlockBgn[_dataBlocksLen - 1] + _dataBlockLen[_dataBlocksLen - 1]);
 
   for (uint32 ii=0; ii<_dataBlocksLen; ii++)
     delete [] _dataBlocks[ii];
