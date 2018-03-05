@@ -9,7 +9,13 @@ ifeq "$(strip ${TARGET_DIR})" ""
 endif
 
 TARGET   := meryl
-SOURCES  := meryl.C
+SOURCES  := meryl.C \
+            merylCountArray.C \
+            merylInput.C \
+            merylOp-count.C \
+            merylOp-countSimple.C \
+            merylOp-nextMer.C \
+            merylOp.C
 
 SRC_INCDIRS  := . utility
 

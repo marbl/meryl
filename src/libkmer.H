@@ -95,13 +95,13 @@ public:
   static uint32  _leftShift;  //  how far to shift a base to append to the left of the kmer
 };
 
-uint32 kmerTiny::_merSize;
-uint32 kmerTiny::_merSpan;
-uint64 kmerTiny::_mask;
-uint32 kmerTiny::_leftShift;
-
 
 typedef kmerTiny kmer;
+
+
+
+
+
 
 
 class kmerFileWriter {
