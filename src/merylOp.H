@@ -35,6 +35,7 @@ enum merylOp {
   opDifference,
   opSymmetricDifference,
   opComplement,
+  opPrint,
   opNothing
 };
 

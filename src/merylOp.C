@@ -57,6 +57,11 @@ merylOperation::addInput(merylOperation *operation) {
   fprintf(stderr, "Adding input from operation '%s' to operation '%s'\n",
           toString(operation->_operation), toString(_operation));
 
+  if ((_inputs.size() > 0) && (_operation == opPrint)) {
+    fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n");
+    exit(1);
+  }
+
   _inputs.push_back(new merylInput(operation));
   _actIndex[_actLen++] = _inputs.size() - 1;
 }
@@ -67,6 +72,11 @@ merylOperation::addInput(char *name, kmerCountFileReader *reader) {
   fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
           name, toString(_operation));
 
+  if ((_inputs.size() > 0) && (_operation == opPrint)) {
+    fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n");
+    exit(1);
+  }
+
   _inputs.push_back(new merylInput(name, reader));
   _actIndex[_actLen++] = _inputs.size() - 1;
 }
@@ -76,6 +86,11 @@ void
 merylOperation::addInput(char *name, dnaSeqFile *sequence) {
   fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
           name, toString(_operation));
+
+  if ((_inputs.size() > 0) && (_operation == opPrint)) {
+    fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n");
+    exit(1);
+  }
 
   _inputs.push_back(new merylInput(name, sequence));
   _actIndex[_actLen++] = _inputs.size() - 1;
@@ -88,37 +103,15 @@ merylOperation::addOutput(char *name, kmerCountFileWriter *writer) {
   fprintf(stderr, "Adding output to file '%s' from operation '%s'\n",
           name, toString(_operation));
 
+  if (_output) {
+    fprintf(stderr, "ERROR: already have an output set!\n");
+    exit(1);
+  }
+
   strncpy(_outputName, name, FILENAME_MAX);
   _output = writer;
 }
 
-
-
-
-void
-merylOperation::findMinCount(void) {
-  _count = _actCount[0];
-  for (uint32 ii=1; ii<_actLen; ii++)
-    if (_actCount[ii] < _count)
-      _count = _actCount[ii];
-}
-
-
-void
-merylOperation::findMaxCount(void) {
-  _count = _actCount[0];
-  for (uint32 ii=1; ii<_actLen; ii++)
-    if (_count < _actCount[ii])
-      _count = _actCount[ii];
-}
-
-
-void
-merylOperation::findSumCount(void) {
-  _count = 0;
-  for (uint32 ii=0; ii<_actLen; ii++)
-    _count += _actCount[ii];
-}
 
 
 
@@ -139,6 +132,7 @@ toString(merylOp op) {
     case opDifference:           return("opDifference");           break;
     case opSymmetricDifference:  return("opSymmetricDifference");  break;
     case opComplement:           return("opComplement");           break;
+    case opPrint:                return("opPrint");                break;
     case opNothing:              return("opNothing");              break; 
   }
 

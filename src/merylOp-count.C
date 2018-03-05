@@ -256,9 +256,8 @@ merylOperation::count(void) {
     data[pp].clear();
   }
 
-  delete [] out;
+  //  Cleanup.
 
-  //  Dump.
-
+  delete    out;
   delete [] data;
 }

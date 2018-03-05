@@ -17,6 +17,8 @@
 #include "meryl.H"
 
 
+#undef DEBUG_INPUT
+
 
 merylInput::merylInput(merylOperation *o) {
   _operation   = o;
@@ -55,7 +57,9 @@ merylInput::merylInput(char *n, dnaSeqFile *f) {
 
 
 merylInput::~merylInput() {
+#ifdef DEBUG_INPUT
   fprintf(stderr, "Destroy input %s\n", _name);
+#endif
   delete _stream;
   delete _operation;
 }
@@ -67,31 +71,40 @@ merylInput::nextMer(void) {
   char kmerString[256];
 
   if (_stream) {
+#ifdef DEBUG_INPUT
     fprintf(stderr, "merylIn::nextMer('%s')--\n", _name);
+#endif
 
     _valid = _stream->nextMer();
     _kmer  = _stream->theFMer();
     _count = _stream->theCount();
 
+#ifdef DEBUG_INPUT
     fprintf(stderr, "merylIn::nextMer('%s')-- now have valid=" F_U32 " kmer %s count " F_U64 "\n",
             _name, _valid, _kmer.toString(kmerString), _count);
     fprintf(stderr, "\n");
+#endif
   }
 
   if (_operation) {
+#ifdef DEBUG_INPUT
     fprintf(stderr, "merylIn::nextMer(%s)--\n", _name);
+#endif
 
     _valid = _operation->nextMer();
     _kmer  = _operation->theFMer();
     _count = _operation->theCount();
 
+#ifdef DEBUG_INPUT
     fprintf(stderr, "merylIn::nextMer(%s)-- now have valid=" F_U32 " kmer %s count " F_U64 "\n",
             _name, _valid, _kmer.toString(kmerString), _count);
     fprintf(stderr, "\n");
+#endif
   }
 
-  if (_sequence) {
+#ifdef DEBUG_INPUT
+  if (_sequence)
     fprintf(stderr, "merylIn::nextMer(%s)--\n", _name);
-  }
+#endif
 }
 
