@@ -46,10 +46,10 @@ public:
   ~merylOperation();
 
   void    addInput(merylOperation *operation);
-  void    addInput(char *name, kmerStreamReader *reader);
+  void    addInput(char *name, kmerCountFileReader *reader);
   void    addInput(char *name, dnaSeqFile *sequence);
 
-  void    addOutput(char *name, kmerStreamWriter *writer);
+  void    addOutput(char *name, kmerCountFileWriter *writer);
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
@@ -88,7 +88,7 @@ private:
   uint64                         _memory;
 
   char                           _outputName[FILENAME_MAX];
-  kmerStreamWriter             *_output;
+  kmerCountFileWriter           *_output;
 
   kmer                           _smallest;
 

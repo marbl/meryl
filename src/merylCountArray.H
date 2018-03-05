@@ -300,68 +300,8 @@ public:
   };
 
 
-  void             dump(uint64 prefix, int32 UNUSED(tn), FILE *outputFile) {
-    stuffedBits   *dumpData = new stuffedBits;
-
-    dumpData->setBinary(64, 0x7461446c7972656dllu);
-    dumpData->setBinary(64, 0x0a3030656c694661llu);
-    dumpData->setBinary(64, 0);  //  Number of unique mers
-    dumpData->setBinary(64, 0);  //  Number of distinct mers
-    dumpData->setBinary(64, 0);  //  Number of total mers
-    dumpData->setBinary(64, 0);  //  Histogram position
-    dumpData->setBinary(64, 0);  //  Histogram length
-    dumpData->setBinary(64, 0);  //  Histogram max count
-
-    //  Figure out the optimal size of the Elias-Fano prefix.  It's just log2(N)-1.
-
-    uint32  unaryBits = 0;
-    uint64  unarySum  = 1;
-    while (unarySum < _bitsLen) {
-      unaryBits  += 1;
-      unarySum  <<= 1;
-    }
-
-    uint32  binaryBits = _width - unaryBits;
-
-    fprintf(stderr, "for prefix 0x%08" F_X64P " N=" F_U64 ", unary " F_U32 "\n", prefix, _bitsLen, unaryBits);
-
-    //  Start of the block
-    dumpData->setBinary(64, prefix);
-    dumpData->setBinary(64, _bitsLen);
-
-    dumpData->setBinary(8,  1);    //  Kmer coding type
-    dumpData->setBinary(32, unaryBits);
-    dumpData->setBinary(32, binaryBits);
-    dumpData->setBinary(64, 0);
-
-    dumpData->setBinary(8,  1);    //  Count coding type
-    dumpData->setBinary(64, 0);
-    dumpData->setBinary(64, 0);
-
-    //  Split the kmer suffix into two pieces, one unary encoded offsets and one binary encoded.
-
-    uint64  lastPrefix = 0;
-    uint64  thisPrefix = 0;
-
-    for (uint32 kk=0; kk<_bitsLen; kk++) {
-      thisPrefix = _suffix[kk] >> binaryBits;
-
-      dumpData->setUnary(thisPrefix - lastPrefix);
-      dumpData->setBinary(binaryBits, _suffix[kk]);
-
-      lastPrefix = thisPrefix;
-    }
-
-    uint64  lastCount = 0;
-    uint64  thisCount = 0;
-
-    for (uint32 kk=0; kk<_bitsLen; kk++) {
-      dumpData->setBinary(binaryBits, _counts[kk]);
-    }
-
-    dumpData->dumpToFile(outputFile);
-
-    delete dumpData;
+  void             dump(uint64 prefix, kmerCountFileWriter *out) {
+    out->addBlock(prefix, _bitsLen, _suffix, _counts);
   };
 
 

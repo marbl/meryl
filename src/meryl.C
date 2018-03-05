@@ -110,10 +110,10 @@ main(int argc, char **argv) {
     snprintf(mcidx, FILENAME_MAX, "%s.mcidx", opt);
     snprintf(mcdat, FILENAME_MAX, "%s.mcdat", opt);
 
-    merylOp             op       = opNothing;
-    kmerStreamWriter  *writer   = NULL;
-    kmerStreamReader  *reader   = NULL;
-    dnaSeqFile         *sequence = NULL;
+    merylOp               op       = opNothing;
+    kmerCountFileWriter  *writer   = NULL;
+    kmerCountFileReader  *reader   = NULL;
+    dnaSeqFile           *sequence = NULL;
 
 
     if      (opt[0] == 0)
@@ -142,13 +142,13 @@ main(int argc, char **argv) {
       outputArg = arg+1;
 
     else if (arg == outputArg)
-      writer = new kmerStreamWriter(opt, merSize, 0, merSize/2, false);
+      writer = new kmerCountFileWriter(opt, 6, merSize);
 
     else if ((opStack.size() > 0) &&
              (opStack.top()->isCounting() == false) &&
              (AS_UTL_fileExists(mcidx)    == true) &&
              (AS_UTL_fileExists(mcdat)    == true))
-      reader = new kmerStreamReader(opt);
+      reader = new kmerCountFileReader(opt);
 
     else if ((opStack.size() > 0) &&
              (opStack.top()->isCounting() == true) &&

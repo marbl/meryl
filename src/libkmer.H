@@ -103,26 +103,10 @@ typedef kmerTiny kmer;
 
 
 
-
-class kmerFileWriter {
+class kmerCountFileReader {
 public:
-  kmerFileWriter(const char *filename, uint32 blockBits);
-  ~kmerFileWriter();
-
-  
-
-};
-
-
-
-
-
-class kmerStreamReader {
-public:
-  kmerStreamReader(const char *UNUSED(fn)) {
-  };
-  ~kmerStreamReader() {
-  };
+  kmerCountFileReader(const char *inputName);
+  ~kmerCountFileReader();
 
   bool    nextMer(void)   { return(false);      };
   kmer    theFMer(void)   { return(_thisMer);   };
@@ -134,28 +118,35 @@ public:
 
 
 
-class kmerStreamWriter {
+class kmerCountFileWriter {
 public:
-  kmerStreamWriter(const char *UNUSED(filePrefix),
-                   uint32      UNUSED(merSize),          //  In bases
-                   uint32      UNUSED(merComp),          //  A length, bases
-                   uint32      UNUSED(prefixSize),       //  In bits
-                   bool        UNUSED(positionsEnabled)) {
-  };
-  ~kmerStreamWriter() {
-  };
+  kmerCountFileWriter(const char *outputName,
+                      uint32      splitting,
+                      uint32      merSize,
+                      uint32      prefixSize = 0,
+                      uint32      suffixSize = 0);
 
-  void    addMer(kmer UNUSED(k), uint32 UNUSED(c)) {
-  };
+  ~kmerCountFileWriter();
 
-  void    addBlock(uint64  UNUSED(prefix),
-                   uint32  UNUSED(length),
-                   uint64 *UNUSED(kmers),
-                   uint32 *UNUSED(counts)) {
-  };
+  void    addMer(kmer k, uint32 c);
+
+  void    addBlock(uint64  prefix,
+                   uint64  nKmers,
+                   uint64 *suffixes,
+                   uint32 *counts);
+
+private:
+
+  char    _outName[FILENAME_MAX+1];
+
+  uint32  _prefixSize;
+  uint32  _suffixSize;
+  uint32  _merSize;
+  uint32  _splitting;
+
+  uint32  _datFilesLen;
+  FILE  **_datFiles;
 };
-
-
 
 
 
