@@ -211,22 +211,26 @@ countNumberOfSetBits64(uint64 x) {
 
 class bitArray {
 public:
-  bitArray(uint64 maxNumBits) {
+  bitArray(uint64 maxNumBits=0) {
     _maxBitSet   = 0;
-    _maxBitAvail = maxNumBits;
+    _maxBitAvail = 0;
     _bits        = NULL;
+
+    if (maxNumBits > 0)
+      allocate(maxNumBits);
   };
 
   ~bitArray(void) {
     delete [] _bits;
   };
 
-  void     allocate(void) {
-    if (_bits == NULL) {
-      _bits = new uint64 [_maxBitAvail / 64 + 1];
+  void     allocate(uint64 maxNumBits=0) {
+    if (_bits != NULL)
+      return;
 
-      clear();
-    }
+    _bits = new uint64 [_maxBitAvail / 64 + 1];
+
+    clear();
   };
 
   void     clear(void) {

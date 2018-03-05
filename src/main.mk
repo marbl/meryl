@@ -35,23 +35,8 @@ SOURCES      := AS_global.C \
                 utility/memoryMappedFile.C \
                 \
                 libsequence.C \
+                libkmer.C \
                 libbits.C
-
-#                utility/AS_UTL_decodeRange.C \
-#                utility/AS_UTL_reverseComplement.C \
-#               
-#                utility/bitEncodings.C \
-#                utility/bitPackedFile.C \
-#                utility/bitPackedArray.C \
-#                utility/libbits.C \
-#                utility/dnaAlphabets.C \
-#                utility/hexDump.C \
-#                utility/md5.C \
-#                utility/speedCounter.C \
-#                utility/sweatShop.C \
-#                utility/timeAndSize.C \
-#               
-#                utility/kMer.C \
 
 ifeq (${BUILDSTACKTRACE}, 1)
 SOURCES      += utility/libbacktrace/atomic.c \
