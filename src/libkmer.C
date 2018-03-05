@@ -29,14 +29,285 @@ uint32 kmerTiny::_leftShift;
 
 
 
+kmerCountStatistics::kmerCountStatistics() {
+  _numUnique     = 0;
+  _numDistinct   = 0;
+  _numTotal      = 0;
+
+  _histMax       = 32 * 1024 * 1024;      //  256 MB of histogram data.
+  _hist          = new uint64 [_histMax];
+
+  _hbigLen       = 0;
+  _hbigMax       = 0;
+  _hbigCount     = NULL;
+  _hbigNumber    = NULL;
+}
+
+
+kmerCountStatistics::~kmerCountStatistics() {
+  delete [] _hist;
+  delete [] _hbigCount;
+  delete [] _hbigNumber;
+}
+
+
+void
+kmerCountStatistics::dump(stuffedBits *bits) {
+  bits->setBinary(64, _numUnique);
+  bits->setBinary(64, _numDistinct);
+  bits->setBinary(64, _numTotal);
+
+  //  Find the last used histogram value.
+
+  uint32  histLast = _histMax;
+
+  while (histLast-- > 0)
+    if (_hist[histLast] > 0)
+      break;
+
+  histLast++;
+
+  bits->setBinary(32, histLast);                //  Out of order relative to struct to keep
+  bits->setBinary(32, _hbigLen);                //  the arrays below word-aligned.
+
+  bits->setBinary(64, histLast, _hist);
+  bits->setBinary(64, _hbigLen, _hbigCount);
+  bits->setBinary(64, _hbigLen, _hbigNumber);
+}
+
+
+void
+kmerCountStatistics::dump(FILE        *outFile) {
+  stuffedBits  *bits = new stuffedBits;
+
+  dump(bits);
+
+  bits->dumpToFile(outFile);
+
+  delete bits;
+}
+
+
+void
+kmerCountStatistics::load(stuffedBits *bits) {
+  uint32  histLast;
+
+  _numUnique   = bits->getBinary(64);
+  _numDistinct = bits->getBinary(64);
+  _numTotal    = bits->getBinary(64);
+
+  histLast     = bits->getBinary(32);
+  _hbigLen     = bits->getBinary(32);
+
+  assert(_hist != NULL);
+
+  _hist        = bits->getBinary(64, histLast, _hist);
+  _hbigCount   = bits->getBinary(64, _hbigLen);
+  _hbigNumber  = bits->getBinary(64, _hbigLen);
+}
+
+
+void
+kmerCountStatistics::load(FILE        *inFile) {
+  stuffedBits  *bits = new stuffedBits;
+
+  bits->loadFromFile(inFile);
+
+  load(bits);
+
+  delete bits;
+}
+
+
+
+
+
+
+
 kmerCountFileReader::kmerCountFileReader(const char *inputName) {
+
+  //  Save the input name for later use.
+
+  strncpy(_inName, inputName, FILENAME_MAX);
+
+  //  Initialize to nothing.
+
+  _prefixSize  = 0;
+  _suffixSize  = 0;
+  _merSize     = 0;
+  _numFiles    = 0;
+  _datFiles    = NULL;
+
+  //_stats.clear();
+  //_kmer.clear();
+
+  _prefix      = 0;
+  _activeMer   = 0;
+  _activeFile  = 0;
+
+  _nKmers      = 0;
+  _nKmersMax   = 1024;
+  _suffixes    = new uint64 [_nKmersMax];
+  _counts      = new uint32 [_nKmersMax];
+
+  //  Fail if _inName isn't a directory, or if the index file doesn't exist.
+
+  char   N[FILENAME_MAX+1];
+
+  snprintf(N, FILENAME_MAX, "%s/merylIndex", _inName);
+
+  if (AS_UTL_fileExists(N) == false)
+    fprintf(stderr, "ERROR: '%s' doesn't appear to be a meryl input; file '%s' doesn't exist.\n",
+            _inName, N), exit(1);
+
+  //  Open the index and load.
+
+  stuffedBits  *indexData = new stuffedBits(N);
+
+  uint64  m1 = indexData->getBinary(64);
+  uint64  m2 = indexData->getBinary(64);
+
+  if ((m1 != 0x646e496c7972656dllu) ||
+      (m2 != 0x0000617461447865llu))
+    fprintf(stderr, "ERROR: '%s' doesn't look like a meryl input; file '%s' fails magic number check.\n",
+            _inName, N), exit(1);
+
+  _prefixSize   = indexData->getBinary(32);
+  _suffixSize   = indexData->getBinary(32);
+  _merSize      = indexData->getBinary(32);
+  _numFiles     = indexData->getBinary(32);
+  _datFiles     = new FILE * [_numFiles];
+
+  _stats.load(indexData);
+
+  delete indexData;
+
+
+  //  Remember that we haven't opened any input files yet.
+
+  memset(_datFiles, 0, sizeof(FILE *) * _numFiles);
+
+  //  But for simplicity, open all files here.
+
+  for (uint32 oi=0; oi<_numFiles; oi++) {
+    uint32   nfb = logBaseTwo32(_numFiles - 1);
+
+    char     N[FILENAME_MAX+1];
+    char     M[_merSize+1];
+    kmer     k;
+
+    k.setPrefixSuffix(0, oi, 0);   //  Use the kmer to convert the file
+    k.toString(M);                 //  index 'oi' to an ACGT string.
+
+    snprintf(N, FILENAME_MAX, "%s/%s.merylData", _inName, M + _merSize - nfb / 2);
+
+    fprintf(stderr, "Opening '%s'\n", N);
+    //fprintf(stderr, "oi %u mer %s -> file %s\n", oi, M, N);
+
+    _datFiles[oi] = AS_UTL_openInputFile(N);
+  }
 }
 
 
 
 kmerCountFileReader::~kmerCountFileReader() {
+
+  delete [] _suffixes;
+  delete [] _counts;
+
+  for (uint32 ii=0; ii<_numFiles; ii++)
+    AS_UTL_closeFile(_datFiles[ii]);
+
+  delete [] _datFiles;
 }
-  
+
+
+
+bool
+kmerCountFileReader::nextMer(void) {
+
+  _activeMer++;
+
+  //  If we've still got data, just update and get outta here.
+
+  if (_activeMer < _nKmers) {
+    _kmer.setPrefixSuffix(_prefix, _suffixes[_activeMer], _suffixSize);
+    _count = _counts[_activeMer];
+    return(true);
+  }
+
+  //  Otherwise, try to read another block.  If it fails, this file is done.
+
+  stuffedBits   *dumpData = new stuffedBits();
+
+  _activeMer = 0;
+
+  while (dumpData->loadFromFile(_datFiles[_activeFile]) == false) {
+    _activeFile++;
+
+    if (_activeFile >= _numFiles) {
+      delete dumpData;
+      return(false);
+    }
+  }
+
+  //  Decode the bits into our memory.
+
+  uint64 m1 = dumpData->getBinary(64);    //  Magic number, part 1.
+  uint64 m2 = dumpData->getBinary(64);    //  Magic number, part 2.
+
+  if ((m1 != 0x7461446c7972656dllu) ||
+      (m2 != 0x0a3030656c694661llu)) {
+    fprintf(stderr, "kmerCountFileReader::nextMer()-- Magic number mismatch in activeFile " F_U32 " position " F_U64 ".\n",
+            _activeFile, dumpData->getPosition());
+    fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x7461446c7972656d got 0x%016" F_X64P "\n", m1);
+    fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x0a3030656c694661 got 0x%016" F_X64P "\n", m2);
+    exit(1);
+  }
+
+  _prefix = dumpData->getBinary(64);
+  _nKmers = dumpData->getBinary(64);
+  //_nBits  = dumpData->getBinary(64);
+
+  uint32 kCode      = dumpData->getBinary(8);
+  uint32 unaryBits  = dumpData->getBinary(32);
+  uint32 binaryBits = dumpData->getBinary(32);
+  uint64 k1         = dumpData->getBinary(64);
+
+  uint32 cCode      = dumpData->getBinary(8);
+  uint64 c1         = dumpData->getBinary(64);
+  uint64 c2         = dumpData->getBinary(64);
+
+  //  Resize _suffixes and _counts if needed
+
+  resizeArrayPair(_suffixes, _counts, 0, _nKmersMax, _nKmers, resizeArray_doNothing);
+
+  //  Decode the data!
+
+  uint64  thisPrefix = 0;
+
+  for (uint32 kk=0; kk<_nKmers; kk++) {
+    thisPrefix += dumpData->getUnary();
+
+    _suffixes[kk] = (thisPrefix << binaryBits) | (dumpData->getBinary(binaryBits));
+  }
+
+  for (uint32 kk=0; kk<_nKmers; kk++) {
+    _counts[kk] = dumpData->getBinary(32);
+  }
+
+  //  All done.
+
+  delete dumpData;
+
+  //  Phew, lots of work just to do this.
+
+  _kmer.setPrefixSuffix(_prefix, _suffixes[_activeMer], _suffixSize);
+  _count = _counts[_activeMer];
+
+  return(true);
+}
+
 
 
 kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
@@ -45,39 +316,67 @@ kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
                                          uint32      prefixSize,
                                          uint32      suffixSize) {
 
-  if (splitting > 32)
-    fprintf(stderr, "kmerCountFileWriter()-- ERROR: splitting %u too high, must be at most 32.\n", splitting), exit(1);
+  //  Fail quickly if parameters are bogus.
 
-  //  Save the output name for later use.
+  if (splitting > 32)
+    fprintf(stderr, "kmerCountFileWriter()-- ERROR: splitting %u too high, must be at most 32.\n",
+            splitting), exit(1);
+
+  //  Initialize!
 
   strncpy(_outName, outputName, FILENAME_MAX);
 
-  _prefixSize = prefixSize;
-  _suffixSize = suffixSize;
-  _merSize    = merSize;
-  _splitting  = splitting;
+  _prefixSize   = prefixSize;
+  _suffixSize   = suffixSize;
+  _merSize      = merSize;
+  _numFiles     = (uint32)1 << splitting;    //  MUST be a power of two, nice if it's even.
+  _datFiles     = new FILE * [_numFiles];
+  _locks        = new pthread_mutex_t [_numFiles];
 
-  //  Allocate output files, one file per 'split', stored in a directory supplied by the user.
-  //
-  //  splitting = 0 -> 1 file.
-  //  splitting = 1 -> 2 files.
-  //  ...
-  //  splitting >= prefixLength -> maximum files, one per prefix.
+  //  Make an output directory.
 
   AS_UTL_mkdir(_outName);
 
-  _datFilesLen = (uint32)1 << splitting;
-  _datFiles    = new FILE * [_datFilesLen];
+  //  And remember that we haven't created any output files yet.
 
-  memset(_datFiles, 0, sizeof(FILE *) * _datFilesLen);
+  for (uint32 ii=0; ii<_numFiles; ii++) {
+    _datFiles[ii] = NULL;
+    pthread_mutex_init(&_locks[ii], NULL);
+  }
 }
 
 
 
 kmerCountFileWriter::~kmerCountFileWriter() {
 
-  for (uint32 ii=0; ii<_datFilesLen; ii++)
+  //  Close all the data files.
+
+  for (uint32 ii=0; ii<_numFiles; ii++)
     AS_UTL_closeFile(_datFiles[ii]);
+
+  //  Then create and store a master index.
+
+  stuffedBits  *indexData = new stuffedBits;
+
+  indexData->setBinary(64, 0x646e496c7972656dllu);
+  indexData->setBinary(64, 0x0000617461447865llu);
+  indexData->setBinary(32, _prefixSize);
+  indexData->setBinary(32, _suffixSize);
+  indexData->setBinary(32, _merSize);
+  indexData->setBinary(32, _numFiles);
+
+  _stats.dump(indexData);
+
+  char     N[FILENAME_MAX+1];
+  FILE    *F;
+
+  snprintf(N, FILENAME_MAX, "%s/merylIndex", _outName);
+
+  F = AS_UTL_openOutputFile(N);
+  indexData->dumpToFile(F);
+  AS_UTL_closeFile(F);
+
+  delete indexData;
 }
 
 
@@ -95,52 +394,36 @@ kmerCountFileWriter::addBlock(uint64  prefix,
                               uint64 *suffixes,
                               uint32 *counts) {
 
-  //  Map the prefix to an output file.
-  //  If more split files than prefixes, ignore the unused ones.
+  //  Based on the prefix, decide what output file to write to.
+  //  The prefix has _prefixSize bits.  We want to save the highest _numFiles bits.
 
-  uint32  oib = _prefixSize;
-  uint32  oi  =  prefix;
+  uint32  nfb = logBaseTwo32(_numFiles - 1);
+  uint32  oi  = prefix >> (_prefixSize - nfb);
 
-  if (_splitting < _prefixSize) {
-    oib = _splitting;
-    oi  = prefix >> (_prefixSize - _splitting);;
-  }
+  assert(oi < _numFiles);
 
   //  Open a new file, if needed.
 
   if (_datFiles[oi] == NULL) {
-    kmer     k;
-
-    //  The kmer size is fixed globally, but we want to use it for converting
-    //  a prefix (oi) to an ACGT string.  We just ignore the unset stuff.
-
-    k.setPrefixSuffix(0, oi, 0);
-
     char     N[FILENAME_MAX+1];
     char     M[_merSize+1];
+    kmer     k;
 
-    k.toString(M);
+    k.setPrefixSuffix(0, oi, 0);   //  Use the kmer to convert the file
+    k.toString(M);                 //  index 'oi' to an ACGT string.
 
-    snprintf(N, FILENAME_MAX, "%s/%s.merylData",
-             _outName, M + _merSize - (oib + 1) / 2);
+    snprintf(N, FILENAME_MAX, "%s/%s.merylData", _outName, M + _merSize - nfb / 2);
 
-    fprintf(stderr, "mer %s -> file %s\n", M, N);
+    //fprintf(stderr, "oi %u mer %s -> file %s\n", oi, M, N);
+    fprintf(stderr, "Creating '%s'\n", N);
 
-    _datFiles[oi] = AS_UTL_openOutputFile(N);
+    pthread_mutex_lock(&_locks[oi]);
+
+    if (_datFiles[oi] == NULL)
+      _datFiles[oi] = AS_UTL_openOutputFile(N);
+
+    pthread_mutex_unlock(&_locks[oi]);
   }
-
-  //  Dump data.
-
-  stuffedBits   *dumpData = new stuffedBits;
-
-  dumpData->setBinary(64, 0x7461446c7972656dllu);
-  dumpData->setBinary(64, 0x0a3030656c694661llu);
-  dumpData->setBinary(64, 0);  //  Number of unique mers
-  dumpData->setBinary(64, 0);  //  Number of distinct mers
-  dumpData->setBinary(64, 0);  //  Number of total mers
-  dumpData->setBinary(64, 0);  //  Histogram position
-  dumpData->setBinary(64, 0);  //  Histogram length
-  dumpData->setBinary(64, 0);  //  Histogram max count
 
   //  Figure out the optimal size of the Elias-Fano prefix.  It's just log2(N)-1.
 
@@ -156,17 +439,24 @@ kmerCountFileWriter::addBlock(uint64  prefix,
   //fprintf(stderr, "for prefix 0x%08" F_X64P " N=" F_U64 ", unary " F_U32 "\n",
   //        prefix, nKmers, unaryBits);
 
-  //  Start of the block
+  //  Dump data.
+
+  stuffedBits   *dumpData = new stuffedBits;
+
+  dumpData->setBinary(64, 0x7461446c7972656dllu);    //  Magic number, part 1.
+  dumpData->setBinary(64, 0x0a3030656c694661llu);    //  Magic number, part 2.
+
   dumpData->setBinary(64, prefix);
   dumpData->setBinary(64, nKmers);
+  //dumpData->setBinary(64, 0);   //  number of bits in data, not needed
 
-  dumpData->setBinary(8,  1);    //  Kmer coding type
-  dumpData->setBinary(32, unaryBits);
+  dumpData->setBinary(8,  1);                        //  Kmer coding type
+  dumpData->setBinary(32, unaryBits);                //  Kmer coding parameters
   dumpData->setBinary(32, binaryBits);
   dumpData->setBinary(64, 0);
 
-  dumpData->setBinary(8,  1);    //  Count coding type
-  dumpData->setBinary(64, 0);
+  dumpData->setBinary(8,  1);                        //  Count coding type
+  dumpData->setBinary(64, 0);                        //  Count coding parameters
   dumpData->setBinary(64, 0);
 
   //  Split the kmer suffix into two pieces, one unary encoded offsets and one binary encoded.
@@ -183,16 +473,35 @@ kmerCountFileWriter::addBlock(uint64  prefix,
     lastPrefix = thisPrefix;
   }
 
+  //  Save the counts, too.  Eventually these will be cleverly encoded.  Really.
+
   uint64  lastCount = 0;
   uint64  thisCount = 0;
 
   for (uint32 kk=0; kk<nKmers; kk++) {
-    dumpData->setBinary(binaryBits, counts[kk]);
+    dumpData->setBinary(32, counts[kk]);
   }
+
+  //  Store how many bits are stored in this block of bits.
+
+  //dumpData->setPosition(4 * 64);
+  //dumpData->setBinary(64, dumpData->getPosition());
+
+  //  Dump data to disk and cleanup.
+
+  pthread_mutex_lock(&_locks[oi]);
 
   dumpData->dumpToFile(_datFiles[oi]);
 
+  pthread_mutex_unlock(&_locks[oi]);
+
   delete dumpData;
+
+  //  Finally, don't forget to insert the counts into the histogram!
+
+  for (uint32 kk=0; kk<nKmers; kk++) {
+    _stats.addCount(counts[kk]);
+  }
 }
 
 

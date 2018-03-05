@@ -18,8 +18,11 @@
 #define LIBKMER_H
 
 #include "AS_global.H"
+//#include "libbits.H"
 
 //  merSize 1 NOT supported.  Fails _leftShift.
+
+class  stuffedBits;
 
 
 class  kmerTiny {
@@ -103,17 +106,86 @@ typedef kmerTiny kmer;
 
 
 
+
+class kmerCountStatistics {
+public:
+  kmerCountStatistics();
+  ~kmerCountStatistics();
+
+  void      addCount(uint64 count) {
+
+    if (count == 0)
+      return;
+
+    if (count == 1)
+      _numUnique++;
+
+    _numDistinct += 1;
+    _numTotal    += count;
+
+    if (count < _histMax) {
+      _hist[count]++;
+      return;
+    }
+  };
+
+  void      dump(stuffedBits *bits);
+  void      dump(FILE        *outFile);
+
+  void      load(stuffedBits *bits);
+  void      load(FILE        *inFile);
+
+
+private:
+  uint64              _numUnique;
+  uint64              _numDistinct;
+  uint64              _numTotal;
+
+  uint32              _histMax;    //  Max count that can be stored in _hist.
+  uint64             *_hist;
+
+  uint32              _hbigLen;    //  Counts bigger than _histMax are stored
+  uint32              _hbigMax;    //  as unsorted arrays.
+  uint64             *_hbigCount;
+  uint64             *_hbigNumber;
+};
+
+
+
 class kmerCountFileReader {
 public:
   kmerCountFileReader(const char *inputName);
   ~kmerCountFileReader();
 
-  bool    nextMer(void)   { return(false);      };
-  kmer    theFMer(void)   { return(_thisMer);   };
-  uint32  theCount(void)  { return(_thisCount); };
+  bool    nextMer(void);
+  kmer    theFMer(void)   { return(_kmer);    };
+  uint32  theCount(void)  { return(_count);   };
 
-  kmer    _thisMer;
-  uint32  _thisCount;
+private:
+  char                _inName[FILENAME_MAX+1];
+
+  uint32              _prefixSize;
+  uint32              _suffixSize;
+  uint32              _merSize;
+  uint32              _numFiles;
+
+  kmerCountStatistics _stats;
+
+  uint32              _datFilesLen;
+  FILE              **_datFiles;
+
+  kmer                _kmer;
+  uint32              _count;
+
+  uint64              _prefix;
+
+  uint32              _activeMer;
+  uint32              _activeFile;
+
+  uint32              _nKmers;
+  uint32              _nKmersMax;
+  uint64             *_suffixes;
+  uint32             *_counts;
 };
 
 
@@ -136,16 +208,17 @@ public:
                    uint32 *counts);
 
 private:
+  char                _outName[FILENAME_MAX+1];
 
-  char    _outName[FILENAME_MAX+1];
+  uint32              _prefixSize;
+  uint32              _suffixSize;
+  uint32              _merSize;
+  uint32              _numFiles;
+  FILE              **_datFiles;
+  pthread_mutex_t    *_locks;
 
-  uint32  _prefixSize;
-  uint32  _suffixSize;
-  uint32  _merSize;
-  uint32  _splitting;
+  kmerCountStatistics _stats;
 
-  uint32  _datFilesLen;
-  FILE  **_datFiles;
 };
 
 

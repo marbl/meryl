@@ -281,18 +281,21 @@ private:
 class stuffedBits {
 public:
   stuffedBits(uint64 nBits=16 * 1024 * 1024 * 8);
-  stuffedBits(const char *inputFile);
+  stuffedBits(const char *inputName);
+  stuffedBits(FILE *inFile);
   ~stuffedBits();
 
   //  Files.
 
   void     dumpToFile(FILE *F);
-  void     loadFromFile(FILE *F);
+  bool     loadFromFile(FILE *F);
 
   //  Management of the read/write head.
 
   void     setPosition(uint64 position, uint64 length = 0);
   uint64   getPosition(void);
+
+  void     byteAlign(void);
 
   //  UNARY CODED DATA
 
@@ -305,7 +308,7 @@ public:
   //  BINARY CODED DATA
 
   uint64   getBinary(uint32 width);
-  uint64  *getBinary(uint32 width, uint64 number, uint64 *values);
+  uint64  *getBinary(uint32 width, uint64 number, uint64 *values=NULL);
 
   void     setBinary(uint32 width, uint64 value);
   void     setBinary(uint32 width, uint64 number, uint64 *values);
@@ -313,7 +316,7 @@ public:
   //  GENERALIZED UNARY CODED DATA
 
   uint64   getGeneralizedUnary(void);
-  uint64  *getGeneralizedUnary(uint64 number, uint64 *values);
+  uint64  *getGeneralizedUnary(uint64 number, uint64 *values=NULL);
 
   void     setGeneralizedUnary(uint64 value);
   void     setGeneralizedUnary(uint64 number, uint64 *values);
@@ -334,15 +337,6 @@ public:
   //  ELIAS DELTA CODED DATA
 
   //  FIBONACCI CODED DATA
-
-public:
-
-  //  Need to change it to dump block/word or bit position/length
-  //char    *dumpBits(char *b, uint64 word) {
-  //  return(displayWord(_data[word], b));
-  //};
-
-private:
 
 private:
 
@@ -406,7 +400,7 @@ private:
 
     //  If enough space in the current block, just return.
 
-    if (_dataPos + spaceNeeded < _dataBlockMax)
+    if (_dataPos + spaceNeeded < _dataBlockLenMax)
       return;
 
     //  Othwerwise, terminate the current block.
@@ -423,12 +417,12 @@ private:
       setArraySize(_dataBlockLen, _dataBlocksLen, _dataBlocksMax, _dataBlocksLen + 128);
     }
 
-    assert(spaceNeeded <= _dataBlockMax);
+    assert(spaceNeeded <= _dataBlockLenMax);
 
     _dataPos = 0;
-    _data    = _dataBlocks[_dataBlocksLen - 1] = new uint64 [_dataBlockMax / sizeof(uint64)];
+    _data    = _dataBlocks[_dataBlocksLen - 1] = new uint64 [_dataBlockLenMax / sizeof(uint64)];
 
-    memset(_data, 0, sizeof(uint64) * _dataBlockMax / 64);
+    memset(_data, 0, sizeof(uint64) * _dataBlockLenMax / 64);
 
     _dataBlockBgn[_dataBlocksLen - 1] = _dataBlockBgn[_dataBlocksLen - 2] + _dataBlockLen[_dataBlocksLen - 2];
     _dataBlockLen[_dataBlocksLen - 1] = 0;
@@ -439,14 +433,14 @@ private:
   };
 
 
+  uint64   _dataBlockLenMax; //  Allocated length, of each block (in BITS).
 
   uint32   _dataBlocksLen;   //  Number of allocated data blocks.
   uint32   _dataBlocksMax;   //  Number of blocks we can allocate.
-  uint64 **_dataBlocks;      //  Just piles of bits.  Nothing interesting here.
 
   uint64  *_dataBlockBgn;    //  Starting position, in the global file, of this block.
   uint64  *_dataBlockLen;    //  Length of this block.
-  uint64   _dataBlockMax;    //  Allocated length, of each block (in BITS).
+  uint64 **_dataBlocks;      //  Just piles of bits.  Nothing interesting here.
 
   uint64   _dataPos;         //  Position in this block, in BITS.
   uint64  *_data;            //  Pointer to the currently active data block.
@@ -454,6 +448,9 @@ private:
   uint64   _dataBlk;         //  Active data block.
   uint64   _dataWrd;         //  Active word in the active data block.
   uint64   _dataBit;         //  Active bit in the active word in the active data block (aka, number of bits left in this word)
+
+
+  FILE    *_inputFile;
 };
 
 

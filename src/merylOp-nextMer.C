@@ -17,6 +17,37 @@
 #include "meryl.H"
 
 
+#undef DEBUG_NEXTMER
+
+
+void
+merylOperation::findMinCount(void) {
+  _count = _actCount[0];
+  for (uint32 ii=1; ii<_actLen; ii++)
+    if (_actCount[ii] < _count)
+      _count = _actCount[ii];
+}
+
+
+
+void
+merylOperation::findMaxCount(void) {
+  _count = _actCount[0];
+  for (uint32 ii=1; ii<_actLen; ii++)
+    if (_count < _actCount[ii])
+      _count = _actCount[ii];
+}
+
+
+
+void
+merylOperation::findSumCount(void) {
+  _count = 0;
+  for (uint32 ii=0; ii<_actLen; ii++)
+    _count += _actCount[ii];
+}
+
+
 
 bool
 merylOperation::nextMer(void) {
@@ -26,6 +57,7 @@ merylOperation::nextMer(void) {
   //  Find the smallest kmer in the _inputs, and save their counts in _actCount.
   //  Mark which input was used in _actIndex.
 
+#ifdef DEBUG_NEXTMER
   fprintf(stderr, "\n");
   fprintf(stderr, "merylOp::nextMer()-- STARTING for operation %s\n",
           toString(_operation));
@@ -36,12 +68,15 @@ merylOperation::nextMer(void) {
             _inputs[ii]->_kmer.toString(kmerString),
             _inputs[ii]->_count,
             _inputs[ii]->_valid ? "valid" : "INVALID");
+#endif
 
   //  Grab the next mer for every input that was active in the last iteration.
   //  (on the first call, all inputs were 'active' last time)
   //
   for (uint32 ii=0; ii<_actLen; ii++) {
+#ifdef DEBUG_NEXTMER
     fprintf(stderr, "merylOp::nextMer()-- CALL NEXTMER on input actIndex " F_U32 "\n", _actIndex[ii]);
+#endif
     _inputs[_actIndex[ii]]->nextMer();
   }
 
@@ -49,13 +84,14 @@ merylOperation::nextMer(void) {
 
   //  Log.
 
+#ifdef DEBUG_NEXTMER
   for (uint32 ii=0; ii<_inputs.size(); ii++)
     fprintf(stderr, "merylOp::nextMer()--   BEFORE OPERATION: input %s kmer %s count " F_U64 " %s\n",
             _inputs[ii]->_name,
             _inputs[ii]->_kmer.toString(kmerString),
             _inputs[ii]->_count,
             _inputs[ii]->_valid ? "valid" : "INVALID");
-
+#endif
 
   //  Build a list of the inputs that have the smallest kmer.
 
@@ -74,7 +110,9 @@ merylOperation::nextMer(void) {
       _actIndex[_actLen] = ii;
       _actLen++;
 
+#ifdef DEBUG_NEXTMER
       fprintf(stderr, "merylOp::nextMer()-- Active kmer %s from input %s. reset\n", _kmer.toString(kmerString), _inputs[ii]->_name);
+#endif
     }
 
     //  Otherwise, if the input kmer is the one we have, save the count to the list.
@@ -85,7 +123,9 @@ merylOperation::nextMer(void) {
       _actIndex[_actLen] = ii;
       _actLen++;
 
+#ifdef DEBUG_NEXTMER
       fprintf(stderr, "merylOp::nextMer()-- Active kmer %s from input %s\n", _kmer.toString(kmerString), _inputs[ii]->_name);
+#endif
     }
 
     //  Otherwise, the input kmer comes after the one we're examining, ignore it.
@@ -97,15 +137,19 @@ merylOperation::nextMer(void) {
   //  If no active kmers, we're done.
 
   if (_actLen == 0) {
+#ifdef DEBUG_NEXTMER
     fprintf(stderr, "merylOp::nextMer()-- No inputs found, all done here.\n");
     fprintf(stderr, "\n");
+#endif
     _valid = false;
     return(false);
   }
 
   //  Otherwise, active kmers!  Figure out what the count should be.
 
+#ifdef DEBUG_NEXTMER
   fprintf(stderr, "merylOp::nextMer()-- op %s activeLen " F_U32 " kmer %s\n", toString(_operation), _actLen, _kmer.toString(kmerString));
+#endif
 
   //  If math-subtract gets implemented, use negative-zero to mean "don't output" and positive-zero
   //  to mean zero.  For now, count=0 means don't output.
@@ -168,15 +212,25 @@ merylOperation::nextMer(void) {
     case opComplement:
       break;
 
+    case opPrint:
+      if (_inputs.size() != 1)
+        fprintf(stderr, "merylOp::nextMer()-- ERROR: 'print' can operate on one input only; this has " F_U32 " inputs.\n",
+                _inputs.size()), exit(1);
+
+      fprintf(stdout, "%s\t%u\n", _kmer.toString(kmerString), _actCount[0]);
+      break;
+
     case opNothing:
       break;
   }  
 
   //  If flagged for output, output!
 
+#ifdef DEBUG_NEXTMER
   fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation %s with kmer %s count " F_U64 "%s\n",
           toString(_operation), _kmer.toString(kmerString), _count, ((_output != NULL) && (_count != 0)) ? " OUTPUT" : "");
   fprintf(stderr, "\n");
+#endif
 
   if ((_output != NULL) &&
       (_count  != 0))

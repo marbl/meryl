@@ -31,8 +31,7 @@ main(int argc, char **argv) {
 
   vector<char *>  err;
   for (int32 arg=1; arg < argc; arg++) {
-    char    mcidx[FILENAME_MAX];
-    char    mcdat[FILENAME_MAX];
+    char    mcindex[FILENAME_MAX];
     char    opt[FILENAME_MAX];
     uint32  optLen = strlen(argv[arg]);
 
@@ -107,8 +106,7 @@ main(int argc, char **argv) {
 
     //  Now that brackets are stripped, make meryl database names for the arg.
 
-    snprintf(mcidx, FILENAME_MAX, "%s.mcidx", opt);
-    snprintf(mcdat, FILENAME_MAX, "%s.mcdat", opt);
+    snprintf(mcindex, FILENAME_MAX, "%s/merylIndex", opt);
 
     merylOp               op       = opNothing;
     kmerCountFileWriter  *writer   = NULL;
@@ -119,6 +117,9 @@ main(int argc, char **argv) {
     if      (opt[0] == 0)
       ;  //  Got a single bracket, nothing to do here except make it not be an error.
 
+    else if (strcmp(opt, "count") == 0)                  op = opCount;
+    else if (strcmp(opt, "count-forward") == 0)          op = opCountForward;
+    else if (strcmp(opt, "count-reverse") == 0)          op = opCountReverse;
     else if (strcmp(opt, "union") == 0)                  op = opUnion;
     else if (strcmp(opt, "union-min") == 0)              op = opUnionMin;
     else if (strcmp(opt, "union-max") == 0)              op = opUnionMax;
@@ -130,9 +131,7 @@ main(int argc, char **argv) {
     else if (strcmp(opt, "difference") == 0)             op = opDifference;
     else if (strcmp(opt, "symmetric-difference") == 0)   op = opSymmetricDifference;
     else if (strcmp(opt, "complement") == 0)             op = opComplement;
-    else if (strcmp(opt, "count") == 0)                  op = opCount;
-    else if (strcmp(opt, "count-forward") == 0)          op = opCountForward;
-    else if (strcmp(opt, "count-reverse") == 0)          op = opCountReverse;
+    else if (strcmp(opt, "print") == 0)                  op = opPrint;
 
     //  If we see 'output', flag the next arg as being the output name.
     //  If this arg is flagged as output, add an output using the bracket-stripped name.
@@ -146,8 +145,7 @@ main(int argc, char **argv) {
 
     else if ((opStack.size() > 0) &&
              (opStack.top()->isCounting() == false) &&
-             (AS_UTL_fileExists(mcidx)    == true) &&
-             (AS_UTL_fileExists(mcdat)    == true))
+             (AS_UTL_fileExists(mcindex)  == true))
       reader = new kmerCountFileReader(opt);
 
     else if ((opStack.size() > 0) &&

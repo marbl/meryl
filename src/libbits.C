@@ -20,18 +20,20 @@
 
 
 stuffedBits::stuffedBits(uint64 nBits) {
-  _dataBlocksLen = 1;
-  _dataBlocksMax = 64;
-  _dataBlocks    = new uint64 * [_dataBlocksMax];
 
-  _dataBlockBgn  = new uint64   [_dataBlocksMax];
-  _dataBlockLen  = new uint64   [_dataBlocksMax];
-  _dataBlockMax  = nBits;
+  _dataBlockLenMax = nBits;
+
+  _dataBlocksLen   = 1;
+  _dataBlocksMax   = 64;
+
+  _dataBlockBgn    = new uint64   [_dataBlocksMax];
+  _dataBlockLen    = new uint64   [_dataBlocksMax];
+  _dataBlocks      = new uint64 * [_dataBlocksMax];
 
   _dataPos = 0;
-  _data    = _dataBlocks[0] = new uint64 [_dataBlockMax / 64];
+  _data    = _dataBlocks[0] = new uint64 [_dataBlockLenMax / 64];
 
-  memset(_data, 0, sizeof(uint64) * _dataBlockMax / 64);
+  memset(_data, 0, sizeof(uint64) * _dataBlockLenMax / 64);
 
   _dataBlockBgn[0] = 0;
   _dataBlockLen[0] = 0;
@@ -39,10 +41,54 @@ stuffedBits::stuffedBits(uint64 nBits) {
   _dataBlk = 0;
   _dataWrd = 0;
   _dataBit = 64;
+
+  _inputFile = NULL;
 };
 
 
-stuffedBits::stuffedBits(char const *name) {
+stuffedBits::stuffedBits(char const *inputName) {
+
+  _dataBlockLenMax = 0;
+
+  _dataBlocksLen   = 0;
+  _dataBlocksMax   = 0;
+
+  _dataBlockBgn    = NULL;
+  _dataBlockLen    = NULL;
+  _dataBlocks      = NULL;
+
+  _dataPos = 0;
+  _data    = NULL;
+
+  FILE *inFile = AS_UTL_openInputFile(inputName);
+  loadFromFile(inFile);
+  AS_UTL_closeFile(inFile);
+
+  _dataBlk = 0;
+  _dataWrd = 0;
+  _dataBit = 64;
+};
+
+
+stuffedBits::stuffedBits(FILE *inFile) {
+
+  _dataBlockLenMax = 0;
+
+  _dataBlocksLen   = 0;
+  _dataBlocksMax   = 0;
+
+  _dataBlockBgn    = NULL;
+  _dataBlockLen    = NULL;
+  _dataBlocks      = NULL;
+
+  _dataPos = 0;
+  _data    = NULL;
+
+  loadFromFile(inFile);
+
+  _dataBlk = 0;
+  _dataWrd = 0;
+  _dataBit = 64;
 };
 
 
@@ -55,9 +101,9 @@ stuffedBits::~stuffedBits() {
   for (uint32 ii=0; ii<_dataBlocksLen; ii++)
     delete [] _dataBlocks[ii];
 
-  delete [] _dataBlocks;
   delete [] _dataBlockBgn;
   delete [] _dataBlockLen;
+  delete [] _dataBlocks;
 };
 
 
@@ -65,35 +111,108 @@ stuffedBits::~stuffedBits() {
 void
 stuffedBits::dumpToFile(FILE *F) {
 
-  AS_UTL_safeWrite(F, &_dataBlocksLen, "dataBlocksLen", sizeof(uint32), 1);
-  AS_UTL_safeWrite(F, &_dataBlockMax,  "dataBlocksLen", sizeof(uint64), 1);
-  AS_UTL_safeWrite(F,  _dataBlockBgn,  "dataBlocksLen", sizeof(uint64), 1);
-  AS_UTL_safeWrite(F,  _dataBlockLen,  "dataBlocksLen", sizeof(uint64), 1);
+  AS_UTL_safeWrite(F, &_dataBlockLenMax, "dataBlockLenMax", sizeof(uint64), 1);
+  AS_UTL_safeWrite(F, &_dataBlocksLen,   "dataBlocksLen",   sizeof(uint32), 1);
+  AS_UTL_safeWrite(F, &_dataBlocksMax,   "dataBlocksMax",   sizeof(uint32), 1);
+  AS_UTL_safeWrite(F,  _dataBlockBgn,    "dataBlockBgn",    sizeof(uint64), _dataBlocksLen);
+  AS_UTL_safeWrite(F,  _dataBlockLen,    "dataBlockLen",    sizeof(uint64), _dataBlocksLen);
 
-  for (uint32 ii=0; ii<_dataBlocksLen; ii++)
-    AS_UTL_safeWrite(F, _dataBlocks[ii], "dataBlocks", sizeof(uint64), _dataBlockLen[ii] / 64 + 1);
+  for (uint32 ii=0; ii<_dataBlocksLen; ii++) {
+    uint64  nWordsToWrite = _dataBlockLen[ii] / 64 + (((_dataBlockLen[ii] % 64) == 0) ? 0 : 1);
+    uint64  nWordsAllocd  = _dataBlockLenMax / 64;
+    
+    assert(nWordsToWrite <= nWordsAllocd);
+
+    AS_UTL_safeWrite(F, _dataBlocks[ii], "dataBlocks", sizeof(uint64), nWordsToWrite);
+  }
 }
 
 
 
-void
+bool
 stuffedBits::loadFromFile(FILE *F) {
+  uint32   nLoad    = 0;
+  uint64   inLenMax = 0;
+  uint32   inLen    = 0;
+  uint32   inMax    = 0;
 
-  AS_UTL_safeRead(F, &_dataBlocksLen, "dataBlocksLen", sizeof(uint32), 1);
-  AS_UTL_safeRead(F, &_dataBlockMax,  "dataBlocksLen", sizeof(uint64), 1);
+  fprintf(stderr, "stuffedBits::loadFromFile()-- Loading at position " F_U64 ".\n", AS_UTL_ftell(F));
 
-  _dataBlocks    = new uint64 * [_dataBlocksLen];
-  _dataBlockBgn  = new uint64   [_dataBlocksLen];
-  _dataBlockLen  = new uint64   [_dataBlocksLen];
+  //  Try to load the new parameters.  Into temporary storage, so we can compare against what we
+  //  have already allocated.
 
-  AS_UTL_safeRead(F,  _dataBlockBgn,  "dataBlocksLen", sizeof(uint64), 1);
-  AS_UTL_safeRead(F,  _dataBlockLen,  "dataBlocksLen", sizeof(uint64), 1);
+  nLoad += AS_UTL_safeRead(F, &inLenMax, "dataBlockLenMax", sizeof(uint64), 1);  //  Max length of each block.
+  nLoad += AS_UTL_safeRead(F, &inLen,    "dataBlocksLen",   sizeof(uint32), 1);  //  Number of blocks stored.
+  nLoad += AS_UTL_safeRead(F, &inMax,    "dataBlocksMax",   sizeof(uint32), 1);  //  Number of blocks allocated.
+
+  if (nLoad != 3) {
+    fprintf(stderr, "stuffedBits::loadFromFile()-- End of file detected.\n");
+    return(false);
+  }
+
+  //  If the input blocks are not the same size as the blocks we have, remove them.
+
+  if (_dataBlockLenMax != inLenMax) {
+    for (uint32 ii=0; ii<_dataBlocksLen; ii++)
+      delete [] _dataBlocks[ii];
+
+    memset(_dataBlocks, 0, sizeof(uint64 *) * _dataBlocksMax);
+
+    _dataBlockLenMax = inLenMax;
+  }
+
+  //  If there are more blocks than we have space for, grab more space.  Bgn and Len can just be
+  //  reallocated.  The pointers need to be extended (to preserve what's already in there).
+
+  if (_dataBlocksMax < inLen) {
+    delete [] _dataBlockBgn;
+    delete [] _dataBlockLen;
+
+    _dataBlockBgn  = new uint64 [inLen];
+    _dataBlockLen  = new uint64 [inLen];
+
+    resizeArray(_dataBlocks, _dataBlocksLen, _dataBlocksMax, inLen, resizeArray_copyData | resizeArray_clearNew);
+  }
+
+  //  Update the parameters.
+
+  _dataBlocksLen = inLen;
+
+  //  Load the data.
+
+  fprintf(stderr, "stuffedBits::loadFromFile()--   Found " F_U32 " blocks (max length " F_U64 ").\n", _dataBlocksLen, _dataBlockLenMax);
+
+  AS_UTL_safeRead(F,  _dataBlockBgn,  "dataBlockBgn",  sizeof(uint64), _dataBlocksLen);
+  AS_UTL_safeRead(F,  _dataBlockLen,  "dataBlockLen",  sizeof(uint64), _dataBlocksLen);
+
+  for (uint32 ii=0; ii<_dataBlocksLen; ii++)
+    fprintf(stderr, "stuffedBits::loadFromFile()--     %2" F_U32P " begin %12" F_U64P " length %12" F_U64P "\n",
+            ii, _dataBlockBgn[ii], _dataBlockLen[ii]);
 
   for (uint32 ii=0; ii<_dataBlocksLen; ii++) {
-    _dataBlocks[ii] = new uint64 [_dataBlockLen[ii] / 64 + 1];
+    uint64  nWordsToRead  = _dataBlockLen[ii] / 64 + (((_dataBlockLen[ii] % 64) == 0) ? 0 : 1);
+    uint64  nWordsAllocd  = _dataBlockLenMax / 64;
 
-    AS_UTL_safeRead(F, _dataBlocks[ii], "dataBlocks", sizeof(uint64), _dataBlockLen[ii] / 64 + 1);
+    assert(nWordsToRead <= nWordsAllocd);
+
+    if (_dataBlocks[ii] == NULL)
+      _dataBlocks[ii] = new uint64 [nWordsAllocd];
+
+    AS_UTL_safeRead(F, _dataBlocks[ii], "dataBlocks", sizeof(uint64), nWordsToRead);
+
+    memset(_dataBlocks[ii] + nWordsToRead, 0, sizeof(uint64) * (nWordsAllocd - nWordsToRead));
   }
+
+  //  Set up the read/write head.
+
+  _dataPos = 0;
+  _data    = _dataBlocks[0];
+
+  _dataBlk = 0;
+  _dataWrd = 0;
+  _dataBit = 64;
+
+  return(true);
 }
 
 
@@ -168,6 +287,9 @@ stuffedBits::getUnary(void) {
 
 uint64 *
 stuffedBits::getUnary(uint64 number, uint64 *values) {
+
+  if (values == NULL)
+    values = new uint64 [number];
 
   for (uint64 ii=0; ii<number; ii++)
     values[ii] = getUnary();
@@ -348,6 +470,9 @@ stuffedBits::getBinary(uint32 width) {
 
 uint64 *
 stuffedBits::getBinary(uint32 width, uint64 number, uint64 *values) {
+
+  if (values == NULL)
+    values = new uint64 [number];
 
   for (uint64 ii=0; ii<number; ii++)
     values[ii] = getBinary(width);
