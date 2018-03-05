@@ -39,7 +39,7 @@ testLogBaseTwo(void) {
 
 
 void
-testClear(void) {
+testSaveClear(void) {
   uint64  bb = 0xffffffffffffffffllu;
 
   for (uint32 ii=0; ii<65; ii++)
@@ -66,6 +66,40 @@ testClear(void) {
             displayWord(saveMiddleBits (bb, 10, ii), b1),
             displayWord(clearMiddleBits(bb, 10, ii), b2));
 }
+
+
+
+void
+testBitArray(uint64 maxLength) {
+  bitArray  *ba = new bitArray(maxLength);
+
+  for (uint32 delta=1; delta<3; delta++) {
+    fprintf(stderr, "testBitArray()-- delta %u\n", delta);
+
+    for (uint64 xx=0; xx<maxLength; xx += delta) {
+      ba->setBit(xx, 1);
+    }
+
+    for (uint64 xx=0; xx<maxLength; xx++) {
+      if ((xx % delta) == 0) {
+        //fprintf(stderr, "TOGGLE pos %3" F_U64P " 1->0  ", xx);
+        assert(ba->getBit(xx) == 1);
+        ba->setBit(xx, 0);
+        assert(ba->getBit(xx) == 0);
+      } else {
+        //fprintf(stderr, "TOGGLE pos %3" F_U64P " 0->1  ", xx);
+        assert(ba->getBit(xx) == 0);
+        ba->setBit(xx, 1);
+        assert(ba->getBit(xx) == 1);
+      }
+    }
+
+    ba->clear();
+  }
+
+  delete ba;
+}
+
 
 
 void
@@ -175,20 +209,56 @@ testBinary(uint32 testSize) {
 
 int
 main(int argc, char **argv) {
+  int32 arg=1;
+  int32 err=0;
 
-  //testLogBaseTwo();
-  //testClear();
+  omp_set_num_threads(1);
 
-  //#pragma omp parallel for
-  //for (uint32 xx=1; xx<2000; xx++) {
-  //  fprintf(stderr, "TESTING %u out of 2000.\n", xx);
-  //  testUnary(xx);
-  //}
+  while (arg < argc) {
+    if      (strcmp(argv[arg], "-h") == 0) {
+      err++;
+    }
 
-  //#pragma omp parallel for
-  for (uint32 xx=1; xx<65; xx++) {
-    fprintf(stderr, "TESTING %u out of 2000.\n", xx);
-    testBinary(xx);
+    else if (strcmp(argv[arg], "-logbasetwo") == 0) {
+      testLogBaseTwo();
+    }
+
+    else if (strcmp(argv[arg], "-clear") == 0) {
+      testSaveClear();
+    }
+
+    else if (strcmp(argv[arg], "-bitarray") == 0) {
+      uint64  maxLength = strtouint64(argv[++arg]);
+
+      testBitArray(maxLength);
+    }
+
+    else if (strcmp(argv[arg], "-unary") == 0) {
+      uint32  maxSize = strtouint32(argv[++arg]);
+
+#pragma omp parallel for
+      for (uint32 xx=1; xx<=maxSize; xx++) {
+        fprintf(stderr, "TESTING %u out of %u.\n", xx, maxSize);
+        testUnary(xx);
+      }
+    }
+
+    else if (strcmp(argv[arg], "-binary") == 0) {
+#pragma omp parallel for
+      for (uint32 xx=1; xx<=64; xx++) {
+        fprintf(stderr, "TESTING %u out of %u.\n", xx, 64);
+        testBinary(xx);
+      }
+    }
+
+    else if (strcmp(argv[arg], "") == 0) {
+    }
+
+    else {
+      err++;
+    }
+
+    arg++;
   }
 
   exit(0);
