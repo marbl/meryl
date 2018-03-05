@@ -309,7 +309,7 @@ private:
 
     //  If in this block, nothing to do.
 
-    //fprintf(stderr, "updateBlk()--  at _dataPos %lu  _dataBlockLen[%u] = %lu\n", _dataPos, _dataBlk, _dataBlockLen[_dataBlk]);
+    //fprintf(stderr, "updateBlk()--  at _dataPos " F_U64P "  _dataBlockLen[%u] = " F_U64P "\n", _dataPos, _dataBlk, _dataBlockLen[_dataBlk]);
 
     if (_dataPos + readLength <= _dataBlockLen[_dataBlk])
       return;
