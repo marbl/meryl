@@ -217,7 +217,7 @@ merylInput::nextMer(void) {
     _kmer  = _stream->theFMer();
     _count = _stream->theCount();
 
-    fprintf(stderr, "merylIn::nextMer('%s')-- now have valid=%u kmer %s count %lu\n",
+    fprintf(stderr, "merylIn::nextMer('%s')-- now have valid=" F_U32 " kmer %s count " F_U64 "\n",
             _name, _valid, _kmer.toString(kmerString), _count);
     fprintf(stderr, "\n");
   }
@@ -229,7 +229,7 @@ merylInput::nextMer(void) {
     _kmer  = _operation->theFMer();
     _count = _operation->theCount();
 
-    fprintf(stderr, "merylIn::nextMer(%s)-- now have valid=%u kmer %s count %lu\n",
+    fprintf(stderr, "merylIn::nextMer(%s)-- now have valid=" F_U32 " kmer %s count " F_U64 "\n",
             _name, _valid, _kmer.toString(kmerString), _count);
     fprintf(stderr, "\n");
   }
@@ -363,7 +363,7 @@ merylOperation::nextMer(void) {
           toString(_operation));
 
   for (uint32 ii=0; ii<_inputs.size(); ii++)
-    fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count %lu %s\n",
+    fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count " F_U64 " %s\n",
             _inputs[ii]->_name,
             _inputs[ii]->_kmer.toString(kmerString),
             _inputs[ii]->_count,
@@ -373,7 +373,7 @@ merylOperation::nextMer(void) {
   //  (on the first call, all inputs were 'active' last time)
   //
   for (uint32 ii=0; ii<_actLen; ii++) {
-    fprintf(stderr, "merylOp::nextMer()-- CALL NEXTMER on input actIndex %u\n", _actIndex[ii]);
+    fprintf(stderr, "merylOp::nextMer()-- CALL NEXTMER on input actIndex " F_U32 "\n", _actIndex[ii]);
     _inputs[_actIndex[ii]]->nextMer();
   }
 
@@ -382,7 +382,7 @@ merylOperation::nextMer(void) {
   //  Log.
 
   for (uint32 ii=0; ii<_inputs.size(); ii++)
-    fprintf(stderr, "merylOp::nextMer()--   BEFORE OPERATION: input %s kmer %s count %lu %s\n",
+    fprintf(stderr, "merylOp::nextMer()--   BEFORE OPERATION: input %s kmer %s count " F_U64 " %s\n",
             _inputs[ii]->_name,
             _inputs[ii]->_kmer.toString(kmerString),
             _inputs[ii]->_count,
@@ -437,7 +437,7 @@ merylOperation::nextMer(void) {
 
   //  Otherwise, active kmers!  Figure out what the count should be.
 
-  fprintf(stderr, "merylOp::nextMer()-- op %s activeLen %u kmer %s\n", toString(_operation), _actLen, _kmer.toString(kmerString));
+  fprintf(stderr, "merylOp::nextMer()-- op %s activeLen " F_U32 " kmer %s\n", toString(_operation), _actLen, _kmer.toString(kmerString));
 
   //  If math-subtract gets implemented, use negative-zero to mean "don't output" and positive-zero
   //  to mean zero.  For now, count=0 means don't output.
@@ -506,7 +506,7 @@ merylOperation::nextMer(void) {
 
   //  If flagged for output, output!
 
-  fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation %s with kmer %s count %lu%s\n",
+  fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation %s with kmer %s count " F_U64 "%s\n",
           toString(_operation), _kmer.toString(kmerString), _count, ((_output != NULL) && (_count != 0)) ? " OUTPUT" : "");
   fprintf(stderr, "\n");
 
@@ -621,7 +621,7 @@ public:
 
 #ifdef DEBUG_COUNT
     fprintf(stderr, "\n");
-    fprintf(stderr, "add()-- bitsLen=%lu seg=%lu segPos=%lu word=%u wordBgn=%u wordEnd=%u\n",
+    fprintf(stderr, "add()-- bitsLen=" F_U64 " seg=" F_U64 " segPos=" F_U64 " word=" F_U32 " wordBgn=" F_U32 " wordEnd=" F_U32 "\n",
             _bitsLen, seg, segPos, word, wordBgn, wordEnd);
 #endif
 
@@ -644,14 +644,14 @@ public:
     if      (wordBgn == 0) {
       _segments[seg][word]  = (value << (64 - wordEnd));
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "add()-- 0 value %016lx word[%lu][%u] now 0x%016lx\n", value, seg, word, _segments[seg][word]);
+      fprintf(stderr, "add()-- 0 value %016" F_X64P " word[" F_U64 "][" F_U32 "] now 0x%016" F_X64P "\n", value, seg, word, _segments[seg][word]);
 #endif
     }
 
     else if (wordEnd <= 64) {
       _segments[seg][word] |= (value << (64 - wordEnd));
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "add()-- 1 value %016lx word[%lu][%u] now 0x%016lx\n", value, seg, word, _segments[seg][word]);
+      fprintf(stderr, "add()-- 1 value %016" F_X64P " word[" F_U64 "][" F_U32 "] now 0x%016" F_X64P "\n", value, seg, word, _segments[seg][word]);
 #endif
     }
 
@@ -666,8 +666,8 @@ public:
       _segments[seg][word+0] |= (value >>        extraBits);
       _segments[seg][word+1]  = (value << (64 -  extraBits));
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "add()-- 2 value %016lx word[%lu][%u] now 0x%016lx\n", value, seg, word+0, _segments[seg][word+0]);
-      fprintf(stderr, "add()-- 2 value %016lx word[%lu][%u] now 0x%016lx\n", value, seg, word+1, _segments[seg][word+1]);
+      fprintf(stderr, "add()-- 2 value %016" F_X64P " word[" F_U64 "][" F_U32 "] now 0x%016" F_X64P "\n", value, seg, word+0, _segments[seg][word+0]);
+      fprintf(stderr, "add()-- 2 value %016" F_X64P " word[" F_U64 "][" F_U32 "] now 0x%016" F_X64P "\n", value, seg, word+1, _segments[seg][word+1]);
 #endif
     }
 
@@ -686,8 +686,8 @@ public:
       _segments[seg+0][W] |= (value >>        extraBits);
       _segments[seg+1][0]  = (value << (64 -  extraBits));
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "add()-- 3 value %016lx word[%lu][%u] now 0x%016lx\n", value, seg+0, W, _segments[seg+0][W]);
-      fprintf(stderr, "add()-- 3 value %016lx word[%lu][%u] now 0x%016lx\n", value, seg+1, 0, _segments[seg+1][0]);
+      fprintf(stderr, "add()-- 3 value %016" F_X64P " word[" F_U64 "][" F_U32 "] now 0x%016" F_X64P "\n", value, seg+0, W, _segments[seg+0][W]);
+      fprintf(stderr, "add()-- 3 value %016" F_X64P " word[" F_U64 "][" F_U32 "] now 0x%016" F_X64P "\n", value, seg+1, 0, _segments[seg+1][0]);
 #endif
     }
   };
@@ -708,14 +708,14 @@ public:
 
 #ifdef DEBUG_COUNT
     fprintf(stderr, "\n");
-    fprintf(stderr, "get()-- kk=%lu bitPos=%lu seg=%lu segPos=%lu word=%u wordBgn=%u wordEnd=%u\n",
+    fprintf(stderr, "get()-- kk=" F_U64 " bitPos=" F_U64 " seg=" F_U64 " segPos=" F_U64 " word=" F_U32 " wordBgn=" F_U32 " wordEnd=" F_U32 "\n",
             kk, bitPos, seg, segPos, word, wordBgn, wordEnd);
 #endif
 
     if      (wordEnd <= 64) {
       bits = (_segments[seg][word] >> (64 - wordEnd)) & uint64MASK(_width);
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "get()-- 1 from 0x%016lx -> 0x%016lx\n", _segments[seg][word], bits);
+      fprintf(stderr, "get()-- 1 from 0x%016" F_X64P " -> 0x%016" F_X64P "\n", _segments[seg][word], bits);
 #endif
     }
 
@@ -730,11 +730,11 @@ public:
 
       bits  = (_segments[seg][word+0] & uint64MASK(_width - extraBits)) << extraBits;
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "get()-- 2 from 0x%016lx -> 0x%016lx\n", _segments[seg][word+0], bits);
+      fprintf(stderr, "get()-- 2 from 0x%016" F_X64P " -> 0x%016" F_X64P "\n", _segments[seg][word+0], bits);
 #endif
       bits |= (_segments[seg][word+1] >> (64 - extraBits) & uint64MASK(extraBits));
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "get()-- 2 from 0x%016lx -> 0x%016lx\n", _segments[seg][word+1], bits);
+      fprintf(stderr, "get()-- 2 from 0x%016" F_X64P " -> 0x%016" F_X64P "\n", _segments[seg][word+1], bits);
 #endif
     }
 
@@ -751,18 +751,18 @@ public:
 
       bits  = (_segments[seg+0][W] & uint64MASK(_width - extraBits)) << extraBits;
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "get()-- 3 from 0x%016lx -> 0x%016lx\n", _segments[seg+0][W], bits);
+      fprintf(stderr, "get()-- 3 from 0x%016" F_X64P " -> 0x%016" F_X64P "\n", _segments[seg+0][W], bits);
 #endif
       bits |= (_segments[seg+1][0] >> (64 - extraBits) & uint64MASK(extraBits));
 #ifdef DEBUG_COUNT
-      fprintf(stderr, "get()-- 3 from 0x%016lx -> 0x%016lx\n", _segments[seg+1][0], bits);
+      fprintf(stderr, "get()-- 3 from 0x%016" F_X64P " -> 0x%016" F_X64P "\n", _segments[seg+1][0], bits);
 #endif
     }
 
     return(bits);  // & uint64MASK(_width));
   };
 
-  void      sort(uint64 prefix) {
+  void      sort(uint64 UNUSED(prefix)) {
     uint64   nValues = _bitsLen / _width;
 
     assert(_bitsLen % _width == 0);
@@ -779,7 +779,7 @@ public:
 
     //  Sort the data
 
-    //fprintf(stderr, "sort()--  prefix=0x%016lx with %lu values\n", prefix, nValues);
+    //fprintf(stderr, "sort()--  prefix=0x%016" F_X64P " with " F_U64 " values\n", prefix, nValues);
 
 #ifdef _GLIBCXX_PARALLEL
     __gnu_sequential::
@@ -821,7 +821,7 @@ public:
     tKmers++;
 
 #ifdef DEBUG_COUNT
-    fprintf(stderr, "sort()-- nKmers %lu tKmers %lu\n", nKmers, tKmers);
+    fprintf(stderr, "sort()-- nKmers " F_U64 " tKmers " F_U64 "\n", nKmers, tKmers);
 #endif
 
     //  Remove all the temporary data.
@@ -836,7 +836,7 @@ public:
 
 #ifdef DEBUG_COUNT
     for (uint32 kk=0; kk<nKmers; kk++)
-      fprintf(stderr, "sort()-- kk %u count %u data 0x%016lx\n", kk, _counts[kk], _suffix[kk]);
+      fprintf(stderr, "sort()-- kk " F_U32 " count " F_U32 " data 0x%016" F_X64P "\n", kk, _counts[kk], _suffix[kk]);
 #endif
   };
 
@@ -848,7 +848,7 @@ public:
     for (uint32 kk=0; kk<_bitsLen; kk++) {
       kmer.setPrefixSuffix(prefix, _suffix[kk], _width);
 
-      fprintf(stderr, "%s %u\n", kmer.toString(str), _counts[kk]);
+      fprintf(stderr, "%s " F_U32 "\n", kmer.toString(str), _counts[kk]);
     }
   };
 
@@ -876,7 +876,7 @@ public:
 
     uint32  binaryBits = _width - unaryBits;
 
-    fprintf(stderr, "for prefix 0x%08lx N=%lu, unary %u\n", prefix, _bitsLen, unaryBits);
+    fprintf(stderr, "for prefix 0x%08" F_X64P " N=" F_U64 ", unary " F_U32 "\n", prefix, _bitsLen, unaryBits);
 
     //  Start of the block
     dumpData->setBinary(64, prefix);
@@ -976,7 +976,7 @@ uint32  merylCountArray::_segSize = 8192 * 64;
 
 
 uint64                                     //  Output: Estimated memory size in bytes
-estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in bytes
+estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed memory in bytes
               uint64   nKmerEstimate,      //  Input:  Estimated number of kmers in the input
               uint32   merSize,            //  Input:  Size of kmer
               uint32  &wPrefix_,           //  Output: Number of bits in the prefix (== bucket address)
@@ -986,7 +986,7 @@ estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in
 
   fprintf(stderr, "\n");
   fprintf(stderr, "\n");
-  fprintf(stderr, "For "F_U64 " million %u-mers:\n", nKmerEstimate / 1000000, merSize);
+  fprintf(stderr, "For "F_U64 " million " F_U32 "-mers:\n", nKmerEstimate / 1000000, merSize);
   fprintf(stderr, "\n");
 
   uint64   minMemory = UINT64_MAX;
@@ -1013,7 +1013,7 @@ estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in
 
     uint64  totalMemory      = structMemory + dataMemory;
 
-    fprintf(stderr, "%6u  %4lu %cP  %4lu %cB  %4lu %cM  %4lu %cS  %4lu %cB  %4lu %cB",
+    fprintf(stderr, "%6" F_U32P "  %4" F_U64P " %cP  %4" F_U64P " %cB  %4" F_U64P " %cM  %4" F_U64P " %cS  %4" F_U64P " %cB  %4" F_U64P " %cB",
             wp,
             scaledNumber(nPrefix),        scaledUnit(nPrefix),
             scaledNumber(structMemory),   scaledUnit(structMemory),
@@ -1040,11 +1040,11 @@ estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in
   }
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "minMemory   %lu %cB\n",  scaledNumber(minMemory), scaledUnit(minMemory));
-  fprintf(stderr, "wPrefix     %u\n",       wPrefix_);
-  fprintf(stderr, "nPrefix     %lu\n",      nPrefix_);
-  fprintf(stderr, "wData       %u\n",       wData_);
-  fprintf(stderr, "wDataMask   0x%016lx\n", wDataMask_);
+  fprintf(stderr, "minMemory   " F_U64 " %cB\n",  scaledNumber(minMemory), scaledUnit(minMemory));
+  fprintf(stderr, "wPrefix     " F_U32 "\n",       wPrefix_);
+  fprintf(stderr, "nPrefix     " F_U64 "\n",      nPrefix_);
+  fprintf(stderr, "wData       " F_U32 "\n",       wData_);
+  fprintf(stderr, "wDataMask   0x%016" F_X64P "\n", wDataMask_);
   fprintf(stderr, "\n");
   fprintf(stderr, "\n");
 
@@ -1098,7 +1098,7 @@ merylOperation::count(void) {
 
   merylCountArray::set(wData, 64 * 8192);
 
-  fprintf(stderr, "Allocating " F_U64 " buckets, each with %u bits (%u words, %u kmers) of storage.\n",
+  fprintf(stderr, "Allocating " F_U64 " buckets, each with " F_U32 " bits (" F_U32 " words, " F_U32 " kmers) of storage.\n",
           nPrefix,
           merylCountArray::getSegSize_bits(),
           merylCountArray::getSegSize_bits() / 64,
@@ -1114,7 +1114,7 @@ merylOperation::count(void) {
 
     while (_inputs[ii]->_sequence->loadBases(buffer, bufferMax, bufferLen)) {
 
-      //fprintf(stderr, "read %lu bases from '%s'\n", bufferLen, _inputs[ii]->_name);
+      //fprintf(stderr, "read " F_U64 " bases from '%s'\n", bufferLen, _inputs[ii]->_name);
 
       //  Process the buffer of bases into a new list of kmers.
       //
@@ -1161,7 +1161,7 @@ merylOperation::count(void) {
       }
 
       //for (uint64 kk=0; kk<kmersLen; kk++)
-      //  fprintf(stderr, "%03lu 0x%08lx %s\n", ss, (uint64)kmers[ss], kmers[ss].toString(str));
+      //  fprintf(stderr, "%03" F_U64P " 0x%08" F_X64P " %s\n", ss, (uint64)kmers[ss], kmers[ss].toString(str));
     }
 
     //  Would like some kind of report here on the kmers loaded from this file.

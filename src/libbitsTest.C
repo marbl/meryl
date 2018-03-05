@@ -83,7 +83,7 @@ testUnary(uint32 testSize) {
     total      += random[ii] + 1;
   }
 
-  fprintf(stderr, "Created %lu Mbits, %lu MB needed.\n", total >> 20, (total + maxN * sizeof(uint32) * 8) >> 23);
+  fprintf(stderr, "Created " F_U64 " Mbits, " F_U64 " MB needed.\n", total >> 20, (total + maxN * sizeof(uint32) * 8) >> 23);
 
   total = 0;
 
@@ -135,7 +135,7 @@ testBinary(uint32 testSize) {
     total      +=  width[ii];
   }
 
-  fprintf(stderr, "Created %lu Mbits, %lu MB needed.\n", total >> 20, (total + maxN * sizeof(uint32) * 8) >> 23);
+  fprintf(stderr, "Created " F_U64 " Mbits, " F_U64 " MB needed.\n", total >> 20, (total + maxN * sizeof(uint32) * 8) >> 23);
 
   total = 0;
 

@@ -37,16 +37,17 @@ public:
     _merSpan   = ms;
     _mask      = uint64MASK(ms * 2);
     _leftShift = ((2 * ms - 2) % 64) - 1;
-    fprintf(stderr, "setSize(%u) %u %u 0x%016lx %u\n", ms, _merSize, _merSpan, _mask, _leftShift);
+    fprintf(stderr, "setSize(" F_U32 ") " F_U32 " " F_U32 " 0x%016" F_X64P " " F_U32 "\n",
+            ms, _merSize, _merSpan, _mask, _leftShift);
   };
 
   static
   uint32      merSize(void) { return(_merSize); };
 
-  void        addR(char base)   { _mer = (((_mer << 2) & _mask) | ((base & 0x06) >> 1));           };
-  void        addL(char base)   { _mer = (((_mer >> 2)        ) | ((base & 0x06) << _leftShift));  };
+  void        addR(char base)       { _mer  = (((_mer << 2) & _mask) | ((base & 0x06) >> 1));           };
+  void        addL(char base)       { _mer  = (((_mer >> 2)        ) | ((base & 0x06) << _leftShift));  };
 
-  void        mask(uint32 merSize)         { _mer &= _mask;  };
+  //void        mask(uint32 merSize)  { _mer &= _mask;  };
 
   kmerTiny   &reverseComplement(void) {
     return(*this);
@@ -118,7 +119,7 @@ public:
 
 class kmerStreamReader {
 public:
-  kmerStreamReader(const char *fn, uint32 ms=0) {
+  kmerStreamReader(const char *UNUSED(fn)) {
   };
   ~kmerStreamReader() {
   };
@@ -135,22 +136,23 @@ public:
 
 class kmerStreamWriter {
 public:
-  kmerStreamWriter(const char *filePrefix,
-                   uint32 merSize,          //  In bases
-                   uint32 merComp,          //  A length, bases
-                   uint32 prefixSize,       //  In bits
-                   bool   positionsEnabled) {
+  kmerStreamWriter(const char *UNUSED(filePrefix),
+                   uint32      UNUSED(merSize),          //  In bases
+                   uint32      UNUSED(merComp),          //  A length, bases
+                   uint32      UNUSED(prefixSize),       //  In bits
+                   bool        UNUSED(positionsEnabled)) {
   };
   ~kmerStreamWriter() {
   };
 
-  void    addMer(kmer k, uint32 c) {
+  void    addMer(kmer UNUSED(k), uint32 UNUSED(c)) {
   };
 
-  void    addBlock(uint64  prefix,
-                   uint32  length,
-                   uint64 *kmers,
-                   uint32 *counts);
+  void    addBlock(uint64  UNUSED(prefix),
+                   uint32  UNUSED(length),
+                   uint64 *UNUSED(kmers),
+                   uint32 *UNUSED(counts)) {
+  };
 };
 
 
