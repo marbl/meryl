@@ -130,7 +130,7 @@ merylOperation::count(void) {
   char           *buffer     = new char     [bufferMax];
 
   uint64          kmersLen   = 0;
-  kmerTiny       *kmers      = new kmerTiny [bufferMax];
+  //kmerTiny       *kmers      = new kmerTiny [bufferMax];
 
   kmerTiny        kmer;
   uint32          kmerLoad   = 0;
@@ -189,8 +189,9 @@ merylOperation::count(void) {
       //  Otherwise, a valid base.  Add it to the kmer, then save the kmer
       //  in the list of kmers if it is a full valid kmer.
 
-      kmersLen = 0;
+      //kmersLen = 0;
 
+#if 1
       for (uint64 bb=0; bb<bufferLen; bb++) {
         if ((buffer[bb] != 'A') && (buffer[bb] != 'a') &&
             (buffer[bb] != 'C') && (buffer[bb] != 'c') &&
@@ -202,10 +203,18 @@ merylOperation::count(void) {
 
         kmer.addR(buffer[bb]);
 
-        if (kmerLoad == kmerValid)
-          kmers[kmersLen++] = kmer;
-        else
+        if (kmerLoad == kmerValid) {
+          //kmers[kmersLen++] = kmer;
+
+          uint64  pp = (uint64)kmer >> wData;
+          uint64  mm = (uint64)kmer  & wDataMask;
+
+          assert(pp < nPrefix);
+
+          data[pp].add(mm);
+        }else {
           kmerLoad++;
+        }
       }
 
       //  If we didn't read a full buffer, the sequence ended, and we need to reset the kmer.
@@ -217,6 +226,7 @@ merylOperation::count(void) {
 
       //  Now, just pass our list of kmers to the counting engine.
 
+#if 0
       for (uint64 kk=0; kk<kmersLen; kk++) {
         uint64  pp = (uint64)kmers[kk] >> wData;
         uint64  mm = (uint64)kmers[kk]  & wDataMask;
@@ -225,6 +235,8 @@ merylOperation::count(void) {
 
         data[pp].add(mm);
       }
+#endif
+#endif
 
       //for (uint64 kk=0; kk<kmersLen; kk++)
       //  fprintf(stderr, "%03" F_U64P " 0x%08" F_X64P " %s\n", ss, (uint64)kmers[ss], kmers[ss].toString(str));
@@ -238,10 +250,13 @@ merylOperation::count(void) {
 
   //  Finished loading kmers.  Free up some space.
 
-  delete [] kmers;
+  //delete [] kmers;
   delete [] buffer;
 
   //  MAke output files, one per thread.  Sort, dump and erase each block.
+
+  //fprintf(stderr, "STOP.\n");
+  //exit(0);
 
   fprintf(stderr, "Creating outputs.\n");
 
