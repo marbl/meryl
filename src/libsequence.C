@@ -201,8 +201,12 @@ dnaSeqFile::loadBases(char    *seq,
     while (_buffer->peek() == '\n')    //  Skip whitespace before the first name line.
       _buffer->read();
 
+#if 0
     for (char ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())
       ;
+#else
+    _buffer->skipAhead('\n');
+#endif
   }
 
   //  Skip whitespace.
@@ -219,25 +223,39 @@ dnaSeqFile::loadBases(char    *seq,
     //  If we hit the next sequence, skip the header, leaving us at the start of the bases.
 
     if (ch == '>') {
+#if 0
       for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the name of the next sequence
         ;
+#else
+      _buffer->skipAhead('\n');
+#endif
       return(true);
     }
 
     if (ch == '+') {
+#if 0
       for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the quality name line
         ;
       for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the qualities
         ;
       for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the name of the next sequence
         ;
+#else
+      _buffer->skipAhead('\n');
+      _buffer->skipAhead('\n');
+      _buffer->skipAhead('\n');
+#endif
       return(true);
     }
 
     //  Otherwise, add the base and move ahead.
 
+#if 0
     if (ch != '\n')
       seq[seqLength++] = ch;
+#else
+    seqLength += _buffer->copyUntil('\n', seq + seqLength, maxLength - seqLength);
+#endif
 
     if (seqLength == maxLength)
       return(true);
