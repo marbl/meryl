@@ -63,6 +63,7 @@ main(int argc, char **argv) {
 
     else if (strcmp(argv[arg], "-t") == 0) {
       maxThreads = strtouint32(argv[++arg]);
+      omp_set_num_threads(maxThreads);
       continue;
     }
 
