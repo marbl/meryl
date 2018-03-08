@@ -455,9 +455,9 @@ doSummarize(vector<char *>       &inputs,
 
   double gc = 100.0 * (mn[0x01] + mn[0x03]) / (mn[0x00] + mn[0x01] + mn[0x03] + mn[0x02]);
 
-  fprintf(stdout, "--------------------- --------------------- ---------------------- ----------------------- ----------------------- -----------------------\n");
+  fprintf(stdout, "--------------------- --------------------- ----------------------------------------------------------------------------------------------\n");
   fprintf(stdout, "       mononucleotide          dinucleotide                                                                                  trinucleotide\n");
-  fprintf(stdout, "--------------------- --------------------- ---------------------- ----------------------- ----------------------- -----------------------\n");
+  fprintf(stdout, "--------------------- --------------------- ----------------------------------------------------------------------------------------------\n");
   fprintf(stdout, ""             FMT " A" FMT " AA" FMT " AAA " FMT " AAC " FMT " AAG " FMT " AAT\n", mn[0x00], mn[0x00] / nmn, dn[0x00], dn[0x00] / ndn, tn[0x00], tn[0x00] / ntn, tn[0x01], tn[0x01] / ntn, tn[0x03], tn[0x03] / ntn, tn[0x02], tn[0x02] / ntn);
   fprintf(stdout, ""             FMT " C" FMT " AC" FMT " ACA " FMT " ACC " FMT " ACG " FMT " ACT\n", mn[0x01], mn[0x01] / nmn, dn[0x01], dn[0x01] / ndn, tn[0x04], tn[0x04] / ntn, tn[0x05], tn[0x05] / ntn, tn[0x07], tn[0x07] / ntn, tn[0x06], tn[0x06] / ntn);
   fprintf(stdout, ""             FMT " G" FMT " AG" FMT " AGA " FMT " AGC " FMT " AGG " FMT " AGT\n", mn[0x03], mn[0x03] / nmn, dn[0x03], dn[0x03] / ndn, tn[0x0c], tn[0x0c] / ntn, tn[0x0d], tn[0x0d] / ntn, tn[0x0f], tn[0x0f] / ntn, tn[0x0e], tn[0x0e] / ntn);
