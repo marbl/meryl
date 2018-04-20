@@ -53,6 +53,13 @@ public:
   uint64                 _indexLen;
   uint64                 _indexMax;
 
+private:
+  bool     loadIndex(void);
+  void     saveIndex(void);
+
+public:
+  void     generateIndex(void);
+
   //  If indexed, searches the index for the proper sequence.
   //
   //  If not indexed, searches forward in the file for the sequence.  If not found,
@@ -64,6 +71,14 @@ public:
   //
   bool     findSequence(uint64 i);
   bool     findSequence(const char *name);
+
+  //  Returns the number of sequences in the file.
+  uint64   numberOfSequences(void) {
+    return(_indexLen);
+  };
+
+  //  Returns the length of sequence i.  If no such sequence, returns UINT64_MAX.
+  uint64   sequenceLength(uint64 i);
 
 private:
   uint64

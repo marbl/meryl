@@ -18,6 +18,7 @@
 
 #include "mt19937ar.H"
 #include "AS_UTL_fasta.H"
+#include "AS_UTL_decodeRange.H"
 
 #include <vector>
 #include <set>
@@ -48,11 +49,98 @@ public:
   ~summarizeParameters() {
   };
 
+
+  void      finalize(void) {
+  }
+
+
   uint64    genomeSize;
   bool      asSequences;
   bool      asBases;
 };
 
+
+
+class extractParameters {
+public:
+  extractParameters() {
+    asReverse      = false;
+    asComplement   = false;
+    asUpperCase    = false;
+    asLowerCase    = false;
+    doMasking      = false;
+    maskWithN      = true;
+  };
+
+  ~extractParameters() {
+  };
+
+
+  void      finalize(void) {
+
+    //  If no base range specified, output all bases.
+
+    if (baseBgn.size() == 0) {
+      baseBgn.push_back(0);
+      baseEnd.push_back(UINT64_MAX);
+    }
+
+    //  If no sequence range specified, output all sequences.
+
+    if (seqsBgn.size() == 0) {
+      seqsBgn.push_back(1);
+      seqsEnd.push_back(UINT64_MAX);
+    }
+
+    //  If no length restriction, output all lengths.
+
+    if (lensBgn.size() == 0) {
+      lensBgn.push_back(0);
+      lensEnd.push_back(UINT64_MAX);
+    }
+
+    //  Check and adjust the sequence ranges.
+    //
+    //  To the user, sequences begin at ONE, not ZERO.
+    //  To us, sequences begin at zero.
+
+    for (uint32 si=0; si<seqsBgn.size(); si++) {
+      if (seqsBgn[si] == 0) {
+        fprintf(stderr, "ERROR: sequences begin at 1, not zero.\n");
+        exit(1);
+      }
+
+      seqsBgn[si] -= 1;
+    }
+
+    //  Check and adjust the base ranges.  These are space based.  A quirk in the
+    //  command line parsing results in bgn == end if a single number is supplied;
+    //  we interpret that to mean 'output the base at space N'.
+
+    for (uint32 bi=0; bi<baseBgn.size(); bi++) {
+      if (baseBgn[bi] == baseEnd[bi])
+        baseEnd[bi] += 1;
+    }
+  };
+
+
+  vector<uint64>  baseBgn;    //  Base ranges to print
+  vector<uint64>  baseEnd;    //
+
+  vector<uint64>  seqsBgn;    //  Sequence ranges to print
+  vector<uint64>  seqsEnd;    //
+
+  vector<uint64>  lensBgn;    //  Length ranges to print
+  vector<uint64>  lensEnd;    //
+
+  bool          asReverse;
+  bool          asComplement;
+  bool          asUpperCase;
+  bool          asLowerCase;
+
+  bool          doMasking;    //  Mask out any base not in baseBgn/baseEnd with 'N'
+  bool          maskWithN;    //  Mask with lowercase sequence instead of 'N'
+};
 
 
 
@@ -84,10 +172,10 @@ public:
 
   void      finalize(void) {
 
-    //  Check for invalid.
+    //  Check for invalid.  If not set up, just return.
 
     if ((nSeqs == 0) && (nBases == 0))
-      fprintf(stderr, "ERROR:  Told to generate infinite sequences and infinite bases.\n"), exit(1);
+      return;
 
     if (minLength > maxLength)
       fprintf(stderr, "ERROR:  Told to generate sequences with min length larger than max length.\n"), exit(1);
@@ -170,8 +258,14 @@ public:
   ~sampleParameters() {
   }
 
-  void    initialize(void) {
+
+  void      initialize(void) {
   };
+
+
+  void      finalize(void) {
+  }
+
 
   bool    isPaired;
 
@@ -191,7 +285,7 @@ public:
 
 
 
-uint64
+bool
 doSummarize_loadSequence(dnaSeqFile  *sf,
                          bool         asSequences,
                          char       *&name,   uint32    &nameMax,
@@ -271,7 +365,7 @@ doSummarize(vector<char *>       &inputs,
     //    Count number of sequences and total bases.
     //    Save the lengths of sequences.
 
-    while (doSummarize_loadSequence(sf, sumPar.asSequences, name, nameMax, seq, qlt, seqMax, seqLen)) {
+    while (doSummarize_loadSequence(sf, sumPar.asSequences, name, nameMax, seq, qlt, seqMax, seqLen) == true) {
       uint64  pos = 0;
 
       if (pos < seqLen) {
@@ -489,7 +583,143 @@ doSummarize(vector<char *>       &inputs,
 
 
 void
-doExtract(vector<char *> &inputs) {
+doExtract(vector<char *>    &inputs,
+          extractParameters &extPar) {
+
+  char            C[256] = {0};
+  char            U[256] = {0};
+  char            L[256] = {0};
+
+  uint32          nameMax = 0;
+  char           *name    = NULL;
+  uint64          seqMax  = 0;
+  char           *seq     = NULL;
+  uint8          *qlt     = NULL;
+  uint64          seqLen  = 0;
+
+  uint64  outputStringLen = 0;
+  uint64  outputStringMax = 0;
+  char   *outputString    = NULL;
+
+  //  Initialize complement. toUpper and toLower arrays.
+
+  C['a'] = 't';  U['a'] = 'A';  L['a'] = 'a';
+  C['c'] = 'g';  U['c'] = 'C';  L['c'] = 'c';
+  C['g'] = 'c';  U['g'] = 'G';  L['g'] = 'g';
+  C['t'] = 'a';  U['t'] = 'T';  L['t'] = 't';
+
+  C['A'] = 'T';  U['A'] = 'A';  L['A'] = 'a';
+  C['C'] = 'G';  U['C'] = 'C';  L['C'] = 'c';
+  C['G'] = 'C';  U['G'] = 'G';  L['G'] = 'g';
+  C['T'] = 'A';  U['T'] = 'T';  L['T'] = 't';
+
+
+
+  for (uint32 fi=0; fi<inputs.size(); fi++) {
+    dnaSeqFile  *sf   = new dnaSeqFile(inputs[fi], true);
+
+    //  Allocate a string big enough to hold the largest output.
+    //
+    //  Later, maybe, we can analyze the bases to output and make this exactly the correct size.
+
+    uint64  maxStringLength = 0;
+
+    for (uint32 ss=0; ss<sf->numberOfSequences(); ss++)
+      maxStringLength = max(maxStringLength, sf->sequenceLength(ss));
+
+    resizeArray(outputString, 0, outputStringMax, maxStringLength + 1);
+
+    //fprintf(stderr, "seqs - length %u first %u %u\n", extPar.seqsBgn.size(), extPar.seqsBgn[0], extPar.seqsEnd[0]);
+
+    for (uint32 si=0; si<extPar.seqsBgn.size(); si++) {
+      uint64  sbgn = extPar.seqsBgn[si];
+      uint64  send = extPar.seqsEnd[si];
+
+      sbgn = min(sbgn, sf->numberOfSequences());
+      send = min(send, sf->numberOfSequences());
+
+      //fprintf(stderr, "sbgn %u send %u\n", sbgn, send);
+
+      for (uint32 ss=sbgn; ss<send; ss++) {
+        uint64  seqLen = sf->sequenceLength(ss);
+
+        //fprintf(stderr, "lens - length %u first %u %u\n", extPar.lensBgn.size(), extPar.lensBgn[0], extPar.lensEnd[0]);
+
+        for (uint32 li=0; li<extPar.lensBgn.size(); li++) {
+          uint64  lmin = extPar.lensBgn[li];
+          uint64  lmax = extPar.lensEnd[li];
+
+          if ((seqLen < lmin) ||
+              (lmax < seqLen))
+            seqLen = UINT64_MAX;
+        }
+
+        if (seqLen == UINT64_MAX)
+          continue;
+
+        if (sf->findSequence(ss) == false) {
+          //fprintf(stderr, "Failed to find sequence #%u in file '%s'\n", ss, inputs[fi]);
+          continue;
+        }
+
+        if (sf->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen) == false) {
+          //fprintf(stderr, "Failed to load sequence #%u in file '%s'\n", ss, inputs[fi]);
+          continue;
+        }
+
+        //fprintf(stderr, "base - length %u first %u %u\n", extPar.baseBgn.size(), extPar.baseBgn[0], extPar.baseEnd[0]);
+
+        outputStringLen = 0;
+
+        for (uint32 bi=0; bi<extPar.baseBgn.size(); bi++) {
+          uint64  bbgn = extPar.baseBgn[bi];
+          uint64  bend = extPar.baseEnd[bi];
+
+          bbgn = min(bbgn, seqLen);
+          bend = min(bend, seqLen);
+
+          //fprintf(stderr, "base - seqLen %u base[%u] %u %u limited %u %u\n", seqLen, bi, extPar.baseBgn[bi], extPar.baseEnd[bi], bbgn, bend);
+
+          if (bbgn == bend)
+            continue;
+
+          memcpy(outputString + outputStringLen, seq + bbgn, bend - bbgn);
+
+          outputStringLen += bend - bbgn;
+        }
+
+        outputString[outputStringLen] = 0;
+
+        if (extPar.asReverse)
+          reverse(outputString, outputString + outputStringLen);
+
+        if (extPar.asComplement)
+          for (uint32 ii=0; ii<outputStringLen; ii++)
+            outputString[ii] = C[outputString[ii]];
+
+        if (extPar.asUpperCase)
+          for (uint32 ii=0; ii<outputStringLen; ii++)
+            outputString[ii] = U[outputString[ii]];
+
+        if (extPar.asLowerCase)
+          for (uint32 ii=0; ii<outputStringLen; ii++)
+            outputString[ii] = L[outputString[ii]];
+
+        fprintf(stdout, ">%s\n%s\n", name, outputString);
+      }
+    }
+
+    //  Done with this file.  Get rid of it.
+
+    delete sf;
+  }
+
+  //  Cleanup.
+
+  delete [] name;
+  delete [] seq;
+  delete [] qlt;
+  delete [] outputString;
 }
 
 
@@ -500,9 +730,6 @@ doExtract(vector<char *> &inputs) {
 
 void
 doGenerate(generateParameters &genPar) {
-
-  genPar.finalize();
-
   mtRandom   MT;
 
   uint64  nSeqs  = 0;
@@ -883,6 +1110,7 @@ main(int argc, char **argv) {
   opMode                      mode = modeUnset;
 
   summarizeParameters         sumPar;
+  extractParameters           extPar;
   generateParameters          genPar;
   sampleParameters            samPar;
   shiftRegisterParameters     srPar;
@@ -917,11 +1145,52 @@ main(int argc, char **argv) {
       mode = modeExtract;
     }
 
-    else if ((mode == modeExtract) && (strcmp(argv[arg], "") == 0)) {
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-bases") == 0)) {
+      AS_UTL_decodeRange(argv[++arg], extPar.baseBgn, extPar.baseEnd);
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-sequences") == 0)) {
+      AS_UTL_decodeRange(argv[++arg], extPar.seqsBgn, extPar.seqsEnd);
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-reverse") == 0)) {
+      extPar.asReverse = true;
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-complement") == 0)) {
+      extPar.asComplement = true;
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-rc") == 0)) {
+      extPar.asReverse = true;
+      extPar.asComplement = true;
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-upper") == 0)) {
+      extPar.asUpperCase = true;
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-lower") == 0)) {
+      extPar.asLowerCase = true;
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-length") == 0)) {
+      AS_UTL_decodeRange(argv[++arg], extPar.lensBgn, extPar.lensEnd);
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-lowermask") == 0)) {
+      extPar.doMasking = true;
+      extPar.maskWithN = false;
+    }
+
+    else if ((mode == modeExtract) && (strcmp(argv[arg], "-nmask") == 0)) {
+      extPar.doMasking = true;
+      extPar.maskWithN = true;
     }
 
     else if ((mode == modeExtract) && (strcmp(argv[arg], "") == 0)) {
     }
+
 
     //  GENERATE
 
@@ -1067,60 +1336,105 @@ main(int argc, char **argv) {
 
   if (mode == modeUnset)
     err.push_back("ERROR:  No mode (summarize, extract, generate or simulate) specified.\n");
+  if (inputs.size() == 0)
+    err.push_back("ERROR:  No sequence files supplied.\n");
 
   if (err.size() > 0) {
     fprintf(stderr, "usage: %s [mode] [options] [sequence_file ...]\n", argv[0]);
     fprintf(stderr, "\n");
-    fprintf(stderr, "MODES:\n");
-    fprintf(stderr, "  summarize      report N50, length histogram, mono-, di- and tri-nucleotide frequencies\n");
-    fprintf(stderr, "  extract        extract the specified sequences\n");
-    fprintf(stderr, "  generate       generate random sequences\n");
-    fprintf(stderr, "  simulate       errors in existing sequences\n");
-    fprintf(stderr, "  sample         emit existing sequences randomly\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "OPTIONS for summarize mode:\n");
-    fprintf(stderr, "  -gs            genome size to use for N50 denominator\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "OPTIONS for extract mode:\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "OPTIONS for generate mode:\n");
-    fprintf(stderr, "  -min M         minimum sequence length\n");
-    fprintf(stderr, "  -max M         maximum sequence length\n");
-    fprintf(stderr, "  -sequences N   generate N sequences\n");
-    fprintf(stderr, "  -bases B       generate at least B bases, no more than B+maxLength-1 bases.\n");
-    fprintf(stderr, "  -gaussian      99.73%% of the reads (3 standard deviations) will be between min and max\n");
-    fprintf(stderr, "  -mirror F      \n");
-    fprintf(stderr, "  -gc bias       sets GC/AT composition (default 0.50)\n");
-    fprintf(stderr, "  -at bias       sets GC/AT composition (default 0.50)\n");
-    fprintf(stderr, "  -a freq        sets frequency of A bases (default 0.25)\n");
-    fprintf(stderr, "  -c freq        sets frequency of C bases (default 0.25)\n");
-    fprintf(stderr, "  -g freq        sets frequency of G bases (default 0.25)\n");
-    fprintf(stderr, "  -t freq        sets frequency of T bases (default 0.25)\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "The -gc option is a shortcut for setting all four base frequencies at once.  Order matters!\n");
-    fprintf(stderr, "  -gc 0.6 -a 0.1 -t 0.3 -- sets G = C = 0.3, A = 0.1, T = 0.3\n");
-    fprintf(stderr, "  -a 0.1 -t 0.3 -gc 0.6 -- sets G = C = 0.3, A = T = 0.15\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Base frequencies are scaled to sum to 1.0.\n");
-    fprintf(stderr, "  -a 1.25 -- results in a sum of 2.0 (1.25 + 0.25 + 0.25 + 0.25) so final frequencies will be:\n");
-    fprintf(stderr, "             A =         1.25/2 = 0.625\n");
-    fprintf(stderr, "             C = G = T = 0.25/2 = 0.125.\n");
-    fprintf(stderr, "  -gc 0.8 -a 1.0 -t 0.2 -- sum is also 2.0, final frequencies will be:\n");
-    fprintf(stderr, "             A =         1.00/2 = 0.5\n");
-    fprintf(stderr, "             C = G =     0.40/2 = 0.2\n");
-    fprintf(stderr, "             T =         0.20/2 = 0.1\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "OPTIONS for simulate mode:\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
+    if (mode == modeUnset) {
+      fprintf(stderr, "MODES:\n");
+      fprintf(stderr, "  summarize      report N50, length histogram, mono-, di- and tri-nucleotide frequencies\n");
+      fprintf(stderr, "  extract        extract the specified sequences\n");
+      fprintf(stderr, "  sample         emit existing sequences randomly\n");
+      fprintf(stderr, "  generate       generate random sequences\n");
+      fprintf(stderr, "  simulate       errors in existing sequences\n");
+      fprintf(stderr, "\n");
+    }
+
+    if ((mode == modeUnset) ||
+        (mode == modeSummarize)) {
+      fprintf(stderr, "OPTIONS for summarize mode:\n");
+      fprintf(stderr, "  -gs            genome size to use for N50 denominator\n");
+      fprintf(stderr, "  -n             report the number of sequences\n");
+      fprintf(stderr, "  -b             report the number of bases\n");
+      fprintf(stderr, "\n");
+    }
+
+    if ((mode == modeUnset) ||
+        (mode == modeExtract)) {
+      fprintf(stderr, "OPTIONS for extract mode:\n");
+      fprintf(stderr, "  -bases     baselist extract bases as specified in the 'list' from each sequence\n");
+      fprintf(stderr, "  -sequences seqlist  extract ordinal sequences as specified in the 'list'\n");
+      fprintf(stderr, "  -reverse            reverse the bases in the sequence\n");
+      fprintf(stderr, "  -complement         complement the bases in the sequence\n");
+      fprintf(stderr, "  -rc                 alias for -reverse -complement\n");
+      fprintf(stderr, "  -upcase\n");
+      fprintf(stderr, "  -downcase\n");
+      fprintf(stderr, "  -length min max     print sequence if it is at least 'min' bases and at most 'max' bases long\n");
+      fprintf(stderr, "  \n");
+      fprintf(stderr, "                      a 'baselist' is a set of integers formed from any combination\n");
+      fprintf(stderr, "                      of the following, seperated by a comma:\n");
+      fprintf(stderr, "                           num       a single number\n");
+      fprintf(stderr, "                           bgn-end   a range of numbers:  bgn <= end\n");
+      fprintf(stderr, "                      bases are spaced-based; -bases 0-2,4 will print the bases between\n");
+      fprintf(stderr, "                      the first two spaces (the first two bases) and the base after the\n");
+      fprintf(stderr, "                      fourth space (the fifth base).\n");
+      fprintf(stderr, "  \n");
+      fprintf(stderr, "                      a 'seqlist' is a set of integers formed from any combination\n");
+      fprintf(stderr, "                      of the following, seperated by a comma:\n");
+      fprintf(stderr, "                           num       a single number\n");
+      fprintf(stderr, "                           bgn-end   a range of numbers:  bgn <= end\n");
+      fprintf(stderr, "                      sequences are 1-based; -sequences 1,3-5 will print the first, third,\n");
+      fprintf(stderr, "                      fourth and fifth sequences.\n");
+      fprintf(stderr, "  \n");
+    }
+
+#if 0
+    if ((mode == modeUnset) ||
+        (mode == modeSample)) {
+      fprintf(stderr, "OPTIONS for sample mode:\n");
+      fprintf(stderr, "\n");
+    }
+#endif
+
+    if ((mode == modeUnset) ||
+        (mode == modeGenerate)) {
+      fprintf(stderr, "OPTIONS for generate mode:\n");
+      fprintf(stderr, "  -min M         minimum sequence length\n");
+      fprintf(stderr, "  -max M         maximum sequence length\n");
+      fprintf(stderr, "  -sequences N   generate N sequences\n");
+      fprintf(stderr, "  -bases B       generate at least B bases, no more than B+maxLength-1 bases.\n");
+      fprintf(stderr, "  -gaussian      99.73%% of the reads (3 standard deviations) will be between min and max\n");
+      fprintf(stderr, "  -mirror F      \n");
+      fprintf(stderr, "  -gc bias       sets GC/AT composition (default 0.50)\n");
+      fprintf(stderr, "  -at bias       sets GC/AT composition (default 0.50)\n");
+      fprintf(stderr, "  -a freq        sets frequency of A bases (default 0.25)\n");
+      fprintf(stderr, "  -c freq        sets frequency of C bases (default 0.25)\n");
+      fprintf(stderr, "  -g freq        sets frequency of G bases (default 0.25)\n");
+      fprintf(stderr, "  -t freq        sets frequency of T bases (default 0.25)\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "The -gc option is a shortcut for setting all four base frequencies at once.  Order matters!\n");
+      fprintf(stderr, "  -gc 0.6 -a 0.1 -t 0.3 -- sets G = C = 0.3, A = 0.1, T = 0.3\n");
+      fprintf(stderr, "  -a 0.1 -t 0.3 -gc 0.6 -- sets G = C = 0.3, A = T = 0.15\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "Base frequencies are scaled to sum to 1.0.\n");
+      fprintf(stderr, "  -a 1.25 -- results in a sum of 2.0 (1.25 + 0.25 + 0.25 + 0.25) so final frequencies will be:\n");
+      fprintf(stderr, "             A =         1.25/2 = 0.625\n");
+      fprintf(stderr, "             C = G = T = 0.25/2 = 0.125.\n");
+      fprintf(stderr, "  -gc 0.8 -a 1.0 -t 0.2 -- sum is also 2.0, final frequencies will be:\n");
+      fprintf(stderr, "             A =         1.00/2 = 0.5\n");
+      fprintf(stderr, "             C = G =     0.40/2 = 0.2\n");
+      fprintf(stderr, "             T =         0.20/2 = 0.1\n");
+      fprintf(stderr, "\n");
+    }
+
+#if 0
+    if ((mode == modeUnset) ||
+        (mode == modeSimulate)) {
+      fprintf(stderr, "OPTIONS for simulate mode:\n");
+    }
+#endif
 
     for (uint32 ii=0; ii<err.size(); ii++)
       if (err[ii])
@@ -1129,12 +1443,16 @@ main(int argc, char **argv) {
     exit(1);
   }
 
+  sumPar.finalize();
+  genPar.finalize();
+  extPar.finalize();
+
   switch (mode) {
     case modeSummarize:
       doSummarize(inputs, sumPar);
       break;
     case modeExtract:
-      doExtract(inputs);
+      doExtract(inputs, extPar);
       break;
     case modeGenerate:
       doGenerate(genPar);

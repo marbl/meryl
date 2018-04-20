@@ -35,7 +35,7 @@ dnaSeqFile::dnaSeqFile(const char *filename, bool indexed) {
   if (_file->isNormal() == false)
     fprintf(stderr, "ERROR: cannot index pipe input.\n"), exit(1);
 
-  fprintf(stderr, "ERROR: indexing not supported (yet).\n"), exit(1);
+  generateIndex();
 }
 
 
@@ -44,6 +44,121 @@ dnaSeqFile::~dnaSeqFile() {
   delete    _file;
   delete    _buffer;
   delete [] _index;
+}
+
+
+
+bool
+dnaSeqFile::findSequence(uint64 i) {
+
+  if (_indexLen == 0)   return(false);
+  if (_indexLen <= i)   return(false);
+
+  _buffer->seek(_index[i]._fileOffset);
+
+  return(true);
+}
+
+
+
+uint64
+dnaSeqFile::sequenceLength(uint64 i) {
+
+  if (_indexLen == 0)   return(UINT64_MAX);
+  if (_indexLen <= i)   return(UINT64_MAX);
+
+  return(_index[i]._sequenceLength);
+}
+
+
+
+
+bool
+dnaSeqFile::findSequence(const char *name) {
+  return(false);
+}
+
+
+
+bool
+dnaSeqFile::loadIndex(void) {
+  char   indexName[FILENAME_MAX+1];
+
+  snprintf(indexName, FILENAME_MAX, "%s.index", _file->filename());
+
+  if (AS_UTL_fileExists(indexName) == false)
+    return(false);
+
+  FILE   *indexFile = AS_UTL_openInputFile(indexName);
+
+  AS_UTL_safeRead(indexFile, &_indexLen, "indexLen",        1, sizeof(uint64));
+
+  _index = new dnaSeqIndexEntry [_indexLen];
+  AS_UTL_safeRead(indexFile,  _index,    "index",   _indexLen, sizeof(dnaSeqIndexEntry));
+
+  AS_UTL_closeFile(indexFile, indexName);
+
+  return(true);
+}
+
+
+
+void
+dnaSeqFile::saveIndex(void) {
+  char   indexName[FILENAME_MAX+1];
+
+  snprintf(indexName, FILENAME_MAX, "%s.index", _file->filename());
+
+  FILE   *indexFile = AS_UTL_openOutputFile(indexName);
+
+  AS_UTL_safeWrite(indexFile, &_indexLen, "indexLen",      1, sizeof(uint64));
+  AS_UTL_safeWrite(indexFile,  _index,    "index", _indexLen, sizeof(dnaSeqIndexEntry));
+
+  AS_UTL_closeFile(indexFile, indexName);
+}
+
+
+
+void
+dnaSeqFile::generateIndex(void) {
+  uint32          nameMax = 0;
+  char           *name    = NULL;
+  uint64          seqMax  = 0;
+  char           *seq     = NULL;
+  uint8          *qlt     = NULL;
+  uint64          seqLen  = 0;
+
+  if (loadIndex() == true)
+    return;
+
+  _indexLen = 0;
+  _indexMax = 1048576;
+  _index    = new dnaSeqIndexEntry [_indexMax];
+
+  _index[_indexLen]._fileOffset     = _buffer->tell();
+  _index[_indexLen]._sequenceLength = 0;
+
+  //  While we read sequences:
+  //    update the length of the sequence (we've already save the position)
+  //    make space for more sequences
+  //    save the position of the next sequence
+  //
+  while (loadSequence(name, nameMax, seq, qlt, seqMax, seqLen) == true) {
+    _index[_indexLen]._sequenceLength = seqLen;
+
+    increaseArray(_index, _indexLen, _indexMax, 1048576);
+
+    _indexLen++;
+
+    _index[_indexLen]._fileOffset     = _buffer->tell();
+    _index[_indexLen]._sequenceLength = 0;
+  }
+
+  //for (uint32 ii=0; ii<_indexLen; ii++)
+  //  fprintf(stderr, "%u offset %lu length %lu\n", ii, _index[ii]._fileOffset, _index[ii]._sequenceLength);
+
+  if (_indexLen > 0)
+    saveIndex();
 }
 
 
