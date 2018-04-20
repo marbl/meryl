@@ -213,18 +213,18 @@ class bitArray {
 public:
   bitArray(uint64 maxNumBits=0) {
     _maxBitSet   = 0;
-    _maxBitAvail = 0;
+    _maxBitAvail = maxNumBits;
     _bits        = NULL;
 
     if (maxNumBits > 0)
-      allocate(maxNumBits);
+      allocate();
   };
 
   ~bitArray(void) {
     delete [] _bits;
   };
 
-  void     allocate(uint64 maxNumBits=0) {
+  void     allocate(void) {
     if (_bits != NULL)
       return;
 
