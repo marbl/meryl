@@ -21,21 +21,45 @@
 #include "AS_UTL_fileIO.H"
 #include "readBuffer.H"
 
-//  Saves the file offset of the first byte in the record:
-//    for FASTA, the '>'
-//    for FASTQ, the '@'.
 
-class dnaSeqIndexEntry {
+
+class dnaSeqIndexEntry;   //  Internal use only, sorry.
+
+
+
+class dnaSeq {
 public:
-  dnaSeqIndexEntry() {
-    _fileOffset     = UINT64_MAX;
-    _sequenceLength = 0;
-  };
-  ~dnaSeqIndexEntry() {
+  dnaSeq() {
+    _nameMax = 0;
+    _name    = NULL;
+    _seqMax  = 0;
+    _seq     = NULL;
+    _qlt     = NULL;
+    _seqLen  = 0;
   };
 
-  uint64   _fileOffset;
-  uint64   _sequenceLength;
+  ~dnaSeq() {
+    delete [] _name;
+    delete [] _seq;
+    delete [] _qlt;
+  };
+
+
+  char             *name(void)         { return(_name);   };
+  char             *bases(void)        { return(_seq);    };
+  uint8            *quals(void)        { return(_qlt);    };
+
+  uint64            length(void)       { return(_seqLen); };
+
+private:
+  uint32            _nameMax = 0;
+  char             *_name    = NULL;
+  uint64            _seqMax  = 0;
+  char             *_seq     = NULL;
+  uint8            *_qlt     = NULL;
+  uint64            _seqLen  = 0;
+
+  friend class dnaSeqFile;
 };
 
 
@@ -101,14 +125,22 @@ public:
                       uint8  *&qlt,      uint64   seqMax,
                       uint64  &seqLen);
 
-  //  Returns a chunk of sequence from the file, up to 'length' bases or
+  bool   loadSequence(dnaSeq &seq) {
+    return(loadSequence(seq._name,    seq._nameMax,
+                        seq._seq,
+                        seq._qlt,     seq._seqMax,
+                        seq._seqLen));
+  };
+
+  //  Returns a chunk of sequence from the file, up to 'maxLength' bases or
   //  the end of the current sequence.
   //
-  //  Returns the number of bases loaded; zero if EOF.
+  //  Returns false if EOF is hit and no bases were loaded.
   //
   bool   loadBases(char    *seq,
                    uint64   maxLength,
-                   uint64  &seqLength);
+                   uint64  &seqLength,
+                   bool    &endOfSequence);
 };
 
 

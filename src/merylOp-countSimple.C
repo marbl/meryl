@@ -24,6 +24,7 @@ merylOperation::countSimple(void) {
   uint64          bufferMax  = 1300000;
   uint64          bufferLen  = 0;
   char           *buffer     = new char     [bufferMax];
+  bool            endOfSeq   = false;
 
   uint64          kmersLen   = 0;
   kmerTiny       *kmers      = new kmerTiny [bufferMax];
@@ -33,7 +34,7 @@ merylOperation::countSimple(void) {
   uint32          kmerValid  = kmer.merSize() - 1;
   uint32          kmerSize   = kmer.merSize();
 
-  uint64          maxKmer    = (uint64)1 << kmerSize;
+  uint64          maxKmer    = (uint64)1 << (2 * kmerSize);
 
   char            str[32];
 
@@ -54,8 +55,9 @@ merylOperation::countSimple(void) {
   //  Tiny counter uses a fixed-width array (8-bit counts, for convenience)
   //  and a variable-width array to store counts.  Each kmer is explicitly stored.
 
-  uint8        *lowBits  = new uint8    [maxKmer];
-  bitArray     *highBits = new bitArray [64];
+  uint8        *lowBits    = new uint8    [maxKmer];
+  bitArray     *highBits   = new bitArray [64];
+  uint32        highBitMax = 0;
 
   memset(lowBits,  0, sizeof(uint8) * maxKmer);
 
@@ -64,7 +66,7 @@ merylOperation::countSimple(void) {
   for (uint32 ii=0; ii<_inputs.size(); ii++) {
     fprintf(stderr, "Loading kmers from '%s' into buckets.\n", _inputs[ii]->_name);
 
-    while (_inputs[ii]->_sequence->loadBases(buffer, bufferMax, bufferLen)) {
+    while (_inputs[ii]->_sequence->loadBases(buffer, bufferMax, bufferLen, endOfSeq)) {
 
       //fprintf(stderr, "read %lu bases from '%s'\n", bufferLen, _inputs[ii]->_name);
 
@@ -96,7 +98,7 @@ merylOperation::countSimple(void) {
 
       //  If we didn't read a full buffer, the sequence ended, and we need to reset the kmer.
 
-      if (bufferLen < bufferMax) {
+      if (endOfSeq) {
         //fprintf(stderr, "END OF SEQUENCE\n");
         kmerLoad = 0;
       }
@@ -106,6 +108,8 @@ merylOperation::countSimple(void) {
       for (uint64 kk=0; kk<kmersLen; kk++) {
         uint64  kidx = (uint64)kmers[kk];
         uint32  hib  = 0;
+
+        assert(kidx < maxKmer);
 
         //  If we can add one to the low bits, do it and get outta here.
 
@@ -119,10 +123,12 @@ merylOperation::countSimple(void) {
         lowBits[kidx] = 0;
 
         for (uint32 hib=0; hib < 64; hib++) {
-          highBits[hib].allocate();
+          highBits[hib].allocate(maxKmer);
 
-          if (highBits[hib].flipBit(kidx) == 0)   //  If not set,
-            break;                                //  set it and stop.
+          if (highBits[hib].flipBit(kidx) == 0) {   //  If not set, set it,
+            highBitMax = max(highBitMax, hib);      //  remember the possible maximum bit set,
+            break;                                  //  and stop.
+          }
         }
       }
     }
@@ -133,43 +139,68 @@ merylOperation::countSimple(void) {
     _inputs[ii]->_sequence = NULL;
   }
 
-  //  Finished loading kmers.  Free up some space.
+  //  Finished loading kmers.  Free up some space before dumping.
 
   delete [] kmers;
   delete [] buffer;
 
-  //  Now just dump!
+  //  Then dump.
 
-  fprintf(stderr, "Dumping.\n");
+  fprintf(stderr, "Dumping, with %d threads.\n", omp_get_max_threads());
 
-  FILE **outputFiles = new FILE * [omp_get_max_threads()];
+  //  The number of blocks MUST be a power of two.
 
-#if 0
-  for (uint32 ii=0; ii<omp_get_max_threads(); ii++) {
-    char     outputName[FILENAME_MAX+1];
+  uint32                 wPrefix    = 10;
+  uint32                 wSuffix    = kmer.merSize() * 2 - wPrefix;
 
-    snprintf(outputName, FILENAME_MAX, "%s", _outputName);
-    AS_UTL_mkdir(outputName);
+  uint64                 nPrefix    = ((uint64)1 << wPrefix);
+  uint64                 nSuffix    = ((uint64)1 << wSuffix);
 
-    snprintf(outputName, FILENAME_MAX, "%s/%03lu.%3lu.merylData", _outputName, ii, 0);
-    outputFiles[ii] = AS_UTL_openOutputFile(outputName);
-  }
+  uint64                 sMask      = ((uint64)1 << wSuffix) - 1;
+
+  kmerCountFileWriter   *outputFile = new kmerCountFileWriter(_outputName, 6, kmer.merSize(), wPrefix, wSuffix);
+
+  uint32                 nThreads    = omp_get_max_threads();
 
 #pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
-    int32  tn = omp_get_thread_num();
+    uint64  bStart   = pp * nSuffix;
+    uint64  bEnd     = pp * nSuffix + nSuffix;
 
-    data[pp].sort(pp);
-    data[pp].dump(pp, tn, outputFiles[tn]);
-    data[pp].clear();
-  }
+    uint64  *sBlock  = new uint64 [nSuffix];
+    uint32  *cBlock  = new uint32 [nSuffix];
+    uint64   nKmers  = 0;
 
-  for (uint32 ii=0; ii<omp_get_max_threads(); ii++) {
-    AS_UTL_closeFile(outputFiles[ii]);
+    for (uint64 bp=bStart; bp<bEnd; bp++) {
+      uint32  count = 0;
+
+      for (uint32 aa=highBitMax+1; aa-- > 0; ) {    //  Reconstruct the count.
+        count <<= 1;
+        count  |= highBits[aa].getBit(bp);
+      }
+
+      count <<= 8;
+      count  |= lowBits[bp];
+
+      if (count > 0) {
+        sBlock[nKmers] = bp & sMask;
+        cBlock[nKmers] = count;
+        nKmers++;
+      }
+    }
+
+    if (nKmers > 0)
+      fprintf(stderr, "Dumping block pp %lu from %lu-%lu with %lu kmers.\n", pp, bStart, bEnd, nKmers);
+
+    outputFile->addBlock(pp, nKmers, sBlock, cBlock);
+
+    delete [] sBlock;
+    delete [] cBlock;
   }
-#endif
 
   //  Cleanup.
+
+  delete    outputFile;
 
   delete [] lowBits;
   delete [] highBits;

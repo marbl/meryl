@@ -56,7 +56,7 @@ estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed m
 
   fprintf(stderr, "\n");
   fprintf(stderr, "\n");
-  fprintf(stderr, "For "F_U64 " million " F_U32 "-mers:\n", nKmerEstimate / 1000000, merSize);
+  fprintf(stderr, "For " F_U64 " million " F_U32 "-mers:\n", nKmerEstimate / 1000000, merSize);
   fprintf(stderr, "\n");
 
   uint64   minMemory = UINT64_MAX;
@@ -128,6 +128,7 @@ merylOperation::count(void) {
   uint64          bufferMax  = 1300000;
   uint64          bufferLen  = 0;
   char           *buffer     = new char     [bufferMax];
+  bool            endOfSeq   = false;
 
   uint64          kmersLen   = 0;
   //kmerTiny       *kmers      = new kmerTiny [bufferMax];
@@ -178,7 +179,7 @@ merylOperation::count(void) {
   for (uint32 ii=0; ii<_inputs.size(); ii++) {
     fprintf(stderr, "Loading kmers from '%s' into buckets.\n", _inputs[ii]->_name);
 
-    while (_inputs[ii]->_sequence->loadBases(buffer, bufferMax, bufferLen)) {
+    while (_inputs[ii]->_sequence->loadBases(buffer, bufferMax, bufferLen, endOfSeq)) {
 
       //fprintf(stderr, "read " F_U64 " bases from '%s'\n", bufferLen, _inputs[ii]->_name);
 
@@ -219,7 +220,7 @@ merylOperation::count(void) {
 
       //  If we didn't read a full buffer, the sequence ended, and we need to reset the kmer.
 
-      if (bufferLen < bufferMax) {
+      if (endOfSeq == true) {
         //fprintf(stderr, "END OF SEQUENCE\n");
         kmerLoad = 0;
       }

@@ -162,7 +162,10 @@ merylOperation::nextMer(void) {
     case opCount:
     case opCountForward:
     case opCountReverse:
-      count();
+      if (_kmer.merSize() <= 16)
+        countSimple();
+      else
+        count();
       fprintf(stderr, "DONE COUNTING, EXIT.\n");
       exit(1);
       break;
@@ -214,10 +217,10 @@ merylOperation::nextMer(void) {
 
     case opPrint:
       if (_inputs.size() != 1)
-        fprintf(stderr, "merylOp::nextMer()-- ERROR: 'print' can operate on one input only; this has " F_U32 " inputs.\n",
+        fprintf(stderr, "merylOp::nextMer()-- ERROR: 'print' can operate on one input only; this has " F_SIZE_T " inputs.\n",
                 _inputs.size()), exit(1);
 
-      fprintf(stdout, "%s\t%u\n", _kmer.toString(kmerString), _actCount[0]);
+      fprintf(stdout, "%s\t" F_U64 "\n", _kmer.toString(kmerString), _actCount[0]);
       break;
 
     case opNothing:

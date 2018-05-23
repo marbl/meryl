@@ -217,18 +217,20 @@ public:
     _bits        = NULL;
 
     if (maxNumBits > 0)
-      allocate();
+      allocate(maxNumBits);
   };
 
   ~bitArray(void) {
     delete [] _bits;
   };
 
-  void     allocate(void) {
+  void     allocate(uint64 maxNumBits) {
     if (_bits != NULL)
       return;
 
-    _bits = new uint64 [_maxBitAvail / 64 + 1];
+    _maxBitSet = 0;
+    _maxBitAvail = maxNumBits;
+    _bits        = new uint64 [_maxBitAvail / 64 + 1];
 
     clear();
   };
@@ -241,6 +243,11 @@ public:
     uint64   w =      (position / 64);
     uint64   b = 63 - (position % 64);
 
+    if (_maxBitAvail <= position)
+      fprintf(stderr, "getBit()--  ERROR: position=" F_U64 " > maximum available=" F_U64 "\n",
+              position, _maxBitAvail);
+    assert(position < _maxBitAvail);
+
     return((_bits[w] >> b) & 0x00000001);
   };
 
@@ -252,6 +259,11 @@ public:
     //fprintf(stderr, "SET pos %9" F_U64P " word %2" F_U64P " bit %2" F_U64P " value %c  0x%016" F_X64P " -> ",
     //        position, w, b, (value) ? '1' : '0', _bits[w]);
 
+    if (_maxBitAvail <= position)
+      fprintf(stderr, "setBit()--  ERROR: position=" F_U64 " > maximum available=" F_U64 "\n",
+              position, _maxBitAvail);
+    assert(position < _maxBitAvail);
+
     _bits[w] &= ~m;
     _bits[w] |= ((uint64)value) << b;
 
@@ -262,9 +274,19 @@ public:
     uint64   w =      (position / 64);
     uint64   b = 63 - (position % 64);
     uint64   m = ((uint64)1) << b;
+
+    if (_maxBitAvail <= position)
+      fprintf(stderr, "flipBit()--  ERROR: position=" F_U64 " > maximum available=" F_U64 "\n",
+              position, _maxBitAvail);
+    assert(position < _maxBitAvail);
+
     uint64   v = _bits[w] & m;
 
-    _bits[w] ^= v;
+    //fprintf(stderr, "FLIP w %lu b %lu m 0x%016lx v 0x%016lx FROM 0x%016lx", w, b, m, v, _bits[w]);
+
+    _bits[w] ^= m;
+
+    //fprintf(stderr, " TO 0x%016lx\n", _bits[w]);
 
     return(v >> b);
   };

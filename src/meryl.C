@@ -208,6 +208,36 @@ main(int argc, char **argv) {
     fprintf(stderr, "  -m <M>       use no more than M gigabytes of memory\n");
     fprintf(stderr, "  -t <T>       use no more than T compute threads\n");
     fprintf(stderr, "\n");
+    fprintf(stderr, "  A meryl command line is formed as a series of commands and files, possibly\n");
+    fprintf(stderr, "  grouped using square brackets.  Each command operates on the file(s) that\n");
+    fprintf(stderr, "  are listed after it.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "  COMMANDS:\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "    count\n");
+    fprintf(stderr, "    count-forward\n");
+    fprintf(stderr, "    count-reverse\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "    union\n");
+    fprintf(stderr, "    union-min\n");
+    fprintf(stderr, "    union-max\n");
+    fprintf(stderr, "    union-sum\n");
+    fprintf(stderr, "    intersect\n");
+    fprintf(stderr, "    intersect-min\n");
+    fprintf(stderr, "    intersect-max\n");
+    fprintf(stderr, "    intersect-sum\n");
+    fprintf(stderr, "    difference\n");
+    fprintf(stderr, "    symmetric-difference\n");
+    fprintf(stderr, "    complement\n");
+    fprintf(stderr, "    print\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "    output\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "  EXAMPLES:\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "    meryl -k 16 count input.fasta output counted-kmers \n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "      Count the k=16 mers in 'input.fasta' and write results to the meryl directory 'counted-kmers'.\n");
     fprintf(stderr, "\n");
 
     for (uint32 ii=0; ii<err.size(); ii++)
