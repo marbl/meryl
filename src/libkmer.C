@@ -182,6 +182,21 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName) {
 
   delete indexData;
 
+  fprintf(stderr, "Found prefixSize %u\n", _prefixSize);
+  fprintf(stderr, "Found suffixSize %u\n", _suffixSize);
+  fprintf(stderr, "Found merSize    %u\n", _merSize);
+  fprintf(stderr, "Found numFiles   %u\n", _numFiles);
+
+  //  
+
+  {
+    kmer  k;
+
+    if (k.merSize() == 0)
+      k.setSize(_merSize);
+
+    assert(k.merSize() == _merSize);
+  }
 
   //  Remember that we haven't opened any input files yet.
 

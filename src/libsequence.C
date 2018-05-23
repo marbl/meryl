@@ -17,6 +17,26 @@
 #include "libsequence.H"
 
 
+
+//  Saves the file offset of the first byte in the record:
+//    for FASTA, the '>'
+//    for FASTQ, the '@'.
+
+class dnaSeqIndexEntry {
+public:
+  dnaSeqIndexEntry() {
+    _fileOffset     = UINT64_MAX;
+    _sequenceLength = 0;
+  };
+  ~dnaSeqIndexEntry() {
+  };
+
+  uint64   _fileOffset;
+  uint64   _sequenceLength;
+};
+
+
+
 dnaSeqFile::dnaSeqFile(const char *filename, bool indexed) {
 
   _file     = new compressedFileReader(filename);
@@ -75,6 +95,8 @@ dnaSeqFile::sequenceLength(uint64 i) {
 
 bool
 dnaSeqFile::findSequence(const char *name) {
+  fprintf(stderr, "dnaSeqFile::findSequence(const char *) not supported.\n");
+  exit(1);
   return(false);
 }
 
@@ -303,9 +325,11 @@ dnaSeqFile::loadSequence(char   *&name,     uint32   nameMax,
 bool
 dnaSeqFile::loadBases(char    *seq,
                       uint64   maxLength,
-                      uint64  &seqLength) {
+                      uint64  &seqLength,
+                      bool    &endOfSequence) {
 
-  seqLength = 0;
+  seqLength     = 0;
+  endOfSequence = false;
 
   if (_buffer->eof() == true)
     return(false);
@@ -316,12 +340,7 @@ dnaSeqFile::loadBases(char    *seq,
     while (_buffer->peek() == '\n')    //  Skip whitespace before the first name line.
       _buffer->read();
 
-#if 0
-    for (char ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())
-      ;
-#else
     _buffer->skipAhead('\n');
-#endif
   }
 
   //  Skip whitespace.
@@ -329,54 +348,50 @@ dnaSeqFile::loadBases(char    *seq,
   while (_buffer->peek() == '\n')
     _buffer->read();
 
-  //  We're now at sequence, so load until we're not in sequence or out of space.
+  //  If now at EOF, that's it.
 
-  char    ch = _buffer->read();
+  if  (_buffer->eof() == true)
+    return(false);
+
+  //  Otherwise, we must be in the middle of sequence, so load
+  //  until we're not in sequence or out of space.
 
   while (_buffer->eof() == false) {
 
-    //  If we hit the next sequence, skip the header, leaving us at the start of the bases.
+    //  If we're at the start of a new sequence, skip over any QV's and
+    //  the next name line, set endOfSequence and return.
 
-    if (ch == '>') {
-#if 0
-      for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the name of the next sequence
-        ;
-#else
+    if (_buffer->peek() == '>') {
       _buffer->skipAhead('\n');
-#endif
+      endOfSequence = true;
       return(true);
     }
 
-    if (ch == '+') {
-#if 0
-      for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the quality name line
-        ;
-      for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the qualities
-        ;
-      for (ch = _buffer->read(); (ch != '\n') && (ch != 0); ch = _buffer->read())   //  Skip the name of the next sequence
-        ;
-#else
+    if (_buffer->peek() == '+') {
       _buffer->skipAhead('\n');
       _buffer->skipAhead('\n');
       _buffer->skipAhead('\n');
-#endif
+      endOfSequence = true;
       return(true);
     }
 
-    //  Otherwise, add the base and move ahead.
+    //  Read some bases.
 
-#if 0
-    if (ch != '\n')
-      seq[seqLength++] = ch;
-#else
     seqLength += _buffer->copyUntil('\n', seq + seqLength, maxLength - seqLength);
-#endif
 
     if (seqLength == maxLength)
       return(true);
 
-    ch = _buffer->read();
+    //  We're at a newline (or end of file), either way, suck in the next letter
+    //  (or nothing) and keep going.
+
+    _buffer->read();
   }
 
-  return(seqLength > 0);     //  We've hit EOF.  If no bases were loaded, indicate we're all done.
+  //  We hit EOF.  If there are bases loaded, then we're at the end of 
+  //  a sequence, and should return that we loaded bases.
+
+  endOfSequence = (seqLength > 0);
+
+  return(endOfSequence);
 }

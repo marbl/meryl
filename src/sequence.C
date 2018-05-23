@@ -300,7 +300,8 @@ doSummarize_loadSequence(dnaSeqFile  *sf,
 
   uint64   bufferMax = 23;
   uint64   bufferLen = 0;
-  char    *buffer = new char [bufferMax];
+  char    *buffer    = new char [bufferMax];
+  bool     endOfSeq  = false;
 
   resizeArray(name, 0, nameMax, (uint32)1024);
   resizeArrayPair(seq, qlt, 0, seqMax, seqLen+1, resizeArray_doNothing);
@@ -311,18 +312,19 @@ doSummarize_loadSequence(dnaSeqFile  *sf,
 
   seqLen = 0;
 
-  while (sf->loadBases(buffer, bufferMax, bufferLen)) {
+  while (sf->loadBases(buffer, bufferMax, bufferLen, endOfSeq)) {
     if (seqLen + bufferLen >= seqMax)
-      resizeArrayPair(seq, qlt, seqLen, seqMax, 2 * seqLen + 1);
+      resizeArrayPair(seq, qlt, seqLen, seqMax, 2 * (seqLen + bufferLen + 1));
+
+    assert(seqLen + bufferLen + 1 < seqMax);
 
     memcpy(seq + seqLen, buffer, sizeof(char) * bufferLen);
     seqLen += bufferLen;
 
     seq[seqLen] = 0;
 
-    if (bufferLen < bufferMax) {  //  Hit end of sequence, so return
-      return(true);               //  that we loaded something.
-    }
+    if (endOfSeq)
+      return(true);
   }
 
   return(false);  //  sf->loadBases() returned false, so didn't load anything.
@@ -451,6 +453,9 @@ doSummarize(vector<char *>       &inputs,
   double   bucketSized = (double)(maxLength - minLength) / nRows;
   uint32   bucketSize  = (uint32)ceil(bucketSized);
 
+  if (bucketSize == 0)
+    bucketSize = 1;
+
   nRows = (maxLength - minLength) / bucketSize;
 
   if (nRows > nRowsMin)
@@ -516,9 +521,13 @@ doSummarize(vector<char *>       &inputs,
     lSum += lengths[ii];
 
     while (lSum >= nThr) {
-      fprintf(stdout, "%05"    F_U32P " %12" F_U64P " %9" F_U32P " %12" F_U64P "  ||  %s\n",
-              nVal, lengths[ii], ii, lSum,
-              histPlot[hp++]);
+      if (hp <= nRows)
+        fprintf(stdout, "%05"    F_U32P " %12" F_U64P " %9" F_U32P " %12" F_U64P "  ||  %s\n",
+                nVal, lengths[ii], ii, lSum,
+                histPlot[hp++]);
+      else
+        fprintf(stdout, "%05"    F_U32P " %12" F_U64P " %9" F_U32P " %12" F_U64P "  ||\n",
+                nVal, lengths[ii], ii, lSum);
 
       if      (nVal <   200)   nVal += nStep;
       else if (nVal <  2000)   nVal += nStep * 10;
@@ -529,7 +538,11 @@ doSummarize(vector<char *>       &inputs,
     }
   }
 
-  fprintf(stdout, "%07.3fx           %9" F_U64P " %12" F_U64P "  ||  %s\n", (double)lSum / sumPar.genomeSize, nSeqs, lSum, histPlot[hp++]);
+  if (hp <= nRows)
+    fprintf(stdout, "%07.3fx           %9" F_U64P " %12" F_U64P "  ||  %s\n", (double)lSum / sumPar.genomeSize, nSeqs, lSum, histPlot[hp++]);
+  else
+    fprintf(stdout, "%07.3fx           %9" F_U64P " %12" F_U64P "  ||\n",     (double)lSum / sumPar.genomeSize, nSeqs, lSum);
+
   //fprintf(stdout,    "                                           ||  %s\n", histPlot[hp++]);
   //fprintf(stdout,   "                 genome-size %12" F_U64P "  ||  %s\n", sumPar.genomeSize, histPlot[hp++]);
 
@@ -783,7 +796,7 @@ doGenerate(generateParameters &genPar) {
 
     AS_UTL_writeFastA(stdout,
                       seq, seqLen, 0,
-                      ">random%08 "F_U64P"\n", nSeqs);
+                      ">random%08 " F_U64P "\n", nSeqs);
 
     nSeqs  += 1;
     nBases += seqLen;
@@ -821,53 +834,12 @@ bool seqOrderNormal(const seqEntry &a, const seqEntry &b) {
 
 
 
-
 void
-doSample(vector<char *> &inputs, sampleParameters &samPar) {
-
-  samPar.initialize();
-
-  uint32            nameMax = 0;
-  char             *name    = NULL;
-  uint64            seqMax  = 0;
-  char             *seq     = NULL;
-  uint8            *qlt     = NULL;
-  uint64            seqLen  = 0;
-
-  vector<uint64>    numSeqsPerFile;
-  vector<uint64>    seqLengths;
-  vector<seqEntry>  seqOrder;
-
-  uint64            numSeqsTotal  = 0;
-  uint64            numBasesTotal = 0;
-
-  vector<char *>    names;
-  vector<char *>    sequences;
-  vector<char *>    qualities;
-
-  mtRandom          MT;
-
-  //  Scan the inputs, saving the number of sequences in each and the length of each sequence.
-
-  for (uint32 ff=0; ff<inputs.size(); ff++) {
-    dnaSeqFile  *sf = new dnaSeqFile(inputs[ff]);
-
-    uint64  num = 0;
-
-    while (sf->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen)) {
-      seqLengths.push_back(seqLen);
-      seqOrder.push_back(seqEntry(MT, numSeqsTotal));
-
-      numSeqsTotal  += 1;
-      numBasesTotal += seqLen;
-
-      num += 1;
-    }
-
-    numSeqsPerFile.push_back(num);
-
-    delete sf;
-  }
+doSample_sample(sampleParameters &samPar,
+                uint64            numSeqsTotal,
+                uint64            numBasesTotal,
+                vector<uint64>   &seqLengths,
+                vector<seqEntry> &seqOrder) {
 
   //  Randomize the sequences.
 
@@ -922,32 +894,193 @@ doSample(vector<char *> &inputs, sampleParameters &samPar) {
   //  Unrandomize the sequences.  Not needed for 2-pass, but needed for 1-pass.
 
   sort(seqOrder.begin(), seqOrder.end(), seqOrderNormal);
+}
+
+
+
+void
+doSample_paired(vector<char *> &inputs, sampleParameters &samPar) {
+
+  samPar.initialize();
+
+  vector<uint64>    numSeqsPerFile;
+  vector<uint64>    seqLengths;
+  vector<seqEntry>  seqOrder;
+
+  uint64            numSeqsTotal  = 0;
+  uint64            numBasesTotal = 0;
+
+  vector<char *>    names;
+  vector<char *>    sequences;
+  vector<char *>    qualities;
+
+  mtRandom          MT;
+
+  //  Open output files. If paired, replace #'s in the output names with 1 or 2.
+
+  FILE *outFile1 = NULL;
+  FILE *outFile2 = NULL;
+
+  {
+    char  *a = strrchr(samPar.output1, '#');
+    char  *b = strrchr(samPar.output2, '#');
+
+    if ((a == NULL) &&
+        (b == NULL)) {
+      fprintf(stderr, "ERROR: Failed to find '#' in output name '%s'\n", samPar.output1);
+      exit(1);
+    }
+
+    *a = '1';
+    *b = '2';
+
+    outFile1 = AS_UTL_openOutputFile(samPar.output1);
+    outFile2 = AS_UTL_openOutputFile(samPar.output2);
+  }
+
+  //  Scan the inputs, saving the number of sequences in each and the length of each sequence.
+
+  dnaSeq   seq1;
+  dnaSeq   seq2;
+
+  for (uint32 ff=0; ff<inputs.size(); ff += 2) {
+    dnaSeqFile  *sf1 = new dnaSeqFile(inputs[ff+0]);
+    dnaSeqFile  *sf2 = new dnaSeqFile(inputs[ff+1]);
+    uint64       num = 0;
+
+    bool   sf1more = sf1->loadSequence(seq1);
+    bool   sf2more = sf2->loadSequence(seq2);
+
+    while ((sf1more == true) &&
+           (sf2more == true)) {
+      seqLengths.push_back(seq1.length() + seq2.length());
+      seqOrder.push_back(seqEntry(MT, numSeqsTotal));
+
+      numSeqsTotal  += 1;
+      numBasesTotal += seq1.length() + seq2.length();
+
+      num += 1;
+
+      sf1more = sf1->loadSequence(seq1);
+      sf2more = sf2->loadSequence(seq2);
+    }
+
+    numSeqsPerFile.push_back(num);
+
+    delete sf1;
+    delete sf2;
+  }
+
+  //  Figure out what to output.
+
+  doSample_sample(samPar, numSeqsTotal, numBasesTotal, seqLengths, seqOrder);
 
   //  Scan the inputs again, this time emitting sequences if their saved length isn't zero.
 
-  for (uint32 ff=0; ff<inputs.size(); ff++) {
-    dnaSeqFile  *sf  = new dnaSeqFile(inputs[ff]);
+  for (uint32 ff=0; ff<inputs.size(); ff += 2) {
+    dnaSeqFile  *sf1 = new dnaSeqFile(inputs[ff+0]);
+    dnaSeqFile  *sf2 = new dnaSeqFile(inputs[ff+1]);
     uint64       num = 0;
 
-    while (sf->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen)) {
-      if (seqLengths[num] > 0)
-        AS_UTL_writeFastA(stdout,
-                          seq, seqLengths[num], 0,
-                          ">%s\n", name);
+    bool   sf1more = sf1->loadSequence(seq1);
+    bool   sf2more = sf2->loadSequence(seq2);
+
+    while ((sf1more == true) &&
+           (sf2more == true)) {
+      if (seqLengths[num] > 0) {
+        AS_UTL_writeFastA(outFile1, seq1.bases(), seq1.length(), 0, ">%s\n", seq1.name());
+        AS_UTL_writeFastA(outFile2, seq2.bases(), seq2.length(), 0, ">%s\n", seq2.name());
+      }
+
+      num += 1;
+
+      sf1more = sf1->loadSequence(seq1);
+      sf2more = sf2->loadSequence(seq2);
+    }
+
+    delete sf1;
+    delete sf2;
+  }
+}
+
+
+
+void
+doSample_single(vector<char *> &inputs, sampleParameters &samPar) {
+
+  samPar.initialize();
+
+  vector<uint64>    numSeqsPerFile;
+  vector<uint64>    seqLengths;
+  vector<seqEntry>  seqOrder;
+
+  uint64            numSeqsTotal  = 0;
+  uint64            numBasesTotal = 0;
+
+  vector<char *>    names;
+  vector<char *>    sequences;
+  vector<char *>    qualities;
+
+  mtRandom          MT;
+
+  //  Open output files. If paired, replace #'s in the output names with 1 or 2.
+
+  FILE *outFile1 = AS_UTL_openOutputFile(samPar.output1);
+
+  //  Scan the inputs, saving the number of sequences in each and the length of each sequence.
+
+  dnaSeq   seq1;
+
+  for (uint32 ff=0; ff<inputs.size(); ff++) {
+    dnaSeqFile  *sf1 = new dnaSeqFile(inputs[ff]);
+    uint64       num = 0;
+
+    while (sf1->loadSequence(seq1)) {
+      seqLengths.push_back(seq1.length());
+      seqOrder.push_back(seqEntry(MT, numSeqsTotal));
+
+      numSeqsTotal  += 1;
+      numBasesTotal += seq1.length();
 
       num += 1;
     }
 
-    delete sf;
+    numSeqsPerFile.push_back(num);
+
+    delete sf1;
   }
 
-  //  Cleanup and quit.
+  //  Figure out what to output.
 
-  delete [] name;
-  delete [] seq;
-  delete [] qlt;
+  doSample_sample(samPar, numSeqsTotal, numBasesTotal, seqLengths, seqOrder);
+
+  //  Scan the inputs again, this time emitting sequences if their saved length isn't zero.
+
+  for (uint32 ff=0; ff<inputs.size(); ff++) {
+    dnaSeqFile  *sf1 = new dnaSeqFile(inputs[ff]);
+    uint64       num = 0;
+
+    while (sf1->loadSequence(seq1)) {
+      if (seqLengths[num] > 0)
+        AS_UTL_writeFastA(outFile1, seq1.bases(), seq1.length(), 0, ">%s\n", seq1.name());
+
+      num += 1;
+    }
+
+    delete sf1;
+  }
 }
 
+
+
+void
+doSample(vector<char *> &inputs, sampleParameters &samPar) {
+
+  if (samPar.isPaired == false)
+    doSample_single(inputs, samPar);
+  else
+    doSample_paired(inputs, samPar);
+}
 
 
 
@@ -1125,7 +1258,7 @@ main(int argc, char **argv) {
       mode = modeSummarize;
     }
 
-    else if ((mode == modeSummarize) && (strcmp(argv[arg], "-gs") == 0)) {
+    else if ((mode == modeSummarize) && (strcmp(argv[arg], "-size") == 0)) {
       sumPar.genomeSize = strtoull(argv[++arg], NULL, 10);
     }
 
@@ -1269,35 +1402,34 @@ main(int argc, char **argv) {
       samPar.isPaired = true;
     }
 
-    else if ((mode == modeSample) && (strcmp(argv[arg], "-genomesize") == 0)) {
-      samPar.genomeSize = strtouint64(argv[++arg]);
+    else if ((mode == modeSample) && (strcmp(argv[arg], "-output") == 0)) {
+      strncpy(samPar.output1, argv[++arg], FILENAME_MAX);  //  #'s in the name will be replaced
+      strncpy(samPar.output2, argv[  arg], FILENAME_MAX);  //  by '1' or '2' later.
     }
+
 
     else if ((mode == modeSample) && (strcmp(argv[arg], "-coverage") == 0)) {      //  Sample reads up to some coverage C
       samPar.desiredCoverage = strtodouble(argv[++arg]);
     }
 
-    else if ((mode == modeSample) && (strcmp(argv[arg], "-reads") == 0)) {         //  Sample N reads
-      samPar.desiredNumReads = strtouint64(argv[++arg]);
+    else if ((mode == modeSample) && (strcmp(argv[arg], "-genomesize") == 0)) {
+      samPar.genomeSize = strtouint64(argv[++arg]);
     }
 
     else if ((mode == modeSample) && (strcmp(argv[arg], "-bases") == 0)) {         //  Sample B bases
       samPar.desiredNumBases = strtouint64(argv[++arg]);
     }
 
+    else if ((mode == modeSample) && (strcmp(argv[arg], "-reads") == 0)) {         //  Sample N reads
+      samPar.desiredNumReads = strtouint64(argv[++arg]);
+    }
+
+    else if ((mode == modeSample) && (strcmp(argv[arg], "-pairs") == 0)) {         //  Sample N pairs of reads
+      samPar.desiredNumReads = strtouint64(argv[++arg]) * 2;
+    }
+
     else if ((mode == modeSample) && (strcmp(argv[arg], "-fraction") == 0)) {      //  Sample F fraction
       samPar.desiredFraction = strtodouble(argv[++arg]);
-    }
-
-    else if ((mode == modeSample) && (strcmp(argv[arg], "-output") == 0)) {
-      strncpy(samPar.output1, argv[++arg], FILENAME_MAX);  //  #'s in the name will be replaced
-      strncpy(samPar.output2, argv[  arg], FILENAME_MAX);  //  by '1' or '2' later.
-    }
-
-    else if ((mode == modeSample) && (strcmp(argv[arg], "") == 0)) {
-    }
-
-    else if ((mode == modeSample) && (strcmp(argv[arg], "") == 0)) {
     }
 
     //  SHIFT
@@ -1334,14 +1466,20 @@ main(int argc, char **argv) {
     arg++;
   }
 
-  if (mode == modeUnset)
+  if  (mode == modeUnset)
     err.push_back("ERROR:  No mode (summarize, extract, generate or simulate) specified.\n");
   if (inputs.size() == 0)
     err.push_back("ERROR:  No sequence files supplied.\n");
 
+  if (inputs.size() == 0)
+    err.push_back("ERROR:  No input files supplied.\n");
+
+
+
   if (err.size() > 0) {
     fprintf(stderr, "usage: %s [mode] [options] [sequence_file ...]\n", argv[0]);
     fprintf(stderr, "\n");
+
     if (mode == modeUnset) {
       fprintf(stderr, "MODES:\n");
       fprintf(stderr, "  summarize      report N50, length histogram, mono-, di- and tri-nucleotide frequencies\n");
@@ -1352,17 +1490,15 @@ main(int argc, char **argv) {
       fprintf(stderr, "\n");
     }
 
-    if ((mode == modeUnset) ||
-        (mode == modeSummarize)) {
+    if ((mode == modeUnset) || (mode == modeSummarize)) {
       fprintf(stderr, "OPTIONS for summarize mode:\n");
-      fprintf(stderr, "  -gs            genome size to use for N50 denominator\n");
-      fprintf(stderr, "  -n             report the number of sequences\n");
-      fprintf(stderr, "  -b             report the number of bases\n");
+      fprintf(stderr, "  -size          base size to use for N50 statistics\n");
+      fprintf(stderr, "  -assequences   load data as complete sequences (for testing)\n");
+      fprintf(stderr, "  -asbases       load data as blocks of bases    (for testing)\n");
       fprintf(stderr, "\n");
     }
 
-    if ((mode == modeUnset) ||
-        (mode == modeExtract)) {
+    if ((mode == modeUnset) || (mode == modeExtract)) {
       fprintf(stderr, "OPTIONS for extract mode:\n");
       fprintf(stderr, "  -bases     baselist extract bases as specified in the 'list' from each sequence\n");
       fprintf(stderr, "  -sequences seqlist  extract ordinal sequences as specified in the 'list'\n");
@@ -1390,16 +1526,26 @@ main(int argc, char **argv) {
       fprintf(stderr, "  \n");
     }
 
-#if 0
-    if ((mode == modeUnset) ||
-        (mode == modeSample)) {
+    if ((mode == modeUnset) || (mode == modeSample)) {
       fprintf(stderr, "OPTIONS for sample mode:\n");
+      fprintf(stderr, "  -paired             treat inputs as paired sequences; the first two files form the\n");
+      fprintf(stderr, "                      first pair, and so on.\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  -output O           write output sequences to file O.  If paired, two files must be supplied.\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  -coverage C         output C coverage of sequences, based on genome size G.\n");
+      fprintf(stderr, "  -genomesize G       \n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  -bases B            output B bases.\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  -reads R            output R reads.\n");
+      fprintf(stderr, "  -pairs P            output P pairs (only if -paired).\n");
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  -fraction F         output fraction F of the input bases.\n");
       fprintf(stderr, "\n");
     }
-#endif
 
-    if ((mode == modeUnset) ||
-        (mode == modeGenerate)) {
+    if ((mode == modeUnset) || (mode == modeGenerate)) {
       fprintf(stderr, "OPTIONS for generate mode:\n");
       fprintf(stderr, "  -min M         minimum sequence length\n");
       fprintf(stderr, "  -max M         maximum sequence length\n");
@@ -1429,12 +1575,10 @@ main(int argc, char **argv) {
       fprintf(stderr, "\n");
     }
 
-#if 0
-    if ((mode == modeUnset) ||
-        (mode == modeSimulate)) {
+    if ((mode == modeUnset) || (mode == modeSimulate)) {
       fprintf(stderr, "OPTIONS for simulate mode:\n");
+      fprintf(stderr, "\n");
     }
-#endif
 
     for (uint32 ii=0; ii<err.size(); ii++)
       if (err[ii])

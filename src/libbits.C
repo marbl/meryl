@@ -136,7 +136,7 @@ stuffedBits::loadFromFile(FILE *F) {
   uint32   inLen    = 0;
   uint32   inMax    = 0;
 
-  fprintf(stderr, "stuffedBits::loadFromFile()-- Loading at position " F_U64 ".\n", AS_UTL_ftell(F));
+  //fprintf(stderr, "stuffedBits::loadFromFile()-- Loading at position " F_U64 ".\n", AS_UTL_ftell(F));
 
   //  Try to load the new parameters.  Into temporary storage, so we can compare against what we
   //  have already allocated.
@@ -146,7 +146,7 @@ stuffedBits::loadFromFile(FILE *F) {
   nLoad += AS_UTL_safeRead(F, &inMax,    "dataBlocksMax",   sizeof(uint32), 1);  //  Number of blocks allocated.
 
   if (nLoad != 3) {
-    fprintf(stderr, "stuffedBits::loadFromFile()-- End of file detected.\n");
+    //fprintf(stderr, "stuffedBits::loadFromFile()-- End of file detected.\n");
     return(false);
   }
 
@@ -180,14 +180,14 @@ stuffedBits::loadFromFile(FILE *F) {
 
   //  Load the data.
 
-  fprintf(stderr, "stuffedBits::loadFromFile()--   Found " F_U32 " blocks (max length " F_U64 ").\n", _dataBlocksLen, _dataBlockLenMax);
+  //fprintf(stderr, "stuffedBits::loadFromFile()--   Found " F_U32 " blocks (max length " F_U64 ").\n", _dataBlocksLen, _dataBlockLenMax);
 
   AS_UTL_safeRead(F,  _dataBlockBgn,  "dataBlockBgn",  sizeof(uint64), _dataBlocksLen);
   AS_UTL_safeRead(F,  _dataBlockLen,  "dataBlockLen",  sizeof(uint64), _dataBlocksLen);
 
   for (uint32 ii=0; ii<_dataBlocksLen; ii++)
-    fprintf(stderr, "stuffedBits::loadFromFile()--     %2" F_U32P " begin %12" F_U64P " length %12" F_U64P "\n",
-            ii, _dataBlockBgn[ii], _dataBlockLen[ii]);
+    //fprintf(stderr, "stuffedBits::loadFromFile()--     %2" F_U32P " begin %12" F_U64P " length %12" F_U64P "\n",
+    //        ii, _dataBlockBgn[ii], _dataBlockLen[ii]);
 
   for (uint32 ii=0; ii<_dataBlocksLen; ii++) {
     uint64  nWordsToRead  = _dataBlockLen[ii] / 64 + (((_dataBlockLen[ii] % 64) == 0) ? 0 : 1);
