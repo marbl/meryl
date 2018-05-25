@@ -36,23 +36,51 @@ public:
 
   static
   void        setSize(uint32 ms) {
-    _merSize   = ms;
-    _merSpan   = ms;
-    _mask      = uint64MASK(ms * 2);
-    _leftShift = ((2 * ms - 2) % 64) - 1;
-    fprintf(stderr, "setSize(" F_U32 ") " F_U32 " " F_U32 " 0x%016" F_X64P " " F_U32 "\n",
-            ms, _merSize, _merSpan, _mask, _leftShift);
+    _merSize    = ms;
+    _merSpan    = ms;
+
+    _fullMask   = uint64MASK(ms * 2);
+
+    _leftMask   = uint64MASK(ms * 2 - 2);
+    _leftShift  = ((2 * ms - 2) % 64);
+
+    fprintf(stderr, "setSize(" F_U32 ") _merSize=" F_U32 " _merSpan=" F_U32 " _fullMask=0x%016" F_X64P " _leftMask=0x%016" F_X64P " _leftShift=" F_U32 "\n",
+            ms, _merSize, _merSpan, _fullMask, _leftMask, _leftShift);
   };
 
   static
   uint32      merSize(void) { return(_merSize); };
 
-  void        addR(char base)       { _mer  = (((_mer << 2) & _mask) | ((base & 0x06) >> 1));           };
-  void        addL(char base)       { _mer  = (((_mer >> 2)        ) | ((base & 0x06) << _leftShift));  };
+  //  Push an ASCII base onto the mer, shifting the mer to the right or left
+  //  to make space for the new base.  Unlike the 'standard' two-bit encoding,
+  //  these encode bases as A=00, C=01, G=11, T=10.
+  //
+  void        addR(char base)       { _mer  = (((_mer << 2) & _fullMask) | (((base >> 1) & 0x03llu)          )              );  };
+  void        addL(char base)       { _mer  = (((_mer >> 2) & _leftMask) | (((base >> 1) & 0x03llu) ^ 0x02llu) << _leftShift);  };
 
-  //void        mask(uint32 merSize)  { _mer &= _mask;  };
-
+  //  Reverse-complementation of a kmer involves complementing the bases in
+  //  the mer, revesing the order of all the bases, then aligning the bases
+  //  to the low-order bits of the word.
+  //
   kmerTiny   &reverseComplement(void) {
+
+    //  Complement the bases
+
+    _mer ^= 0xaaaaaaaaaaaaaaaallu;
+
+    //  Reverse the mer
+
+    _mer = ((_mer >>  2) & 0x3333333333333333llu) | ((_mer <<  2) & 0xccccccccccccccccllu);
+    _mer = ((_mer >>  4) & 0x0f0f0f0f0f0f0f0fllu) | ((_mer <<  4) & 0xf0f0f0f0f0f0f0f0llu);
+    _mer = ((_mer >>  8) & 0x00ff00ff00ff00ffllu) | ((_mer <<  8) & 0xff00ff00ff00ff00llu);
+    _mer = ((_mer >> 16) & 0x0000ffff0000ffffllu) | ((_mer << 16) & 0xffff0000ffff0000llu);
+    _mer = ((_mer >> 32) & 0x00000000ffffffffllu) | ((_mer << 32) & 0xffffffff00000000llu);
+
+    //  Shift and mask out the bases not in the mer
+
+    _mer >>= 64 - _merSize * 2;
+    _mer  &= _fullMask;
+
     return(*this);
   };
 
@@ -92,10 +120,13 @@ private:
 public:
   uint64         _mer;
 
-  static uint32  _merSize;    //  number of bases in this mer
-  static uint32  _merSpan;    //  number of sequence bases this mer spans
-  static uint64  _mask;       //  mask to ensure kmer has exactly _merSize bases in it
-  static uint32  _leftShift;  //  how far to shift a base to append to the left of the kmer
+  static uint32  _merSize;     //  number of bases in this mer
+  static uint32  _merSpan;     //  number of sequence bases this mer spans
+
+  static uint64  _fullMask;    //  mask to ensure kmer has exactly _merSize bases in it
+
+  static uint64  _leftMask;    //  mask out the left-most base.
+  static uint32  _leftShift;   //  how far to shift a base to append to the left of the kmer
 };
 
 
@@ -167,6 +198,7 @@ private:
   uint32              _prefixSize;
   uint32              _suffixSize;
   uint32              _merSize;
+  uint32              _numFilesBits;
   uint32              _numFiles;
 
   kmerCountStatistics _stats;
@@ -193,7 +225,6 @@ private:
 class kmerCountFileWriter {
 public:
   kmerCountFileWriter(const char *outputName,
-                      uint32      splitting,
                       uint32      merSize,
                       uint32      prefixSize = 0,
                       uint32      suffixSize = 0);
@@ -213,6 +244,7 @@ private:
   uint32              _prefixSize;
   uint32              _suffixSize;
   uint32              _merSize;
+  uint32              _numFilesBits;
   uint32              _numFiles;
   FILE              **_datFiles;
   pthread_mutex_t    *_locks;
