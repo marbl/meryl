@@ -136,10 +136,13 @@ stuffedBits::loadFromFile(FILE *F) {
   uint32   inLen    = 0;
   uint32   inMax    = 0;
 
+  if (F == NULL)     //  No file,
+    return(false);   //  no load.
+
   //fprintf(stderr, "stuffedBits::loadFromFile()-- Loading at position " F_U64 ".\n", AS_UTL_ftell(F));
 
-  //  Try to load the new parameters.  Into temporary storage, so we can compare against what we
-  //  have already allocated.
+  //  Try to load the new parameters into temporary storage, so we can
+  //  compare against what have already allocated.
 
   nLoad += AS_UTL_safeRead(F, &inLenMax, "dataBlockLenMax", sizeof(uint64), 1);  //  Max length of each block.
   nLoad += AS_UTL_safeRead(F, &inLen,    "dataBlocksLen",   sizeof(uint32), 1);  //  Number of blocks stored.
