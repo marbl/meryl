@@ -22,7 +22,8 @@
 
 uint32 kmerTiny::_merSize;
 uint32 kmerTiny::_merSpan;
-uint64 kmerTiny::_mask;
+uint64 kmerTiny::_fullMask;
+uint64 kmerTiny::_leftMask;
 uint32 kmerTiny::_leftShift;
 
 
@@ -123,6 +124,32 @@ kmerCountStatistics::load(FILE        *inFile) {
 
 
 
+static
+char *
+constructBlockName(char   *prefix,
+                   uint64  outIndex,
+                   uint32  numFiles) {
+  char *name = new char [FILENAME_MAX+1];
+  char  bits[67];
+
+  bits[0] = '0';
+  bits[1] = 'x';
+
+  uint32 mask = 1;
+  uint32 bp   = 2;
+
+  for (; mask < numFiles; mask <<= 1)            //  Technically, writes the reverse of the
+    bits[bp++] = (outIndex & mask) ? '1' : '0';  //  prefix, but who cares?
+
+  bits[bp] = 0;
+
+  snprintf(name, FILENAME_MAX, "%s/%s.merylData", prefix, bits);
+
+  return(name);
+}
+
+
+
 
 kmerCountFileReader::kmerCountFileReader(const char *inputName) {
 
@@ -132,11 +159,12 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName) {
 
   //  Initialize to nothing.
 
-  _prefixSize  = 0;
-  _suffixSize  = 0;
-  _merSize     = 0;
-  _numFiles    = 0;
-  _datFiles    = NULL;
+  _prefixSize   = 0;
+  _suffixSize   = 0;
+  _merSize      = 0;
+  _numFilesBits = 0;
+  _numFiles     = 0;
+  _datFiles     = NULL;
 
   //_stats.clear();
   //_kmer.clear();
@@ -175,8 +203,12 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName) {
   _prefixSize   = indexData->getBinary(32);
   _suffixSize   = indexData->getBinary(32);
   _merSize      = indexData->getBinary(32);
+  _numFilesBits = indexData->getBinary(32);
   _numFiles     = indexData->getBinary(32);
   _datFiles     = new FILE * [_numFiles];
+
+  for (uint32 ii=0; ii<_numFiles; ii++)
+    _datFiles[ii] = NULL;
 
   _stats.load(indexData);
 
@@ -205,21 +237,15 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName) {
   //  But for simplicity, open all files here.
 
   for (uint32 oi=0; oi<_numFiles; oi++) {
-    uint32   nfb = logBaseTwo32(_numFiles - 1);
+    char    *name = constructBlockName(_inName, oi, _numFiles);
 
-    char     N[FILENAME_MAX+1];
-    char     M[_merSize+1];
-    kmer     k;
-
-    k.setPrefixSuffix(0, oi, 0);   //  Use the kmer to convert the file
-    k.toString(M);                 //  index 'oi' to an ACGT string.
-
-    snprintf(N, FILENAME_MAX, "%s/%s.merylData", _inName, M + _merSize - nfb / 2);
-
-    fprintf(stderr, "Opening '%s'\n", N);
-    //fprintf(stderr, "oi %u mer %s -> file %s\n", oi, M, N);
-
-    _datFiles[oi] = AS_UTL_openInputFile(N);
+    if (AS_UTL_fileExists(name)) {
+      fprintf(stderr, "Opening '%s'\n", name);
+      _datFiles[oi] = AS_UTL_openInputFile(name);
+    } else {
+      fprintf(stderr, "Opening '%s' - no data!\n", name);
+      _datFiles[oi] = NULL;
+    }
   }
 }
 
@@ -251,19 +277,28 @@ kmerCountFileReader::nextMer(void) {
     return(true);
   }
 
-  //  Otherwise, try to read another block.  If it fails, this file is done.
-
-  stuffedBits   *dumpData = new stuffedBits();
+  //  Otherwise, we need to load another block.  First, initialize us
+  //  to have no data.
 
   _activeMer = 0;
+  _nKmers    = 0;
 
-  while (dumpData->loadFromFile(_datFiles[_activeFile]) == false) {
-    _activeFile++;
+  //  Try to load the next block from the same file.
 
-    if (_activeFile >= _numFiles) {
-      delete dumpData;
-      return(false);
-    }
+  stuffedBits   *dumpData = new stuffedBits();
+  bool           loaded   = dumpData->loadFromFile(_datFiles[_activeFile]);
+
+  //  If nothing loaded, move to the next file and try again.
+
+  while ((loaded == false) &&
+         (++_activeFile < _numFiles))
+    loaded = dumpData->loadFromFile(_datFiles[_activeFile]);
+
+  //  If still nothing loaded, then there just isn't any more data.
+
+  if (loaded == false) {
+    delete dumpData;
+    return(false);
   }
 
   //  Decode the bits into our memory.
@@ -326,16 +361,17 @@ kmerCountFileReader::nextMer(void) {
 
 
 kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
-                                         uint32      splitting,
                                          uint32      merSize,
                                          uint32      prefixSize,
                                          uint32      suffixSize) {
 
-  //  Fail quickly if parameters are bogus.
+  //  Decide how many files to write.  We can make up to 2^32 files, but will
+  //  run out of file handles _well_ before that.  For now, limit to 2^6 = 64 files.
 
-  if (splitting > 32)
-    fprintf(stderr, "kmerCountFileWriter()-- ERROR: splitting %u too high, must be at most 32.\n",
-            splitting), exit(1);
+  uint32   splitting = prefixSize;
+
+  if (splitting > 6)
+    splitting = 6;
 
   //  Initialize!
 
@@ -344,7 +380,8 @@ kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
   _prefixSize   = prefixSize;
   _suffixSize   = suffixSize;
   _merSize      = merSize;
-  _numFiles     = (uint32)1 << splitting;    //  MUST be a power of two, nice if it's even.
+  _numFilesBits = splitting;
+  _numFiles     = (uint32)1 << _numFilesBits;
   _datFiles     = new FILE * [_numFiles];
   _locks        = new pthread_mutex_t [_numFiles];
 
@@ -378,6 +415,7 @@ kmerCountFileWriter::~kmerCountFileWriter() {
   indexData->setBinary(32, _prefixSize);
   indexData->setBinary(32, _suffixSize);
   indexData->setBinary(32, _merSize);
+  indexData->setBinary(32, _numFilesBits);
   indexData->setBinary(32, _numFiles);
 
   _stats.dump(indexData);
@@ -412,32 +450,28 @@ kmerCountFileWriter::addBlock(uint64  prefix,
   //  Based on the prefix, decide what output file to write to.
   //  The prefix has _prefixSize bits.  We want to save the highest _numFiles bits.
 
-  uint32  nfb = logBaseTwo32(_numFiles - 1);
-  uint32  oi  = prefix >> (_prefixSize - nfb);
+  uint32  nfb = logBaseTwo32(_numFiles - 1);     //  Number of prefix bits stored in each file.
+  uint32  oi  = prefix >> (_prefixSize - nfb);   //  File index we are writing to.
 
   assert(oi < _numFiles);
+
+  //fprintf(stderr, "addBlock()-- prefix %lu nkmers %lu _prefixSize %u nfb %u oi %u\n", prefix, nKmers, _prefixSize, nfb, oi);
 
   //  Open a new file, if needed.
 
   if (_datFiles[oi] == NULL) {
-    char     N[FILENAME_MAX+1];
-    char     M[_merSize+1];
-    kmer     k;
+    char    *name = constructBlockName(_outName, oi, _numFiles);
 
-    k.setPrefixSuffix(0, oi, 0);   //  Use the kmer to convert the file
-    k.toString(M);                 //  index 'oi' to an ACGT string.
-
-    snprintf(N, FILENAME_MAX, "%s/%s.merylData", _outName, M + _merSize - nfb / 2);
-
-    //fprintf(stderr, "oi %u mer %s -> file %s\n", oi, M, N);
-    fprintf(stderr, "Creating '%s'\n", N);
+    fprintf(stderr, "Creating '%s'\n", name);
 
     pthread_mutex_lock(&_locks[oi]);
 
     if (_datFiles[oi] == NULL)
-      _datFiles[oi] = AS_UTL_openOutputFile(N);
+      _datFiles[oi] = AS_UTL_openOutputFile(name);
 
     pthread_mutex_unlock(&_locks[oi]);
+
+    delete [] name;
   }
 
   //  Figure out the optimal size of the Elias-Fano prefix.  It's just log2(N)-1.

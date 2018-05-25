@@ -92,7 +92,7 @@ estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed m
             scaledNumber(dataMemory),     scaledUnit(dataMemory),
             scaledNumber(totalMemory),    scaledUnit(totalMemory));
 
-    if (totalMemory < minMemory) {
+    if ((wp >= 3) && (totalMemory < minMemory)) {
       fprintf(stderr, "  *\n");
 
       minMemory  = totalMemory;
@@ -130,15 +130,18 @@ merylOperation::count(void) {
   char           *buffer     = new char     [bufferMax];
   bool            endOfSeq   = false;
 
-  uint64          kmersLen   = 0;
+  //uint64          kmersLen   = 0;
   //kmerTiny       *kmers      = new kmerTiny [bufferMax];
 
-  kmerTiny        kmer;
-  uint32          kmerLoad   = 0;
-  uint32          kmerValid  = kmer.merSize() - 1;
-  uint32          kmerSize   = kmer.merSize();
+  kmerTiny        fmer;
+  kmerTiny        rmer;
 
-  char            str[32];
+  uint32          kmerLoad   = 0;
+  uint32          kmerValid  = fmer.merSize() - 1;
+  uint32          kmerSize   = fmer.merSize();
+
+  char            fstr[65];
+  char            rstr[65];
 
   fprintf(stderr, "\n");
   fprintf(stderr, "merylOp::count()-- STARTING for operation %s from inputs\n", toString(_operation));
@@ -170,77 +173,67 @@ merylOperation::count(void) {
           merylCountArray::getSegSize_bits(),
           merylCountArray::getSegSize_bits() / 64,
           merylCountArray::getSegSize_kmers());
+  fprintf(stderr, "wData     = %u\n",       wData);
+  fprintf(stderr, "wDataMask = 0x%016lx\n", wDataMask);
+  fprintf(stderr, "kmerValid = %u\n", kmerValid);
+  fprintf(stderr, "kmerSize  = %u\n", kmerSize);
 
   merylCountArray  *data = new merylCountArray [nPrefix];
 
   //  Load bases, count!
 
-
   for (uint32 ii=0; ii<_inputs.size(); ii++) {
     fprintf(stderr, "Loading kmers from '%s' into buckets.\n", _inputs[ii]->_name);
 
     while (_inputs[ii]->_sequence->loadBases(buffer, bufferMax, bufferLen, endOfSeq)) {
-
       //fprintf(stderr, "read " F_U64 " bases from '%s'\n", bufferLen, _inputs[ii]->_name);
-
-      //  Process the buffer of bases into a new list of kmers.
-      //
-      //  If not a valid base, reset the kmer size counter and skip the base.
-      //
-      //  Otherwise, a valid base.  Add it to the kmer, then save the kmer
-      //  in the list of kmers if it is a full valid kmer.
 
       //kmersLen = 0;
 
-#if 1
       for (uint64 bb=0; bb<bufferLen; bb++) {
-        if ((buffer[bb] != 'A') && (buffer[bb] != 'a') &&
-            (buffer[bb] != 'C') && (buffer[bb] != 'c') &&
-            (buffer[bb] != 'G') && (buffer[bb] != 'g') &&
-            (buffer[bb] != 'T') && (buffer[bb] != 't')) {
+        if ((buffer[bb] != 'A') && (buffer[bb] != 'a') &&   //  If not valid DNA, don't
+            (buffer[bb] != 'C') && (buffer[bb] != 'c') &&   //  make a kmer, and reset
+            (buffer[bb] != 'G') && (buffer[bb] != 'g') &&   //  the count until the next
+            (buffer[bb] != 'T') && (buffer[bb] != 't')) {   //  valid kmer is available.
           kmerLoad = 0;
           continue;
         }
 
-        kmer.addR(buffer[bb]);
+        fmer.addR(buffer[bb]);
+        rmer.addL(buffer[bb]);
 
-        if (kmerLoad == kmerValid) {
-          //kmers[kmersLen++] = kmer;
-
-          uint64  pp = (uint64)kmer >> wData;
-          uint64  mm = (uint64)kmer  & wDataMask;
-
-          assert(pp < nPrefix);
-
-          data[pp].add(mm);
-        }else {
-          kmerLoad++;
+        if (kmerLoad < kmerValid) {   //  If not a full kmer, increase the length we've
+          kmerLoad++;                 //  got loaded, and keep going.
+          continue;
         }
-      }
 
-      //  If we didn't read a full buffer, the sequence ended, and we need to reset the kmer.
+        bool    useF = (_operation == opCountForward);
+        uint64  pp   = 0;
+        uint64  mm   = 0;
 
-      if (endOfSeq == true) {
-        //fprintf(stderr, "END OF SEQUENCE\n");
-        kmerLoad = 0;
-      }
+        if (_operation == opCount)
+          useF = (fmer < rmer);
 
-      //  Now, just pass our list of kmers to the counting engine.
 
-#if 0
-      for (uint64 kk=0; kk<kmersLen; kk++) {
-        uint64  pp = (uint64)kmers[kk] >> wData;
-        uint64  mm = (uint64)kmers[kk]  & wDataMask;
+        if (useF == true) {
+          pp = (uint64)fmer >> wData;
+          mm = (uint64)fmer  & wDataMask;
+          //fprintf(stderr, "F %s %s %u pp %lu mm %lu\n", fmer.toString(fstr), rmer.toString(rstr), fmer.merSize(), pp, mm);
+        }
 
+        else {
+          pp = (uint64)rmer >> wData;
+          mm = (uint64)rmer  & wDataMask;
+          //fprintf(stderr, "R %s %s %u pp %lu mm %lu\n", fmer.toString(fstr), rmer.toString(rstr), rmer.merSize(), pp, mm);
+        }
+        
         assert(pp < nPrefix);
 
         data[pp].add(mm);
       }
-#endif
-#endif
 
-      //for (uint64 kk=0; kk<kmersLen; kk++)
-      //  fprintf(stderr, "%03" F_U64P " 0x%08" F_X64P " %s\n", ss, (uint64)kmers[ss], kmers[ss].toString(str));
+      if (endOfSeq)                   //  If the end of the sequence, clear
+        kmerLoad = 0;                 //  the running kmer.
     }
 
     //  Would like some kind of report here on the kmers loaded from this file.
@@ -256,14 +249,11 @@ merylOperation::count(void) {
 
   //  MAke output files, one per thread.  Sort, dump and erase each block.
 
-  //fprintf(stderr, "STOP.\n");
-  //exit(0);
-
   fprintf(stderr, "Creating outputs.\n");
 
-  kmerCountFileWriter *out = new kmerCountFileWriter(_outputName, 6, kmer.merSize(), wPrefix, wData);
+  kmerCountFileWriter *out = new kmerCountFileWriter(_outputName, fmer.merSize(), wPrefix, wData);
 
-  fprintf(stderr, "Writing outputs.\n");
+  fprintf(stderr, "Writing %lu outputs.\n", nPrefix);
 
 #pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
