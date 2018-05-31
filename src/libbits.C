@@ -189,9 +189,9 @@ stuffedBits::loadFromFile(FILE *F) {
   AS_UTL_safeRead(F,  _dataBlockBgn,  "dataBlockBgn",  sizeof(uint64), _dataBlocksLen);
   AS_UTL_safeRead(F,  _dataBlockLen,  "dataBlockLen",  sizeof(uint64), _dataBlocksLen);
 
-  for (uint32 ii=0; ii<_dataBlocksLen; ii++)
-    //fprintf(stderr, "stuffedBits::loadFromFile()--     %2" F_U32P " begin %12" F_U64P " length %12" F_U64P "\n",
-    //        ii, _dataBlockBgn[ii], _dataBlockLen[ii]);
+  //for (uint32 ii=0; ii<_dataBlocksLen; ii++)
+  //  fprintf(stderr, "stuffedBits::loadFromFile()--     %2" F_U32P " begin %12" F_U64P " length %12" F_U64P "\n",
+  //          ii, _dataBlockBgn[ii], _dataBlockLen[ii]);
 
   for (uint32 ii=0; ii<_dataBlocksLen; ii++) {
     uint64  nWordsToRead  = _dataBlockLen[ii] / 64 + (((_dataBlockLen[ii] % 64) == 0) ? 0 : 1);
