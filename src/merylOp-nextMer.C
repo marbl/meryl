@@ -170,7 +170,7 @@ merylOperation::nextMer(void) {
       exit(1);
       break;
 
-    case opUnion:                           //  Union, retain largest count
+    case opUnion:                           //  Union
       _count = 1;
       break;
 
