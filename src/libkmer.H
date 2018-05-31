@@ -223,11 +223,11 @@ private:
 
 
 class kmerCountFileWriter {
+private:
+  void    initialize(void);
 public:
   kmerCountFileWriter(const char *outputName,
-                      uint32      merSize,
-                      uint32      prefixSize = 0,
-                      uint32      suffixSize = 0);
+                      uint32      prefixSize = 0);
 
   ~kmerCountFileWriter();
 
@@ -240,6 +240,15 @@ public:
 
 private:
   char                _outName[FILENAME_MAX+1];
+
+  uint64              _batchPrefix;
+  uint64              _batchNumKmers;
+  uint64              _batchMaxKmers;
+  uint64             *_batchSuffixes;
+  uint32             *_batchCounts;
+
+  uint32              _prefixShift;
+  uint64              _suffixMask;
 
   uint32              _prefixSize;
   uint32              _suffixSize;

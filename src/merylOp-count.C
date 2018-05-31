@@ -110,10 +110,10 @@ estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed m
   }
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "minMemory   " F_U64 " %cB\n",  scaledNumber(minMemory), scaledUnit(minMemory));
-  fprintf(stderr, "wPrefix     " F_U32 "\n",       wPrefix_);
-  fprintf(stderr, "nPrefix     " F_U64 "\n",      nPrefix_);
-  fprintf(stderr, "wData       " F_U32 "\n",       wData_);
+  fprintf(stderr, "minMemory   " F_U64 " %cB\n",    scaledNumber(minMemory), scaledUnit(minMemory));
+  fprintf(stderr, "wPrefix     " F_U32 "\n",        wPrefix_);
+  fprintf(stderr, "nPrefix     " F_U64 "\n",        nPrefix_);
+  fprintf(stderr, "wData       " F_U32 "\n",        wData_);
   fprintf(stderr, "wDataMask   0x%016" F_X64P "\n", wDataMask_);
   fprintf(stderr, "\n");
   fprintf(stderr, "\n");
@@ -251,7 +251,7 @@ merylOperation::count(void) {
 
   fprintf(stderr, "Creating outputs.\n");
 
-  kmerCountFileWriter *out = new kmerCountFileWriter(_outputName, fmer.merSize(), wPrefix, wData);
+  kmerCountFileWriter *out = new kmerCountFileWriter(_outputName, wPrefix);
 
   fprintf(stderr, "Writing %lu outputs.\n", nPrefix);
 
