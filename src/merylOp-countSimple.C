@@ -160,7 +160,7 @@ merylOperation::countSimple(void) {
 
   uint64                 sMask      = ((uint64)1 << wSuffix) - 1;
 
-  kmerCountFileWriter   *outputFile = new kmerCountFileWriter(_outputName, fmer.merSize(), wPrefix, wSuffix);
+  kmerCountFileWriter   *outputFile = new kmerCountFileWriter(_outputName, wPrefix);
 
   uint32                 nThreads    = omp_get_max_threads();
 

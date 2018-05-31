@@ -286,6 +286,10 @@ kmerCountFileReader::nextMer(void) {
   stuffedBits   *dumpData = new stuffedBits();
   bool           loaded   = dumpData->loadFromFile(_datFiles[_activeFile]);
 
+  //  If nothing loaded, we're done with this file and should close it.
+
+  //AS_UTL_closeFile(...)
+
   //  If nothing loaded, move to the next file and try again.
 
   while ((loaded == false) &&
@@ -358,34 +362,40 @@ kmerCountFileReader::nextMer(void) {
 
 
 
-kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
-                                         uint32      merSize,
-                                         uint32      prefixSize,
-                                         uint32      suffixSize) {
+void
+kmerCountFileWriter::initialize(void) {
 
+  //  If our mer size is set, we're already intiialized.
+
+  if (_merSize != 0)
+    return;
+
+  //  But if the global mersize isn't set, we're hosed.
+
+  if (kmer::merSize() == 0)
+    fprintf(stderr, "kmerCountFileWriter::initialize()-- asked to initialize, but kmer::merSize() is zero!\n"), exit(1);
+
+  //  If the prefixSize is zero, set it to (arbitrary) 1/4 the kmer size.  This happens in the
+  //  streaming writer (which is used when meryl does any non-count operation).  The prefixSize here
+  //  just controls how often we dump blocks to the file.
+
+  if (_prefixSize == 0)
+    _prefixSize = min((uint32)8, 2 * kmer::merSize() / 3);  //  In bits!
+
+  //  Now that we know the kmer size, we can set up the rest of our stuff.
+  //
   //  Decide how many files to write.  We can make up to 2^32 files, but will
   //  run out of file handles _well_ before that.  For now, limit to 2^6 = 64 files.
 
-  uint32   splitting = prefixSize;
+  _prefixShift   = 2 * kmer::merSize() - _prefixSize;
+  _suffixMask    = uint64MASK(_prefixShift);
 
-  if (splitting > 6)
-    splitting = 6;
-
-  //  Initialize!
-
-  strncpy(_outName, outputName, FILENAME_MAX);
-
-  _prefixSize   = prefixSize;
-  _suffixSize   = suffixSize;
-  _merSize      = merSize;
-  _numFilesBits = splitting;
-  _numFiles     = (uint32)1 << _numFilesBits;
-  _datFiles     = new FILE * [_numFiles];
-  _locks        = new pthread_mutex_t [_numFiles];
-
-  //  Make an output directory.
-
-  AS_UTL_mkdir(_outName);
+  _suffixSize    = 2 * kmer::merSize() - _prefixSize;
+  _merSize       =     kmer::merSize();
+  _numFilesBits  = (_prefixSize < 7) ? _prefixSize : 6;
+  _numFiles      = (uint32)1 << _numFilesBits;
+  _datFiles      = new FILE * [_numFiles];
+  _locks         = new pthread_mutex_t [_numFiles];
 
   //  And remember that we haven't created any output files yet.
 
@@ -393,11 +403,61 @@ kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
     _datFiles[ii] = NULL;
     pthread_mutex_init(&_locks[ii], NULL);
   }
+
+  //  Log!
+
+  fprintf(stderr, "kmerCountFileWriter()-- Creating '%s' with prefixSize %u suffixSize %u merSize %u numFiles %u\n",
+          _outName, _prefixSize, _suffixSize, _merSize, _numFiles);
+}
+
+
+
+kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
+                                         uint32      prefixSize) {
+
+  //  Save the output directory name, and try to make it.  If we can't we'll fail quickly.
+
+  strncpy(_outName, outputName, FILENAME_MAX);
+
+  AS_UTL_mkdir(_outName);
+
+  //  Set the output file name (directory) and prefix size.  If we know the kmer size already,
+  //  we can finish the initialization, otherwise, it'll get done on the first write.
+  //
+  //  prefixSize is allowed to be zero.  If so, it'll get reset to something in initialize().
+
+  _batchPrefix   = 0;
+  _batchNumKmers = 0;
+  _batchMaxKmers = 131072;
+  _batchSuffixes = NULL;
+  _batchCounts   = NULL;
+
+  _prefixShift   = 0;
+  _suffixMask    = 0;
+
+  _prefixSize    = prefixSize;
+  _suffixSize    = 0;
+  _merSize       = 0;
+  _numFilesBits  = 0;
+  _numFiles      = 0;
+  _datFiles      = NULL;
+  _locks         = NULL;
+
+  if (kmer::merSize() > 0)
+    initialize();
 }
 
 
 
 kmerCountFileWriter::~kmerCountFileWriter() {
+
+  //  Dump any last block and release the space.
+
+  if (_batchNumKmers > 0)
+    addBlock(_batchPrefix, _batchNumKmers, _batchSuffixes, _batchCounts);
+
+  delete [] _batchSuffixes;
+  delete [] _batchCounts;
 
   //  Close all the data files.
 
@@ -435,6 +495,29 @@ kmerCountFileWriter::~kmerCountFileWriter() {
 void
 kmerCountFileWriter::addMer(kmer   k,
                             uint32 c) {
+
+  if (_batchSuffixes == NULL) {
+    _batchSuffixes = new uint64 [_batchMaxKmers];
+    _batchCounts   = new uint32 [_batchMaxKmers];
+  }
+
+  uint64  prefix = (uint64)k >> _prefixShift;
+  uint64  suffix = (uint64)k  & _suffixMask;
+
+  bool  dump1 = (_batchNumKmers >= _batchMaxKmers);
+  bool  dump2 = (_batchPrefix != prefix) && (_batchNumKmers > 0);
+
+  if (dump1 || dump2) {
+    addBlock(_batchPrefix, _batchNumKmers, _batchSuffixes, _batchCounts);
+
+    _batchPrefix   = prefix;
+    _batchNumKmers = 0;
+  }
+
+  _batchSuffixes[_batchNumKmers] = suffix;
+  _batchCounts[_batchNumKmers] = c;
+
+  _batchNumKmers++;
 }
 
 
@@ -445,15 +528,21 @@ kmerCountFileWriter::addBlock(uint64  prefix,
                               uint64 *suffixes,
                               uint32 *counts) {
 
+  //  Take care of any deferred intiialization.
+
+  if (_merSize == 0)
+    initialize();
+
   //  Based on the prefix, decide what output file to write to.
   //  The prefix has _prefixSize bits.  We want to save the highest _numFiles bits.
 
   uint32  nfb = logBaseTwo32(_numFiles - 1);     //  Number of prefix bits stored in each file.
   uint32  oi  = prefix >> (_prefixSize - nfb);   //  File index we are writing to.
 
+  if (oi >= _numFiles)
+    fprintf(stderr, "addBlock()-- prefix 0x%016lx nkmers %lu _prefixSize %u nfb %u oi %u >= numFiles %u\n",
+            prefix, nKmers, _prefixSize, nfb, oi, _numFiles);
   assert(oi < _numFiles);
-
-  //fprintf(stderr, "addBlock()-- prefix %lu nkmers %lu _prefixSize %u nfb %u oi %u\n", prefix, nKmers, _prefixSize, nfb, oi);
 
   //  Open a new file, if needed.
 

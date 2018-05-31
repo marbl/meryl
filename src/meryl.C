@@ -142,7 +142,7 @@ main(int argc, char **argv) {
       outputArg = arg+1;
 
     else if (arg == outputArg)
-      writer = new kmerCountFileWriter(opt, 6, merSize);
+      writer = new kmerCountFileWriter(opt);
 
     else if ((opStack.size() > 0) &&
              (opStack.top()->isCounting() == false) &&
