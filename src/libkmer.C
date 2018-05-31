@@ -20,13 +20,11 @@
 #include "AS_UTL_fileIO.H"
 
 
-uint32 kmerTiny::_merSize;
-uint32 kmerTiny::_merSpan;
-uint64 kmerTiny::_fullMask;
-uint64 kmerTiny::_leftMask;
-uint32 kmerTiny::_leftShift;
-
-
+uint32 kmerTiny::_merSize   = 0;
+uint32 kmerTiny::_merSpan   = 0;
+uint64 kmerTiny::_fullMask  = 0;
+uint64 kmerTiny::_leftMask  = 0;
+uint32 kmerTiny::_leftShift = 0;
 
 
 
