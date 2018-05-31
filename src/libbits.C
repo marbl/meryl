@@ -159,7 +159,8 @@ stuffedBits::loadFromFile(FILE *F) {
     for (uint32 ii=0; ii<_dataBlocksLen; ii++)
       delete [] _dataBlocks[ii];
 
-    memset(_dataBlocks, 0, sizeof(uint64 *) * _dataBlocksMax);
+    for (uint32 ii=0; ii<_dataBlocksMax; ii++)
+      _dataBlocks[ii] = NULL;
 
     _dataBlockLenMax = inLenMax;
   }
