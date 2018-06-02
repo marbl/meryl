@@ -35,7 +35,6 @@ main(int argc, char **argv) {
     char    opt[FILENAME_MAX];
     uint32  optLen = strlen(argv[arg]);
 
-    //uint32   creating    = 0;
     uint32   terminating = 0;
 
     //  Scan for options.
@@ -79,17 +78,9 @@ main(int argc, char **argv) {
     //  We can get 0 or 1 open bracket at a time.  Seeing two in a row is an error,
     //  but it isn't caught.
 
-    if (opStack.empty() == true) {
-      //creating = true;
-    }
-
     if (opt[0] == '[') {
       strncpy(opt, argv[arg]+1, FILENAME_MAX);
       optLen--;
-
-      fprintf(stderr, "CREATENEW operation\n");
-
-      //creating = true;
     }
 
     //  If we have a ] as the last character, strip it off and remember.
@@ -99,8 +90,6 @@ main(int argc, char **argv) {
     while (opt[optLen-1] == ']') {
       opt[optLen-1] = 0;
       optLen--;
-
-      fprintf(stderr, "TERMINATE operation\n");
 
       terminating++;
     }
@@ -251,27 +240,8 @@ main(int argc, char **argv) {
 
   merylOperation *op = opStack.top();
 
-  fprintf(stderr, "START\n");
-  fprintf(stderr, "START operation %s\n", toString(op->getOperation()));
-  fprintf(stderr, "START\n");
-
-  //  The counting operations need to be special cased.
-
-  //if ((op->getOperation() == opCount) ||
-  //    (op->getOperation() == opCountForward) ||
-  //    (op->getOperation() == opCountReverse))
-  //  op->count();
-
-  //  Now just walk through the kmers until nothing is left.
-
-  while (op->nextMer() == true)
+  while (op->nextMer(true) == true)
     ;
-
-  //  Done!
-
-  fprintf(stderr, "DONE\n");
-  fprintf(stderr, "DONE operation %s\n", toString(op->getOperation()));
-  fprintf(stderr, "DONE\n");
 
   delete op;
 

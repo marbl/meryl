@@ -54,13 +54,9 @@ estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed m
               uint32  &wData_,             //  Output: Number of bits in kmer data
               uint64  &wDataMask_) {       //  Output: A mask to return just the data of the mer
 
-  fprintf(stderr, "\n");
-  fprintf(stderr, "\n");
-  fprintf(stderr, "For " F_U64 " million " F_U32 "-mers:\n", nKmerEstimate / 1000000, merSize);
-  fprintf(stderr, "\n");
-
   uint64   minMemory = UINT64_MAX;
 
+  fprintf(stderr, "\n");
   fprintf(stderr, "prefix     # of   struct   kmers/    segs/     data    total\n");
   fprintf(stderr, "  bits   prefix   memory   prefix   prefix   memory   memory\n");
   fprintf(stderr, "------  -------  -------  -------  -------  -------  -------\n");
@@ -110,12 +106,9 @@ estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed m
   }
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "minMemory   " F_U64 " %cB\n",    scaledNumber(minMemory), scaledUnit(minMemory));
-  fprintf(stderr, "wPrefix     " F_U32 "\n",        wPrefix_);
-  fprintf(stderr, "nPrefix     " F_U64 "\n",        nPrefix_);
-  fprintf(stderr, "wData       " F_U32 "\n",        wData_);
-  fprintf(stderr, "wDataMask   0x%016" F_X64P "\n", wDataMask_);
-  fprintf(stderr, "\n");
+  fprintf(stderr, "Expecting to use " F_U64 " %cB memory to count " F_U64 " million " F_U32 "-mers.\n",
+          scaledNumber(minMemory), scaledUnit(minMemory),
+          nKmerEstimate / 1000000, merSize);
   fprintf(stderr, "\n");
 
   return(minMemory);
@@ -143,17 +136,21 @@ merylOperation::count(void) {
   char            fstr[65];
   char            rstr[65];
 
-  fprintf(stderr, "\n");
-  fprintf(stderr, "merylOp::count()-- STARTING for operation %s from inputs\n", toString(_operation));
-
-  for (uint32 ii=0; ii<_inputs.size(); ii++)
-    fprintf(stderr, "merylOp::count()--   %s\n", _inputs[ii]->_name);
-
-  if (kmerSize == 0)
-    fprintf(stderr, "ERROR: need a kmer size (-k).\n"), exit(1);
+  if (fmer.merSize() == 0)
+    fprintf(stderr, "ERROR: Kmer size (-k) not supplied.\n"), exit(1);
 
   if (_numMers == 0)
-    fprintf(stderr, "ERROR: need a number of mers (-n) estimate (for now).\n"), exit(1);
+    fprintf(stderr, "ERROR: Estimate of number of kmers (-n) not supplied.\n"), exit(1);
+
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Counting %s%s%s " F_U32 "-mers from " F_SIZE_T " input file%s:\n",
+          (_operation == opCount)        ? "canonical" : "",
+          (_operation == opCountForward) ? "forward" : "",
+          (_operation == opCountReverse) ? "reverse" : "",
+          fmer.merSize(), _inputs.size(), (_inputs.size() == 1) ? "" : "s");
+
+  for (uint32 ii=0; ii<_inputs.size(); ii++)
+    fprintf(stderr, "  %s\n", _inputs[ii]->_name);
 
   //  Optimize memory for some expected number of kmers.
 
@@ -173,10 +170,7 @@ merylOperation::count(void) {
           merylCountArray::getSegSize_bits(),
           merylCountArray::getSegSize_bits() / 64,
           merylCountArray::getSegSize_kmers());
-  fprintf(stderr, "wData     = %u\n",       wData);
-  fprintf(stderr, "wDataMask = 0x%016lx\n", wDataMask);
-  fprintf(stderr, "kmerValid = %u\n", kmerValid);
-  fprintf(stderr, "kmerSize  = %u\n", kmerSize);
+  fprintf(stderr, "\n");
 
   merylCountArray  *data = new merylCountArray [nPrefix];
 
@@ -249,11 +243,11 @@ merylOperation::count(void) {
 
   //  MAke output files, one per thread.  Sort, dump and erase each block.
 
-  fprintf(stderr, "Creating outputs.\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Creating " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
+          nPrefix, _outputName, omp_get_max_threads());
 
   kmerCountFileWriter *out = new kmerCountFileWriter(_outputName, wPrefix);
-
-  fprintf(stderr, "Writing %lu outputs.\n", nPrefix);
 
 #pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
@@ -266,4 +260,21 @@ merylOperation::count(void) {
 
   delete    out;
   delete [] data;
+
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Finished counting.\n");
+
+  //  Convert this to a pass-through operation.
+
+  _inputs.clear();
+
+  fprintf(stderr, "Convert to input for '%s'\n", _outputName);
+
+  addInput(_outputName, new kmerCountFileReader(_outputName));
+
+  _outputName[0]  = 0;
+  _output         = NULL;
+
+  _operation      = opUnion;
+
 }

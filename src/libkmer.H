@@ -35,17 +35,17 @@ public:
   };
 
   static
-  void        setSize(uint32 ms) {
+  void        setSize(uint32 ms, bool beVerbose=false) {
     _merSize    = ms;
-    _merSpan    = ms;
 
     _fullMask   = uint64MASK(ms * 2);
 
     _leftMask   = uint64MASK(ms * 2 - 2);
     _leftShift  = ((2 * ms - 2) % 64);
 
-    fprintf(stderr, "setSize(" F_U32 ") _merSize=" F_U32 " _merSpan=" F_U32 " _fullMask=0x%016" F_X64P " _leftMask=0x%016" F_X64P " _leftShift=" F_U32 "\n",
-            ms, _merSize, _merSpan, _fullMask, _leftMask, _leftShift);
+    if (beVerbose)
+      fprintf(stderr, "Set global kmer size to " F_U32 " (fullMask=0x%016" F_X64P " leftMask=0x%016" F_X64P " leftShift=" F_U32 ")\n",
+              _merSize, _fullMask, _leftMask, _leftShift);
   };
 
   static
@@ -121,7 +121,6 @@ public:
   uint64         _mer;
 
   static uint32  _merSize;     //  number of bases in this mer
-  static uint32  _merSpan;     //  number of sequence bases this mer spans
 
   static uint64  _fullMask;    //  mask to ensure kmer has exactly _merSize bases in it
 
@@ -188,6 +187,10 @@ public:
   kmerCountFileReader(const char *inputName);
   ~kmerCountFileReader();
 
+private:
+  void    openFile(uint32 idx);
+
+public:
   bool    nextMer(void);
   kmer    theFMer(void)   { return(_kmer);    };
   uint32  theCount(void)  { return(_count);   };
