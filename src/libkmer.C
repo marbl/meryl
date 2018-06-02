@@ -21,7 +21,6 @@
 
 
 uint32 kmerTiny::_merSize   = 0;
-uint32 kmerTiny::_merSpan   = 0;
 uint64 kmerTiny::_fullMask  = 0;
 uint64 kmerTiny::_leftMask  = 0;
 uint32 kmerTiny::_leftShift = 0;
@@ -164,9 +163,6 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName) {
   _numFiles     = 0;
   _datFiles     = NULL;
 
-  //_stats.clear();
-  //_kmer.clear();
-
   _prefix      = 0;
   _activeMer   = 0;
   _activeFile  = 0;
@@ -212,39 +208,28 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName) {
 
   delete indexData;
 
-  fprintf(stderr, "Found prefixSize %u\n", _prefixSize);
-  fprintf(stderr, "Found suffixSize %u\n", _suffixSize);
-  fprintf(stderr, "Found merSize    %u\n", _merSize);
-  fprintf(stderr, "Found numFiles   %u\n", _numFiles);
+  fprintf(stderr, "Opened '%s'.  Found prefixSize %u suffixSize %u merSize %u numFiles %u\n",
+          _inName, _prefixSize, _suffixSize, _merSize, _numFiles);
 
-  //  
+  //  If the global kmer size isn't set yet, set it.  Then make sure all files are the same.
 
-  {
-    kmer  k;
+  kmer  k;
 
-    if (k.merSize() == 0)
-      k.setSize(_merSize);
+  if (k.merSize() == 0)
+    k.setSize(_merSize);
 
-    assert(k.merSize() == _merSize);
-  }
+  if (k.merSize() != _merSize)
+    fprintf(stderr, "mer size mismatch, can't process this set of files.\n"), exit(1);
 
   //  Remember that we haven't opened any input files yet.
 
-  memset(_datFiles, 0, sizeof(FILE *) * _numFiles);
+  for (uint32 oi=0; oi<_numFiles; oi++)
+    _datFiles[oi] = NULL;
 
   //  But for simplicity, open all files here.
 
-  for (uint32 oi=0; oi<_numFiles; oi++) {
-    char    *name = constructBlockName(_inName, oi, _numFiles);
-
-    if (AS_UTL_fileExists(name)) {
-      fprintf(stderr, "Opening '%s'\n", name);
-      _datFiles[oi] = AS_UTL_openInputFile(name);
-    } else {
-      fprintf(stderr, "Opening '%s' - no data!\n", name);
-      _datFiles[oi] = NULL;
-    }
-  }
+  //for (uint32 oi=0; oi<_numFiles; oi++)
+  //  openFile(oi);
 }
 
 
@@ -258,6 +243,22 @@ kmerCountFileReader::~kmerCountFileReader() {
     AS_UTL_closeFile(_datFiles[ii]);
 
   delete [] _datFiles;
+}
+
+
+
+void
+kmerCountFileReader::openFile(uint32 idx) {
+
+  if (_datFiles[idx])
+    return;
+
+  char  *name = constructBlockName(_inName, idx, _numFiles);
+
+  if (AS_UTL_fileExists(name))
+    _datFiles[idx] = AS_UTL_openInputFile(name);
+
+  delete [] name;
 }
 
 
@@ -284,23 +285,26 @@ kmerCountFileReader::nextMer(void) {
   //  Try to load the next block from the same file.
 
   stuffedBits   *dumpData = new stuffedBits();
-  bool           loaded   = dumpData->loadFromFile(_datFiles[_activeFile]);
 
-  //  If nothing loaded, we're done with this file and should close it.
+ loadAgain:
 
-  //AS_UTL_closeFile(...)
+  if (_datFiles[_activeFile] == NULL)
+    openFile(_activeFile);
 
-  //  If nothing loaded, move to the next file and try again.
-
-  while ((loaded == false) &&
-         (++_activeFile < _numFiles))
-    loaded = dumpData->loadFromFile(_datFiles[_activeFile]);
-
-  //  If still nothing loaded, then there just isn't any more data.
+  bool  loaded = dumpData->loadFromFile(_datFiles[_activeFile]);    //  Try loading the next block
 
   if (loaded == false) {
-    delete dumpData;
-    return(false);
+    AS_UTL_closeFile(_datFiles[_activeFile]);                       //  If nothing loaded, close the
+    _datFiles[_activeFile] = NULL;                                  //  current file.
+
+    _activeFile++;                                                  //  Move to the next file.
+
+    if (_numFiles <= _activeFile) {                                 //  If no more files,
+      delete dumpData;                                              //  we're done.
+      return(false);
+    }
+
+    goto loadAgain;                                                 //  Otherwise, try loading again.
   }
 
   //  Decode the bits into our memory.
@@ -443,8 +447,8 @@ kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
   _datFiles      = NULL;
   _locks         = NULL;
 
-  if (kmer::merSize() > 0)
-    initialize();
+  //if (kmer::merSize() > 0)
+  //  initialize();
 }
 
 
@@ -496,6 +500,9 @@ void
 kmerCountFileWriter::addMer(kmer   k,
                             uint32 c) {
 
+  if (_merSize == 0)
+    initialize();
+
   if (_batchSuffixes == NULL) {
     _batchSuffixes = new uint64 [_batchMaxKmers];
     _batchCounts   = new uint32 [_batchMaxKmers];
@@ -506,6 +513,14 @@ kmerCountFileWriter::addMer(kmer   k,
 
   bool  dump1 = (_batchNumKmers >= _batchMaxKmers);
   bool  dump2 = (_batchPrefix != prefix) && (_batchNumKmers > 0);
+
+#if 0
+  fprintf(stderr, "prefixShift %u suffixMask 0x%016lx\n", _prefixShift, _suffixMask);
+  fprintf(stderr, "dump1 %d _batchNumKmers %lu _batchMaxKmers %lu\n", dump1, _batchNumKmers, _batchMaxKmers);
+  fprintf(stderr, "dump2 %d _batchPrefix 0x%016lx\n", dump2, _batchPrefix);
+  fprintf(stderr, "              prefix 0x%016lx\n", prefix);
+  fprintf(stderr, "                   k 0x%016lx\n", (uint64)k);
+#endif
 
   if (dump1 || dump2) {
     addBlock(_batchPrefix, _batchNumKmers, _batchSuffixes, _batchCounts);
@@ -548,8 +563,6 @@ kmerCountFileWriter::addBlock(uint64  prefix,
 
   if (_datFiles[oi] == NULL) {
     char    *name = constructBlockName(_outName, oi, _numFiles);
-
-    fprintf(stderr, "Creating '%s'\n", name);
 
     pthread_mutex_lock(&_locks[oi]);
 

@@ -50,7 +50,7 @@ merylOperation::findSumCount(void) {
 
 
 bool
-merylOperation::nextMer(void) {
+merylOperation::nextMer(bool isRoot) {
 
   char  kmerString[256];
 
@@ -162,12 +162,16 @@ merylOperation::nextMer(void) {
     case opCount:
     case opCountForward:
     case opCountReverse:
-      if (_kmer.merSize() <= 16)
-        countSimple();
+      if (_kmer.merSize() <= 16)            //  Count, then convert this to an imput.
+        countSimple();                      //  (once I figure out how to do that)
       else
         count();
-      fprintf(stderr, "DONE COUNTING, EXIT.\n");
-      exit(1);
+
+      if (isRoot)         //  If this is the root operation, there's nothing left for
+        return(false);    //  us to do.  We don't take input, and nothing takes our output.
+
+      return(nextMer());  //  Otherwise, start up our new identity as a Union operation.
+
       break;
 
     case opUnion:                           //  Union

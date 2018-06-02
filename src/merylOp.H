@@ -46,11 +46,11 @@ public:
   merylOperation(merylOp op=opNothing, uint32 k=0, uint64 numMers=0, uint32 threads=1, uint64 memory=0);
   ~merylOperation();
 
-  void    addInput(merylOperation *operation);
-  void    addInput(char *name, kmerCountFileReader *reader);
-  void    addInput(char *name, dnaSeqFile *sequence);
+  void    addInput(merylOperation *operation, bool beVerbose=false);
+  void    addInput(char *name, kmerCountFileReader *reader, bool beVerbose=false);
+  void    addInput(char *name, dnaSeqFile *sequence, bool beVerbose=false);
 
-  void    addOutput(char *name, kmerCountFileWriter *writer);
+  void    addOutput(char *name, kmerCountFileWriter *writer, bool beVerbose=false);
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
@@ -68,7 +68,7 @@ public:
   kmer   &theFMer(void)            { return(_kmer);   };
   uint64  theCount(void)           { return(_count);  };
 
-  bool    nextMer(void);
+  bool    nextMer(bool isRoot=false);
   bool    validMer(void)           { return(_valid);  };
 
   void    count(void);
