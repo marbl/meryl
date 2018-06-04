@@ -137,7 +137,6 @@ main(int argc, char **argv) {
     else if (strcmp(opt, "intersect-sum") == 0)          op = opIntersectSum;
     else if (strcmp(opt, "difference") == 0)             op = opDifference;
     else if (strcmp(opt, "symmetric-difference") == 0)   op = opSymmetricDifference;
-    else if (strcmp(opt, "complement") == 0)             op = opComplement;
     else if (strcmp(opt, "print") == 0)                  op = opPrint;
 
     //  If we see 'output', flag the next arg as being the output name.
@@ -234,7 +233,6 @@ main(int argc, char **argv) {
     fprintf(stderr, "    intersect-sum\n");
     fprintf(stderr, "    difference\n");
     fprintf(stderr, "    symmetric-difference\n");
-    fprintf(stderr, "    complement\n");
     fprintf(stderr, "    print\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    output\n");
