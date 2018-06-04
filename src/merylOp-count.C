@@ -276,5 +276,4 @@ merylOperation::count(void) {
   _output         = NULL;
 
   _operation      = opUnion;
-
 }
