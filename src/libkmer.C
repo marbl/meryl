@@ -35,6 +35,9 @@ kmerCountStatistics::kmerCountStatistics() {
   _histMax       = 32 * 1024 * 1024;      //  256 MB of histogram data.
   _hist          = new uint64 [_histMax];
 
+  for (uint64 ii=0; ii<_histMax; ii++)
+    _hist[ii] = 0;
+
   _hbigLen       = 0;
   _hbigMax       = 0;
   _hbigCount     = NULL;
@@ -465,8 +468,13 @@ kmerCountFileWriter::~kmerCountFileWriter() {
 
   //  Close all the data files.
 
-  for (uint32 ii=0; ii<_numFiles; ii++)
+  for (uint32 ii=0; ii<_numFiles; ii++) {
     AS_UTL_closeFile(_datFiles[ii]);
+    pthread_mutex_destroy(&_locks[ii]);
+  }
+
+  delete [] _datFiles;
+  delete [] _locks;
 
   //  Then create and store a master index.
 
