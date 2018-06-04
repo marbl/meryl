@@ -237,7 +237,10 @@ main(int argc, char **argv) {
     exit(1);
   }
 
-  //  Now just walk through the kmers until nothing is left.
+  //  Now, keep calling nextMer() on the root node until all mers have been processed.
+
+  while (opStack.size() > 1)
+    opStack.pop();
 
   merylOperation *op = opStack.top();
 
