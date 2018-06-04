@@ -66,8 +66,9 @@ main(int argc, char **argv) {
       continue;
     }
 
-    else if (strcmp(argv[arg], "-V") == 0) {
-      merylOperation::increaseVerbosity();
+    else if (strncmp(argv[arg], "-V", 2) == 0) {      //  Anything that starts with -V
+      for (uint32 vv=1; vv<strlen(argv[arg]); vv++)   //  increases verbosity by the
+        merylOperation::increaseVerbosity();          //  number of letters.
       continue;
     }
 
