@@ -87,7 +87,8 @@ main(int argc, char **argv) {
     //
     //  We can get any number of closing brackets.
 
-    while (opt[optLen-1] == ']') {
+    while ((optLen > 0) &&
+           (opt[optLen-1] == ']')) {
       opt[optLen-1] = 0;
       optLen--;
 
