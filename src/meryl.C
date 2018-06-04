@@ -66,6 +66,21 @@ main(int argc, char **argv) {
       continue;
     }
 
+    else if (strcmp(argv[arg], "-V") == 0) {
+      merylOperation::increaseVerbosity();
+      continue;
+    }
+
+    else if (strcmp(argv[arg], "-Q") == 0) {
+      merylOperation::beQuiet();
+      continue;
+    }
+
+    else if (strcmp(argv[arg], "-P") == 0) {
+      merylOperation::showProgress();
+      continue;
+    }
+
 
     //  Save a copy of the argument, just in case it's a filename, before
     //  we munge out any brackets.
@@ -182,7 +197,7 @@ main(int argc, char **argv) {
     //  Now that we're done with the operation, if it was terminating, pop it off the stack.
 
     for (; terminating > 0; terminating--) {
-      fprintf(stderr, "TERMINATE op '%s'\n", toString(opStack.top()->getOperation()));
+      //fprintf(stderr, "TERMINATE op '%s'\n", toString(opStack.top()->getOperation()));
 
       opStack.pop();
     }

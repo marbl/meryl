@@ -17,6 +17,10 @@
 #include "meryl.H"
 
 
+bool            merylOperation::_showProgress = false;
+merylVerbosity  merylOperation::_verbosity    = sayStandard;
+
+
 merylOperation::merylOperation(merylOp op, uint32 k, uint64 numMers, uint32 threads, uint64 memory) {
   _operation     = op;
   _k             = k;
@@ -50,8 +54,9 @@ merylOperation::~merylOperation() {
 
 
 void
-merylOperation::addInput(merylOperation *operation, bool beVerbose) {
-  if (beVerbose)
+merylOperation::addInput(merylOperation *operation) {
+
+  if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from operation '%s' to operation '%s'\n",
             toString(operation->_operation), toString(_operation));
 
@@ -64,9 +69,9 @@ merylOperation::addInput(merylOperation *operation, bool beVerbose) {
 
 
 void
-merylOperation::addInput(char *name, kmerCountFileReader *reader, bool beVerbose) {
+merylOperation::addInput(char *name, kmerCountFileReader *reader) {
 
-  if (beVerbose)
+  if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
             name, toString(_operation));
 
@@ -79,9 +84,9 @@ merylOperation::addInput(char *name, kmerCountFileReader *reader, bool beVerbose
 
 
 void
-merylOperation::addInput(char *name, dnaSeqFile *sequence, bool beVerbose) {
+merylOperation::addInput(char *name, dnaSeqFile *sequence) {
 
-  if (beVerbose)
+  if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
             name, toString(_operation));
 
@@ -95,9 +100,9 @@ merylOperation::addInput(char *name, dnaSeqFile *sequence, bool beVerbose) {
 
 
 void
-merylOperation::addOutput(char *name, kmerCountFileWriter *writer, bool beVerbose) {
+merylOperation::addOutput(char *name, kmerCountFileWriter *writer) {
 
-  if (beVerbose)
+  if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding output to file '%s' from operation '%s'\n",
             name, toString(_operation));
 
