@@ -61,6 +61,41 @@ merylOperation::nextMer(bool isRoot) {
             toString(_operation));
   }
 
+  //  If we're counting, do that entirely right now, then reset so we look
+  //  like a union operation.
+
+  if ((_operation == opCount) ||
+      (_operation == opCountForward) ||
+      (_operation == opCountReverse)) {
+    if (_kmer.merSize() <= 16)
+      countSimple();
+    else
+      count();
+
+    //  If this is the root operation, there's nothing left for
+    //  us to do.  We don't take input, and nothing takes our output.
+
+    if (isRoot)
+      return(false);
+
+    //  Log what sly trick we're playing on the user.
+
+    if (_verbosity >= sayConstruction)
+      fprintf(stderr, "merylOp::nextMer()-- CONVERTING '%s' to '%s'.\n",
+              toString(opCount), toString(opPassThrough));
+
+    //  Clear the inputs and outputs, then add a new input for the kmers we just counted.
+
+    _operation     = opPassThrough;
+
+    clearInputs();
+
+    addInput(_outputName, new kmerCountFileReader(_outputName));
+
+    _outputName[0] = 0;
+    _output        = NULL;
+  }
+
   if (_verbosity >= sayEverything)
     for (uint32 ii=0; ii<_inputs.size(); ii++)
       fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count " F_U64 " %s\n",
@@ -156,18 +191,11 @@ merylOperation::nextMer(bool isRoot) {
     case opCount:
     case opCountForward:
     case opCountReverse:
-      if (_kmer.merSize() <= 16)            //  Count, then convert this to an imput.
-        countSimple();                      //  (once I figure out how to do that)
-      else
-        count();
-
-      if (isRoot)         //  If this is the root operation, there's nothing left for
-        return(false);    //  us to do.  We don't take input, and nothing takes our output.
-
-      return(nextMer());  //  Otherwise, start up our new identity as a Union operation.
-
+      fprintf(stderr, "ERROR: got %s, but shouldn't have.\n", toString(_operation));
+      assert(0);
       break;
 
+    case opPassThrough:
     case opUnion:                           //  Union
       _count = 1;
       break;
@@ -208,9 +236,6 @@ merylOperation::nextMer(bool isRoot) {
       break;
 
     case opSymmetricDifference:
-      break;
-
-    case opComplement:
       break;
 
     case opPrint:

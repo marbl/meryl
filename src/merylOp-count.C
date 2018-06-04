@@ -263,17 +263,4 @@ merylOperation::count(void) {
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Finished counting.\n");
-
-  //  Convert this to a pass-through operation.
-
-  _inputs.clear();
-
-  fprintf(stderr, "Convert to input for '%s'\n", _outputName);
-
-  addInput(_outputName, new kmerCountFileReader(_outputName));
-
-  _outputName[0]  = 0;
-  _output         = NULL;
-
-  _operation      = opUnion;
 }

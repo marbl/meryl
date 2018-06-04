@@ -19,11 +19,19 @@
 
 #include "meryl.H"
 
+//  These would (maybe) be handy, but they change the order of kmers, so we need
+//  to sort again.
+//
+//  opReverse,             //  Reverse the kmer.     Accepts a single input only.
+//  opComplement,          //  Complement the kmer.  Accepts a single input only.
+//  opReverseComplement,   //  Rev-Compl the kmer.   Accepts a single input only.
+
 
 enum merylOp {
   opCount,
   opCountForward,
   opCountReverse,
+  opPassThrough,         //  Internal operation; behaves just like opUnion, but only a single input.
   opUnion,
   opUnionMin,
   opUnionMax,
@@ -34,7 +42,6 @@ enum merylOp {
   opIntersectSum,
   opDifference,
   opSymmetricDifference,
-  opComplement,
   opPrint,
   opNothing
 };
@@ -55,6 +62,10 @@ public:
   merylOperation(merylOp op=opNothing, uint32 k=0, uint64 numMers=0, uint32 threads=1, uint64 memory=0);
   ~merylOperation();
 
+private:
+  void    clearInputs(void);
+
+public:
   void    addInput(merylOperation *operation);
   void    addInput(char *name, kmerCountFileReader *reader);
   void    addInput(char *name, dnaSeqFile *sequence);

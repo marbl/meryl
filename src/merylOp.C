@@ -54,6 +54,14 @@ merylOperation::~merylOperation() {
 
 
 void
+merylOperation::clearInputs(void) {
+  _inputs.clear();
+  _actLen = 0;
+}
+
+
+
+void
 merylOperation::addInput(merylOperation *operation) {
 
   if (_verbosity >= sayConstruction)
@@ -122,6 +130,7 @@ toString(merylOp op) {
     case opCount:                return("opCount");                break;
     case opCountForward:         return("opCountForward");         break;
     case opCountReverse:         return("opCountReverse");         break;
+    case opPassThrough:          return("opPassThrough");          break;
     case opUnion:                return("opUnion");                break;
     case opUnionMin:             return("opUnionMin");             break;
     case opUnionMax:             return("opUnionMax");             break;
@@ -132,7 +141,6 @@ toString(merylOp op) {
     case opIntersectSum:         return("opIntersectSum");         break;
     case opDifference:           return("opDifference");           break;
     case opSymmetricDifference:  return("opSymmetricDifference");  break;
-    case opComplement:           return("opComplement");           break;
     case opPrint:                return("opPrint");                break;
     case opNothing:              return("opNothing");              break; 
   }
