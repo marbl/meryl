@@ -40,17 +40,26 @@ enum merylOp {
 };
 
 
+enum merylVerbosity {
+  sayNothing,
+  sayStandard,
+  sayConstruction,
+  sayDetails,
+  sayEverything
+};
+
+
 
 class merylOperation {
 public:
   merylOperation(merylOp op=opNothing, uint32 k=0, uint64 numMers=0, uint32 threads=1, uint64 memory=0);
   ~merylOperation();
 
-  void    addInput(merylOperation *operation, bool beVerbose=false);
-  void    addInput(char *name, kmerCountFileReader *reader, bool beVerbose=false);
-  void    addInput(char *name, dnaSeqFile *sequence, bool beVerbose=false);
+  void    addInput(merylOperation *operation);
+  void    addInput(char *name, kmerCountFileReader *reader);
+  void    addInput(char *name, dnaSeqFile *sequence);
 
-  void    addOutput(char *name, kmerCountFileWriter *writer, bool beVerbose=false);
+  void    addOutput(char *name, kmerCountFileWriter *writer);
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
@@ -73,6 +82,20 @@ public:
 
   void    count(void);
   void    countSimple(void);
+
+  static
+  void    showProgress(void)                { _showProgress = true;       };
+  static
+  void    increaseVerbosity(void) {
+    if      (_verbosity == sayNothing)        _verbosity    = sayStandard;
+    else if (_verbosity == sayStandard)       _verbosity    = sayConstruction;
+    else if (_verbosity == sayConstruction)   _verbosity    = sayDetails;
+    else if (_verbosity == sayDetails)        _verbosity    = sayEverything;
+    else                                      _verbosity    = sayEverything;
+  };
+  static
+  void    beQuiet(void)                     { _verbosity    = sayNothing; };
+
 
 private:
   void    findMinCount(void);
@@ -100,6 +123,11 @@ private:
   kmer                           _kmer;
   uint64                         _count;
   bool                           _valid;
+
+  static
+  bool                           _showProgress;
+  static
+  merylVerbosity                 _verbosity;
 };
 
 
