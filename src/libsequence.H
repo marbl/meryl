@@ -104,6 +104,10 @@ public:
   //  Returns the length of sequence i.  If no such sequence, returns UINT64_MAX.
   uint64   sequenceLength(uint64 i);
 
+  char    *filename(void) {
+    return(_file->filename());
+  }
+
 private:
   uint64
   loadFASTA(char   *&name,     uint32   nameMax,

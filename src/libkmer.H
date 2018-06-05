@@ -195,6 +195,8 @@ public:
   kmer    theFMer(void)   { return(_kmer);    };
   uint32  theCount(void)  { return(_count);   };
 
+  char   *filename(void)  { return(_inName);  };
+
 private:
   char                _inName[FILENAME_MAX+1];
 
@@ -242,6 +244,8 @@ public:
                    uint64  nKmers,
                    uint64 *suffixes,
                    uint32 *counts);
+
+  char   *filename(void)  { return(_outName);  };
 
 private:
   bool                _initialized;
