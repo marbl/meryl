@@ -226,14 +226,16 @@ private:
 
 
 class kmerCountFileWriter {
-private:
-  void    initialize(void);
 public:
   kmerCountFileWriter(const char *outputName,
                       uint32      prefixSize = 0);
 
   ~kmerCountFileWriter();
 
+public:
+  void    initialize(uint32 prefixSize = 0);
+
+public:
   void    addMer(kmer k, uint32 c);
 
   void    addBlock(uint64  prefix,
@@ -242,6 +244,8 @@ public:
                    uint32 *counts);
 
 private:
+  bool                _initialized;
+
   char                _outName[FILENAME_MAX+1];
 
   uint64              _batchPrefix;
@@ -262,7 +266,6 @@ private:
   pthread_mutex_t    *_locks;
 
   kmerCountStatistics _stats;
-
 };
 
 
