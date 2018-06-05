@@ -247,18 +247,17 @@ merylOperation::count(void) {
   fprintf(stderr, "Creating " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
           nPrefix, _outputName, omp_get_max_threads());
 
-  kmerCountFileWriter *out = new kmerCountFileWriter(_outputName, wPrefix);
+  _output->initialize(wPrefix);
 
-#pragma omp parallel for
+  //#pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
     data[pp].sort(pp);
-    data[pp].dump(pp, out);
+    data[pp].dump(pp, _output);
     data[pp].clear();
   }
 
   //  Cleanup.
 
-  delete    out;
   delete [] data;
 
   fprintf(stderr, "\n");

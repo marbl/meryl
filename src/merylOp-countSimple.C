@@ -160,9 +160,9 @@ merylOperation::countSimple(void) {
 
   uint64                 sMask      = ((uint64)1 << wSuffix) - 1;
 
-  kmerCountFileWriter   *outputFile = new kmerCountFileWriter(_outputName, wPrefix);
-
   uint32                 nThreads    = omp_get_max_threads();
+
+  _output->initialize(wPrefix);
 
 #pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
@@ -194,15 +194,13 @@ merylOperation::countSimple(void) {
     //if (nKmers > 0)
     //  fprintf(stderr, "Dumping block pp %lu from %lu-%lu with %lu kmers.\n", pp, bStart, bEnd, nKmers);
 
-    outputFile->addBlock(pp, nKmers, sBlock, cBlock);
+    _output->addBlock(pp, nKmers, sBlock, cBlock);
 
     delete [] sBlock;
     delete [] cBlock;
   }
 
   //  Cleanup.
-
-  delete    outputFile;
 
   delete [] lowBits;
   delete [] highBits;
