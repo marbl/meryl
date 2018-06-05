@@ -178,19 +178,19 @@ main(int argc, char **argv) {
       op = opNothing;
     }
 
-    if ((writer != NULL) &&                    //  If nothing on the stack, wait for an
-        (opStack.size() > 0)) {                //  operation to show up.
-      opStack.top()->addOutput(opt, writer);
+    if ((writer != NULL) &&                //  If nothing on the stack, wait for an
+        (opStack.size() > 0)) {            //  operation to show up.
+      opStack.top()->addOutput(writer);
       writer = NULL;
     }
 
-    if (reader != NULL) {                      //  A reader exists only if an
-      opStack.top()->addInput(opt, reader);    //  operation is on the stack.
+    if (reader != NULL) {                  //  A reader exists only if an
+      opStack.top()->addInput(reader);     //  operation is on the stack.
       reader = NULL;
     }
 
-    if (sequence != NULL) {                    //  A sequence input exists only if
-      opStack.top()->addInput(opt, sequence);  //  an operation is on the stack.
+    if (sequence != NULL) {                //  A sequence input exists only if
+      opStack.top()->addInput(sequence);   //  an operation is on the stack.
       sequence = NULL;
     }
 
