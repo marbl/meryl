@@ -67,10 +67,10 @@ private:
 
 public:
   void    addInput(merylOperation *operation);
-  void    addInput(char *name, kmerCountFileReader *reader);
-  void    addInput(char *name, dnaSeqFile *sequence);
+  void    addInput(kmerCountFileReader *reader);
+  void    addInput(dnaSeqFile *sequence);
 
-  void    addOutput(char *name, kmerCountFileWriter *writer);
+  void    addOutput(kmerCountFileWriter *writer);
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
@@ -122,7 +122,6 @@ private:
   uint32                         _threads;
   uint64                         _memory;
 
-  char                           _outputName[FILENAME_MAX];
   kmerCountFileWriter           *_output;
 
   kmer                           _smallest;

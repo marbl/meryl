@@ -61,8 +61,12 @@ merylOperation::nextMer(bool isRoot) {
             toString(_operation));
   }
 
-  //  If we're counting, do that entirely right now, then reset so we look
-  //  like a union operation.
+  //  If we're counting, do that entirely right now, then reset so we
+  //  can iterate through the kmers we just counted.
+  //
+  //  It's a bit more complicated than I like.  We need to close the output
+  //  (so all the data gets written and an index created) before opening the input,
+  //  but to close t
 
   if ((_operation == opCount) ||
       (_operation == opCountForward) ||
@@ -72,28 +76,36 @@ merylOperation::nextMer(bool isRoot) {
     else
       count();
 
-    //  If this is the root operation, there's nothing left for
-    //  us to do.  We don't take input, and nothing takes our output.
+    //  Done with the inputs, so forget about them.
+
+    clearInputs();
+
+    //  Remember the name of the data we just created.
+
+    char  dataName[FILENAME_MAX+1];
+
+    strncpy(dataName, _output->filename(), FILENAME_MAX);
+
+    //  Close the output and forget about it.
+
+    delete _output;
+    _output = NULL;
+
+    //  If we're the root node, nobody is going to read our kmers,
+    //  and we can just return that there are no kmers.
 
     if (isRoot)
       return(false);
 
-    //  Log what sly trick we're playing on the user.
+    //  Otherwise, add the output we just made as an input.
 
     if (_verbosity >= sayConstruction)
       fprintf(stderr, "merylOp::nextMer()-- CONVERTING '%s' to '%s'.\n",
               toString(opCount), toString(opPassThrough));
 
-    //  Clear the inputs and outputs, then add a new input for the kmers we just counted.
+    _operation = opPassThrough;
 
-    _operation     = opPassThrough;
-
-    clearInputs();
-
-    addInput(_outputName, new kmerCountFileReader(_outputName));
-
-    _outputName[0] = 0;
-    _output        = NULL;
+    addInput(new kmerCountFileReader(dataName));
   }
 
   if (_verbosity >= sayEverything)

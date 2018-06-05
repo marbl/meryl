@@ -244,8 +244,8 @@ merylOperation::count(void) {
   //  MAke output files, one per thread.  Sort, dump and erase each block.
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "Creating " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
-          nPrefix, _outputName, omp_get_max_threads());
+  fprintf(stderr, "Creating up to " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
+          nPrefix, _output->filename(), omp_get_max_threads());
 
   _output->initialize(wPrefix);
 

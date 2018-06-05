@@ -28,7 +28,6 @@ merylOperation::merylOperation(merylOp op, uint32 k, uint64 numMers, uint32 thre
   _threads       = threads;
   _memory        = memory;
 
-  _outputName[0] = 0;
   _output        = NULL;
 
   _actLen        = 0;
@@ -42,8 +41,7 @@ merylOperation::merylOperation(merylOp op, uint32 k, uint64 numMers, uint32 thre
 
 merylOperation::~merylOperation() {
 
-  for (uint32 ii=0; ii<_inputs.size(); ii++)
-    delete _inputs[ii];
+  clearInputs();
 
   delete    _output;
   delete [] _actCount;
@@ -55,7 +53,12 @@ merylOperation::~merylOperation() {
 
 void
 merylOperation::clearInputs(void) {
+
+  for (uint32 ii=0; ii<_inputs.size(); ii++)
+    delete _inputs[ii];
+
   _inputs.clear();
+
   _actLen = 0;
 }
 
@@ -77,47 +80,46 @@ merylOperation::addInput(merylOperation *operation) {
 
 
 void
-merylOperation::addInput(char *name, kmerCountFileReader *reader) {
+merylOperation::addInput(kmerCountFileReader *reader) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
-            name, toString(_operation));
+            reader->filename(), toString(_operation));
 
   if ((_inputs.size() > 0) && (_operation == opPrint))
     fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n"), exit(1);
 
-  _inputs.push_back(new merylInput(name, reader));
+  _inputs.push_back(new merylInput(reader->filename(), reader));
   _actIndex[_actLen++] = _inputs.size() - 1;
 }
 
 
 void
-merylOperation::addInput(char *name, dnaSeqFile *sequence) {
+merylOperation::addInput(dnaSeqFile *sequence) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
-            name, toString(_operation));
+            sequence->filename(), toString(_operation));
 
   if ((_inputs.size() > 0) && (_operation == opPrint))
     fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n"), exit(1);
 
-  _inputs.push_back(new merylInput(name, sequence));
+  _inputs.push_back(new merylInput(sequence->filename(), sequence));
   _actIndex[_actLen++] = _inputs.size() - 1;
 }
 
 
 
 void
-merylOperation::addOutput(char *name, kmerCountFileWriter *writer) {
+merylOperation::addOutput(kmerCountFileWriter *writer) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding output to file '%s' from operation '%s'\n",
-            name, toString(_operation));
+            writer->filename(), toString(_operation));
 
   if (_output)
     fprintf(stderr, "ERROR: already have an output set!\n"), exit(1);
 
-  strncpy(_outputName, name, FILENAME_MAX);
   _output = writer;
 }
 
