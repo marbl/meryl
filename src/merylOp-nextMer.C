@@ -207,7 +207,10 @@ merylOperation::nextMer(bool isRoot) {
       assert(0);
       break;
 
-    case opPassThrough:
+    case opPassThrough:                     //  Result of counting kmers.  Guaranteed to have
+      _count =  _actCount[0];               //  exactly one input file.
+      break;
+
     case opUnion:                           //  Union
       _count = 1;
       break;
