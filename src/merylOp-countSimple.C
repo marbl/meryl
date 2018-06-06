@@ -42,28 +42,37 @@ merylOperation::countSimple(void) {
   char            strf[32];
   char            strr[32];
 
+  if (fmer.merSize() == 0)
+    fprintf(stderr, "ERROR: Kmer size (-k) not supplied.\n"), exit(1);
+
   fprintf(stderr, "\n");
-  fprintf(stderr, "merylOp::count()-- STARTING for operation %s from inputs\n", toString(_operation));
+  fprintf(stderr, "Counting %s%s%s " F_U32 "-mers from " F_SIZE_T " input file%s:\n",
+          (_operation == opCount)        ? "canonical" : "",
+          (_operation == opCountForward) ? "forward" : "",
+          (_operation == opCountReverse) ? "reverse" : "",
+          fmer.merSize(), _inputs.size(), (_inputs.size() == 1) ? "" : "s");
 
   for (uint32 ii=0; ii<_inputs.size(); ii++)
-    fprintf(stderr, "merylOp::count()--   %s\n", _inputs[ii]->_name);
-
-  if (kmerSize == 0)
-    fprintf(stderr, "ERROR: need a kmer size (-k).\n"), exit(1);
+    fprintf(stderr, "  %s\n", _inputs[ii]->_name);
 
   //  Allocate memory.
-
-  fprintf(stderr, "Allocating 8-bit storage for " F_U64 " kmers.\n",
-          maxKmer);
 
   //  Tiny counter uses a fixed-width array (8-bit counts, for convenience)
   //  and a variable-width array to store counts.  Each kmer is explicitly stored.
 
-  uint8        *lowBits    = new uint8    [maxKmer];
-  bitArray     *highBits   = new bitArray [64];
-  uint32        highBitMax = 0;
+  typedef uint16 lowBits_t;
 
-  memset(lowBits,  0, sizeof(uint8) * maxKmer);
+  lowBits_t    *lowBits     = new lowBits_t    [maxKmer];
+  uint32        lowBitsSize = sizeof(lowBits_t) * 8;
+  uint32        lowBitsMax  = ((uint32)1 << lowBitsSize) - 1;
+  bitArray     *highBits    = new bitArray [64];
+  uint32        highBitMax  = 0;
+
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Allocating %u-bit storage for " F_U64 " kmers.\n",
+          lowBitsSize, maxKmer);
+
+  memset(lowBits,  0, sizeof(lowBits_t) * maxKmer);
 
   //  Load bases, count!
 
@@ -125,7 +134,11 @@ merylOperation::countSimple(void) {
         lowBits[kidx] = 0;
 
         for (uint32 hib=0; hib < 64; hib++) {
-          highBits[hib].allocate(maxKmer);
+          if (highBits[hib].isAllocated() == false) {
+            fprintf(stderr, "Increasing to %u-bit storage (for kmer 0x%016lx).\n",
+                    lowBitsSize + hib + 1, kidx);
+            highBits[hib].allocate(maxKmer);
+          }
 
           if (highBits[hib].flipBit(kidx) == 0) {   //  If not set, set it,
             highBitMax = max(highBitMax, hib);      //  remember the possible maximum bit set,
@@ -179,7 +192,7 @@ merylOperation::countSimple(void) {
         count  |= highBits[aa].getBit(bp);
       }
 
-      count <<= 8;
+      count <<= lowBitsSize;
       count  |= lowBits[bp];
 
       if (count > 0) {
