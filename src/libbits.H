@@ -224,8 +224,12 @@ public:
     delete [] _bits;
   };
 
+  bool     isAllocated(void) {
+    return(_bits != NULL);
+  }
+
   void     allocate(uint64 maxNumBits) {
-    if (_bits != NULL)
+    if (isAllocated() == true)
       return;
 
     _maxBitSet = 0;
