@@ -217,23 +217,11 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
 
   //  If the global kmer size isn't set yet, set it.  Then make sure all files are the same.
 
-  kmer  k;
+  if (kmer::merSize() == 0)
+    kmer::setSize(_merSize);
 
-  if (k.merSize() == 0)
-    k.setSize(_merSize);
-
-  if (k.merSize() != _merSize)
+  if (kmer::merSize() != _merSize)
     fprintf(stderr, "mer size mismatch, can't process this set of files.\n"), exit(1);
-
-  //  Remember that we haven't opened any input files yet.
-
-  for (uint32 oi=0; oi<_numFiles; oi++)
-    _datFiles[oi] = NULL;
-
-  //  But for simplicity, open all files here.
-
-  //for (uint32 oi=0; oi<_numFiles; oi++)
-  //  openFile(oi);
 }
 
 
