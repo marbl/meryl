@@ -151,7 +151,7 @@ constructBlockName(char   *prefix,
 
 
 
-kmerCountFileReader::kmerCountFileReader(const char *inputName) {
+kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats) {
 
   //  Save the input name for later use.
 
@@ -207,7 +207,8 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName) {
   for (uint32 ii=0; ii<_numFiles; ii++)
     _datFiles[ii] = NULL;
 
-  _stats.load(indexData);
+  if (ignoreStats == false)
+    _stats.load(indexData);
 
   delete indexData;
 
