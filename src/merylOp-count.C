@@ -46,7 +46,7 @@ scaledUnit(uint64 n, uint32 div=1024) {
 
 
 uint64                                     //  Output: Estimated memory size in bytes
-estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed memory in bytes
+estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in bytes
               uint64   nKmerEstimate,      //  Input:  Estimated number of kmers in the input
               uint32   merSize,            //  Input:  Size of kmer
               uint32  &wPrefix_,           //  Output: Number of bits in the prefix (== bucket address)
@@ -111,9 +111,47 @@ estimateSizes(uint64   UNUSED(maxMemory),          //  Input:  Maximum allowed m
           nKmerEstimate / 1000000, merSize);
   fprintf(stderr, "\n");
 
+  if (maxMemory < minMemory) {
+    fprintf(stderr, "ERROR!  Cannot fit into memory limit %.3f GB.\n",
+            maxMemory / 1024.0 / 1024.0 / 1024.0);
+    exit(1);
+  }
+
   return(minMemory);
 }
 
+
+
+//  Return a complete guess at the number of kmers in the input files.  No
+//  rigorous went into the multipliers, just looked at a few sets of lambda reads.
+uint64
+guesstimateNumberOfkmersInInput(vector<merylInput *>  &inputs) {
+  uint64   numMers = 0;
+
+  for (uint32 ii=0; ii<inputs.size(); ii++) {
+    char   *name = inputs[ii]->_name;
+    uint32  len  = strlen(name);
+
+    if ((name[0] == '-') && (name[1] == 0))
+      continue;
+
+    uint64  size = AS_UTL_sizeOfFile(name);
+
+    if      ((len > 3) && (name[len-3] == '.') && (name[len-2] == 'x') && (name[len-1] == 'z'))
+      numMers += size * 5;
+
+    else if ((len > 3) && (name[len-3] == '.') && (name[len-2] == 'g') && (name[len-1] == 'z'))
+      numMers += size * 4;
+
+    else if ((len > 3) && (name[len-4] == '.') && (name[len-3] == 'b') && (name[len-2] == 'z') && (name[len-1] == '2'))
+      numMers += size * 4;
+
+    else
+      numMers += size;
+  }
+
+  return(numMers);
+}
 
 
 void
@@ -139,11 +177,15 @@ merylOperation::count(void) {
   if (fmer.merSize() == 0)
     fprintf(stderr, "ERROR: Kmer size (-k) not supplied.\n"), exit(1);
 
-  if (_numMers == 0)
+  if (_expNumKmers == 0)
+    _expNumKmers = guesstimateNumberOfkmersInInput(_inputs);
+
+  if (_expNumKmers == 0)
     fprintf(stderr, "ERROR: Estimate of number of kmers (-n) not supplied.\n"), exit(1);
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "Counting %s%s%s " F_U32 "-mers from " F_SIZE_T " input file%s:\n",
+  fprintf(stderr, "Counting %lu %s%s%s " F_U32 "-mers from " F_SIZE_T " input file%s:\n",
+          _expNumKmers,
           (_operation == opCount)        ? "canonical" : "",
           (_operation == opCountForward) ? "forward" : "",
           (_operation == opCountReverse) ? "reverse" : "",
@@ -159,20 +201,15 @@ merylOperation::count(void) {
   uint32    wData     = 0;
   uint64    wDataMask = 0;
 
-  estimateSizes(0, _numMers, kmerSize, wPrefix, nPrefix, wData, wDataMask);
+  estimateSizes(_maxMemory, _expNumKmers, kmerSize, wPrefix, nPrefix, wData, wDataMask);
 
-  //  Allocate memory.
-
-  merylCountArray::set(wData, 64 * 8192);
-
-  fprintf(stderr, "Allocating " F_U64 " buckets, each with " F_U32 " bits (" F_U32 " words, " F_U32 " kmers) of storage.\n",
-          nPrefix,
-          merylCountArray::getSegSize_bits(),
-          merylCountArray::getSegSize_bits() / 64,
-          merylCountArray::getSegSize_kmers());
-  fprintf(stderr, "\n");
+  //  Allocate buckets.  The buckets don't allocate space for mers until they're added,
+  //  and allocate space for these mers in blocks of 64 * 8192 bits.
 
   merylCountArray  *data = new merylCountArray [nPrefix];
+
+  for (uint32 pp=0; pp<nPrefix; pp++)
+    data[pp].initialize(pp, wData, 64 * 8192);
 
   //  Load bases, count!
 
@@ -249,11 +286,11 @@ merylOperation::count(void) {
 
   _output->initialize(wPrefix);
 
-  //#pragma omp parallel for
+#pragma omp parallel for
   for (uint64 pp=0; pp<nPrefix; pp++) {
-    data[pp].sort(pp);
-    data[pp].dump(pp, _output);
-    data[pp].clear();
+    data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
+    data[pp].dumpCountedKmers(_output);   //  Write that list to disk.
+    data[pp].removeCountedKmers();        //  And remove the in-core data.
   }
 
   //  Cleanup.

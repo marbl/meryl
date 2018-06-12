@@ -32,6 +32,9 @@ enum merylOp {
   opCountForward,
   opCountReverse,
   opPassThrough,         //  Internal operation; behaves just like opUnion, but only a single input.
+  opLessThan,
+  opGreaterThan,
+  opEqualTo,
   opUnion,
   opUnionMin,
   opUnionMax,
@@ -59,11 +62,12 @@ enum merylVerbosity {
 
 class merylOperation {
 public:
-  merylOperation(merylOp op=opNothing, uint32 k=0, uint64 numMers=0, uint32 threads=1, uint64 memory=0);
+  merylOperation(merylOp op=opNothing, uint32 threads=1, uint64 memory=0);
   ~merylOperation();
 
 private:
   void    clearInputs(void);
+  void    checkInputs(const char *name);
 
 public:
   void    addInput(merylOperation *operation);
@@ -74,6 +78,12 @@ public:
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
+
+  void    setParameter(uint64 p)               { _parameter   = p;  };
+  void    setExpectedNumberOfKmers(uint64 n)   { _expNumKmers = n;  };
+
+  void    setMemoryLimit(uint64 m)             { _maxMemory = m;    };
+  void    setThreadLimit(uint32 t)             { _maxThreads = t;   };
 
   bool    isCounting(void) {
     return((_operation == opCount)        ||
@@ -117,14 +127,15 @@ private:
 
   merylOp                        _operation;
 
-  uint32                         _k;
-  uint64                         _numMers;
-  uint32                         _threads;
-  uint64                         _memory;
+  uint64                         _parameter;
+  uint64                         _expNumKmers;
+
+  uint32                         _maxThreads;
+  uint64                         _maxMemory;
 
   kmerCountFileWriter           *_output;
 
-  kmer                           _smallest;
+  //kmer                           _smallest;
 
   uint32                         _actLen;
   uint64                        *_actCount;
@@ -134,10 +145,8 @@ private:
   uint64                         _count;
   bool                           _valid;
 
-  static
-  bool                           _showProgress;
-  static
-  merylVerbosity                 _verbosity;
+  static bool                    _showProgress;
+  static merylVerbosity          _verbosity;
 };
 
 

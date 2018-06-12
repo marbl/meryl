@@ -21,12 +21,14 @@ bool            merylOperation::_showProgress = false;
 merylVerbosity  merylOperation::_verbosity    = sayStandard;
 
 
-merylOperation::merylOperation(merylOp op, uint32 k, uint64 numMers, uint32 threads, uint64 memory) {
+merylOperation::merylOperation(merylOp op, uint32 threads, uint64 memory) {
   _operation     = op;
-  _k             = k;
-  _numMers       = numMers;
-  _threads       = threads;
-  _memory        = memory;
+
+  _parameter     = UINT64_MAX;
+  _expNumKmers   = 0;
+
+  _maxThreads    = threads;
+  _maxMemory     = memory;
 
   _output        = NULL;
 
@@ -65,6 +67,21 @@ merylOperation::clearInputs(void) {
 
 
 void
+merylOperation::checkInputs(const char *name) {
+
+  if ((_actLen > 1) && ((_operation == opLessThan)    ||
+                        (_operation == opGreaterThan) ||
+                        (_operation == opEqualTo)     ||
+                        (_operation == opPrint))) {
+    fprintf(stderr, "merylOp::addInput()-- ERROR: Can't add input '%s' to operation '%s': only one input supported.\n",
+            name, toString(_operation));
+    exit(1);
+  }
+}
+
+
+
+void
 merylOperation::addInput(merylOperation *operation) {
 
   if (_verbosity >= sayConstruction)
@@ -76,6 +93,8 @@ merylOperation::addInput(merylOperation *operation) {
 
   _inputs.push_back(new merylInput(operation));
   _actIndex[_actLen++] = _inputs.size() - 1;
+
+  checkInputs(toString(operation->getOperation()));
 }
 
 
@@ -91,6 +110,8 @@ merylOperation::addInput(kmerCountFileReader *reader) {
 
   _inputs.push_back(new merylInput(reader->filename(), reader));
   _actIndex[_actLen++] = _inputs.size() - 1;
+
+  checkInputs(reader->filename());
 }
 
 
@@ -106,6 +127,8 @@ merylOperation::addInput(dnaSeqFile *sequence) {
 
   _inputs.push_back(new merylInput(sequence->filename(), sequence));
   _actIndex[_actLen++] = _inputs.size() - 1;
+
+  checkInputs(sequence->filename());
 }
 
 
@@ -133,6 +156,9 @@ toString(merylOp op) {
     case opCountForward:         return("opCountForward");         break;
     case opCountReverse:         return("opCountReverse");         break;
     case opPassThrough:          return("opPassThrough");          break;
+    case opLessThan:             return("opLessThan");             break;
+    case opGreaterThan:          return("opGreaterThan");          break;
+    case opEqualTo:              return("opEqualTo");              break;
     case opUnion:                return("opUnion");                break;
     case opUnionMin:             return("opUnionMin");             break;
     case opUnionMax:             return("opUnionMax");             break;
