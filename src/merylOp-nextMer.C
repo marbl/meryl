@@ -208,7 +208,19 @@ merylOperation::nextMer(bool isRoot) {
       break;
 
     case opPassThrough:                     //  Result of counting kmers.  Guaranteed to have
-      _count =  _actCount[0];               //  exactly one input file.
+      _count = _actCount[0];                //  exactly one input file.
+      break;
+
+    case opLessThan:
+      _count = (_actCount[0]  < _parameter) ? _actCount[0] : 0;
+      break;
+
+    case opGreaterThan:
+      _count = (_actCount[0]  > _parameter) ? _actCount[0] : 0;
+      break;
+
+    case opEqualTo:
+      _count = (_actCount[0] == _parameter) ? _actCount[0] : 0;
       break;
 
     case opUnion:                           //  Union
@@ -254,11 +266,8 @@ merylOperation::nextMer(bool isRoot) {
       break;
 
     case opPrint:
-      if (_inputs.size() != 1)
-        fprintf(stderr, "merylOp::nextMer()-- ERROR: 'print' can operate on one input only; this has " F_SIZE_T " inputs.\n",
-                _inputs.size()), exit(1);
-
-      fprintf(stdout, "%s\t" F_U64 "\n", _kmer.toString(kmerString), _actCount[0]);
+      if (_actCount[0] > 0)
+        fprintf(stdout, "%s\t" F_U64 "\n", _kmer.toString(kmerString), _actCount[0]);
       break;
 
     case opNothing:

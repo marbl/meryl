@@ -39,24 +39,24 @@ sub makeSequence ($$$) {
 
 {
     my $bases = makeSequence("A.fasta", "A", 5000);
-    system("meryl -n $bases -k 22 print count A.fasta output A > A.count.dump");
+    system("meryl k=22 print count n=$bases A.fasta output A > A.count.dump");
     system("meryl print A > A.dump");
 }
 
 {
     my $bases = makeSequence("AC.fasta", "AC", 5000);
-    system("meryl -n $bases -k 22 print count AC.fasta output AC > AC.count.dump");
+    system("meryl k=22 print count n=$bases AC.fasta output AC > AC.count.dump");
     system("meryl print AC > AC.dump");
 }
 
 {
     my $bases = makeSequence("ACG.fasta", "ACG", 5000);
-    system("meryl -n $bases -k 22 print count ACG.fasta output ACG > ACG.count.dump");
+    system("meryl k=22 print count n=$bases ACG.fasta output ACG > ACG.count.dump");
     system("meryl print ACG > ACG.dump");
 }
 
 {
     my $bases = makeSequence("ACGT.fasta", "ACGT", 5000);
-    system("meryl -n $bases -k 22 print count ACGT.fasta output ACGT > ACGT.count.dump");
+    system("meryl k=22 print count n=$bases ACGT.fasta output ACGT > ACGT.count.dump");
     system("meryl print ACGT > ACGT.dump");
 }

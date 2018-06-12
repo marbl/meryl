@@ -16,9 +16,9 @@ sub testBuild {
 
     system("mkdir new");
 
-    system("$nmeryl -n 5000000 -k 22 count DATA/ecoli-dh.fasta output new/ecoli-dh");
-    system("$nmeryl -n 5000000 -k 22 count DATA/ecoli-mg.fasta output new/ecoli-mg");
-    system("$nmeryl -n 5000000 -k 22 count DATA/ecoli-w3.fasta output new/ecoli-w3");
+    system("$nmeryl k=22 count n=5000000 DATA/ecoli-dh.fasta output new/ecoli-dh");
+    system("$nmeryl k=22 count n=5000000 DATA/ecoli-mg.fasta output new/ecoli-mg");
+    system("$nmeryl k=22 count n=5000000 DATA/ecoli-w3.fasta output new/ecoli-w3");
 
     system("$nmeryl print new/ecoli-dh > new/ecoli-dh.dump");
     system("$nmeryl print new/ecoli-mg > new/ecoli-mg.dump");
