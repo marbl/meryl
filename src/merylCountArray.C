@@ -27,10 +27,8 @@ merylCountArray::merylCountArray(void) {
   _nKmers      = 0;
 
   _segSize     = 64 * 8192;
-  _segAlloc    = 16;
+  _segAlloc    = 0;
   _segments    = NULL;
-
-  allocateArray(_segments, _segAlloc);
 
   _nBits       = 0;
 }
@@ -69,10 +67,16 @@ merylCountArray::removeSegments(void) {
 void
 merylCountArray::addSegment(uint32 seg) {
 
+  if (_segAlloc == 0)
+    resizeArray(_segments, _segAlloc, _segAlloc, 16, resizeArray_copyData | resizeArray_clearNew);
+
   if (seg >= _segAlloc)
     resizeArray(_segments, _segAlloc, _segAlloc, 2 * _segAlloc, resizeArray_copyData | resizeArray_clearNew);
 
   assert(_segments[seg] == NULL);
+
+  //if (seg > 0)
+  //  fprintf(stderr, "Add segment %u\n", seg);
 
   _segments[seg] = new uint64 [_segSize / 64];
 }
@@ -161,6 +165,9 @@ merylCountArray::dumpCountedKmers(kmerCountFileWriter *out) {
 
 void
 merylCountArray::removeCountedKmers(void) {
+
   delete [] _suffix;   _suffix = NULL;
   delete [] _counts;   _counts = NULL;
+
+  _nKmers = 0;
 }

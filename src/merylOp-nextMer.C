@@ -266,8 +266,10 @@ merylOperation::nextMer(bool isRoot) {
       break;
 
     case opPrint:
+#ifndef DONT_PRINT
       if (_actCount[0] > 0)
         fprintf(stdout, "%s\t" F_U64 "\n", _kmer.toString(kmerString), _actCount[0]);
+#endif
       break;
 
     case opNothing:

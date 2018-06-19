@@ -176,15 +176,18 @@ merylOperation::countSimple(void) {
   _output->initialize(wPrefix);
 
 #pragma omp parallel for
-  for (uint64 pp=0; pp<nPrefix; pp++) {
-    uint64  bStart   = pp * nSuffix;
-    uint64  bEnd     = pp * nSuffix + nSuffix;
+  for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
+    fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
+            omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
+
+    uint64  bStart   = _output->firstPrefixInFile(ff);
+    uint64  bEnd     = _output->lastPrefixInFile(ff);
 
     uint64  *sBlock  = new uint64 [nSuffix];
     uint32  *cBlock  = new uint32 [nSuffix];
     uint64   nKmers  = 0;
 
-    for (uint64 bp=bStart; bp<bEnd; bp++) {
+    for (uint64 bp=bStart; bp<=bEnd; bp++) {
       uint32  count = 0;
 
       for (uint32 aa=highBitMax+1; aa-- > 0; ) {    //  Reconstruct the count.
@@ -202,10 +205,7 @@ merylOperation::countSimple(void) {
       }
     }
 
-    //if (nKmers > 0)
-    //  fprintf(stderr, "Dumping block pp %lu from %lu-%lu with %lu kmers.\n", pp, bStart, bEnd, nKmers);
-
-    _output->addBlock(pp, nKmers, sBlock, cBlock);
+    _output->addBlock(bStart, nKmers, sBlock, cBlock);
 
     delete [] sBlock;
     delete [] cBlock;

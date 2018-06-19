@@ -128,7 +128,8 @@ static
 char *
 constructBlockName(char   *prefix,
                    uint64  outIndex,
-                   uint32  numFiles) {
+                   uint32  numFiles,
+                   uint32  iteration) {
   char *name = new char [FILENAME_MAX+1];
   char  bits[67];
 
@@ -143,7 +144,7 @@ constructBlockName(char   *prefix,
 
   bits[bp] = 0;
 
-  snprintf(name, FILENAME_MAX, "%s/%s.merylData", prefix, bits);
+  snprintf(name, FILENAME_MAX, "%s/%s[%03u].merylData", prefix, bits, iteration);
 
   return(name);
 }
@@ -159,21 +160,22 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
 
   //  Initialize to nothing.
 
-  _prefixSize   = 0;
-  _suffixSize   = 0;
-  _merSize      = 0;
-  _numFilesBits = 0;
-  _numFiles     = 0;
-  _datFiles     = NULL;
+  _prefixSize      = 0;
+  _suffixSize      = 0;
+  _merSize         = 0;
+  _numFilesBits    = 0;
+  _numFiles        = 0;
+  _datFiles        = NULL;
 
-  _prefix      = 0;
-  _activeMer   = 0;
-  _activeFile  = 0;
+  _prefix          = 0;
+  _activeMer       = 0;
+  _activeFile      = 0;
+  _activeIteration = 1;
 
-  _nKmers      = 0;
-  _nKmersMax   = 1024;
-  _suffixes    = new uint64 [_nKmersMax];
-  _counts      = new uint32 [_nKmersMax];
+  _nKmers          = 0;
+  _nKmersMax       = 1024;
+  _suffixes        = new uint64 [_nKmersMax];
+  _counts          = new uint32 [_nKmersMax];
 
   //  Fail if _inName isn't a directory, or if the index file doesn't exist.
 
@@ -197,28 +199,34 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
     fprintf(stderr, "ERROR: '%s' doesn't look like a meryl input; file '%s' fails magic number check.\n",
             _inName, N), exit(1);
 
-  _prefixSize   = indexData->getBinary(32);
-  _suffixSize   = indexData->getBinary(32);
-  _merSize      = indexData->getBinary(32);
-  _numFilesBits = indexData->getBinary(32);
-  _numFiles     = indexData->getBinary(32);
-  _datFiles     = new FILE * [_numFiles];
+  _prefixSize    = indexData->getBinary(32);
+  _suffixSize    = indexData->getBinary(32);
+  _merSize       = indexData->getBinary(32);
+  _numFilesBits  = indexData->getBinary(32);
+  _numFiles      = indexData->getBinary(32);
+  _numIterations = indexData->getBinary(32);
 
-  for (uint32 ii=0; ii<_numFiles; ii++)
+  _datFiles      = new FILE                     * [_numIterations];
+  _blocks        = new kmerCountFileReaderBlock * [_numIterations];
+
+  _datFiles[0]   = NULL;    //  Zeroth iteration isn't used.
+  _blocks[0]     = NULL;
+
+  for (uint32 ii=1; ii<_numIterations; ii++) {
     _datFiles[ii] = NULL;
+    _blocks[ii]   = new kmerCountFileReaderBlock();
+  }
 
   if (ignoreStats == false)
     _stats.load(indexData);
 
   delete indexData;
 
-  fprintf(stderr, "Opened '%s'.  Found prefixSize %u suffixSize %u merSize %u numFiles %u\n",
-          _inName, _prefixSize, _suffixSize, _merSize, _numFiles);
+  fprintf(stderr, "Opened '%s'.  Found prefixSize %u suffixSize %u merSize %u numFiles %u numIterations %u\n",
+          _inName, _prefixSize, _suffixSize, _merSize, _numFiles, _numIterations);
 
-  //  If the global kmer size isn't set yet, set it.  Then make sure all files are the same.
-
-  if (kmer::merSize() == 0)
-    kmer::setSize(_merSize);
+  if (kmer::merSize() == 0)     //  If the global kmer size isn't set yet, set it.
+    kmer::setSize(_merSize);    //  Then make sure all files are the same.
 
   if (kmer::merSize() != _merSize)
     fprintf(stderr, "mer size mismatch, can't process this set of files.\n"), exit(1);
@@ -231,24 +239,29 @@ kmerCountFileReader::~kmerCountFileReader() {
   delete [] _suffixes;
   delete [] _counts;
 
-  for (uint32 ii=0; ii<_numFiles; ii++)
+  for (uint32 ii=1; ii<_numIterations; ii++)
     AS_UTL_closeFile(_datFiles[ii]);
 
   delete [] _datFiles;
+
+  for (uint32 ii=1; ii<_numIterations; ii++)
+    delete _blocks[ii];
+
+  delete [] _blocks;
 }
 
 
 
 void
-kmerCountFileReader::openFile(uint32 idx) {
+kmerCountFileReader::openFile(uint32 idx, uint32 iteration) {
 
-  if (_datFiles[idx])
+  if (_datFiles[iteration])
     return;
 
-  char  *name = constructBlockName(_inName, idx, _numFiles);
+  char  *name = constructBlockName(_inName, idx, _numFiles, iteration);
 
   if (AS_UTL_fileExists(name))
-    _datFiles[idx] = AS_UTL_openInputFile(name);
+    _datFiles[iteration] = AS_UTL_openInputFile(name);
 
   delete [] name;
 }
@@ -270,86 +283,170 @@ kmerCountFileReader::nextMer(void) {
 
   //  Otherwise, we need to load another block.
 
-  stuffedBits   *dumpData = new stuffedBits();
+  //fprintf(stdout, "nextMer()-- need another block.\n");
+
+  //  Make sure all files are opened.
 
  loadAgain:
+  for (uint32 ii=1; ii<_numIterations; ii++)
+    if (_datFiles[ii] == NULL)
+      openFile(_activeFile, ii);
 
-  if (_datFiles[_activeFile] == NULL)
-    openFile(_activeFile);
+  //  Load blocks.
 
-  bool  loaded = dumpData->loadFromFile(_datFiles[_activeFile]);    //  Try loading the next block
+  bool loaded = false;
+
+  for (uint32 ii=1; ii<_numIterations; ii++)
+    loaded |= _blocks[ii]->loadBlock(_activeFile, ii, _datFiles[ii]);
+
+  //  If nothing loaded. open a new file and try again.
 
   if (loaded == false) {
-    AS_UTL_closeFile(_datFiles[_activeFile]);                       //  If nothing loaded, close the
-    _datFiles[_activeFile] = NULL;                                  //  current file.
+    for (uint32 ii=1; ii<_numIterations; ii++)
+      AS_UTL_closeFile(_datFiles[ii]);
 
-    _activeFile++;                                                  //  Move to the next file.
+    _activeFile++;
 
-    if (_numFiles <= _activeFile) {                                 //  If no more files,
-      delete dumpData;                                              //  we're done.
+    if (_numFiles <= _activeFile)
       return(false);
-    }
 
-    goto loadAgain;                                                 //  Otherwise, try loading again.
-  }
-
-  //  We've loaded a block, so decode it.
-
-  uint64 m1 = dumpData->getBinary(64);    //  Magic number, part 1.
-  uint64 m2 = dumpData->getBinary(64);    //  Magic number, part 2.
-
-  if ((m1 != 0x7461446c7972656dllu) ||
-      (m2 != 0x0a3030656c694661llu)) {
-    fprintf(stderr, "kmerCountFileReader::nextMer()-- Magic number mismatch in activeFile " F_U32 " position " F_U64 ".\n",
-            _activeFile, dumpData->getPosition());
-    fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x7461446c7972656d got 0x%016" F_X64P "\n", m1);
-    fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x0a3030656c694661 got 0x%016" F_X64P "\n", m2);
-    exit(1);
-  }
-
-  _prefix = dumpData->getBinary(64);
-  _nKmers = dumpData->getBinary(64);
-  //_nBits  = dumpData->getBinary(64);
-
-  //  But if there are no kmers in this block, go back and get another block.
-  //  This _should_ be caught by the writer, and the writer should not be writing empty blocks.
-  //  Just in case.
-
-  if (_nKmers == 0) {
-    //fprintf(stderr, "rCountFileReader::nextMer()-- Empty block.\n");
     goto loadAgain;
   }
 
-  uint32 kCode      = dumpData->getBinary(8);
-  uint32 unaryBits  = dumpData->getBinary(32);
-  uint32 binaryBits = dumpData->getBinary(32);
-  uint64 k1         = dumpData->getBinary(64);
+  //  At least one block has loaded data.  Figure out which ones are current, decode their data,
+  //  and merge those kmers into one list under out control.
+  //
+  //  decodeBlock() marks the block as having no data, so the next time we loadBlock() it will
+  //  read more data from disk.  For blocks that don't get decoded, they retain whatever was
+  //  loaded, and do not load another block in loadBlock().
 
-  uint32 cCode      = dumpData->getBinary(8);
-  uint64 c1         = dumpData->getBinary(64);
-  uint64 c2         = dumpData->getBinary(64);
+  _prefix = UINT64_MAX;
 
-  //  Resize _suffixes and _counts if needed
+#ifdef SHOW_LOAD
+  for (uint32 ii=1; ii<_numIterations; ii++)
+    fprintf(stdout, "block %u prefix %016lx nKmers %lu\n", ii, _blocks[ii]->prefix(), _blocks[ii]->nKmers());
+#endif
 
-  resizeArrayPair(_suffixes, _counts, 0, _nKmersMax, _nKmers, resizeArray_doNothing);
+  for (uint32 ii=1; ii<_numIterations; ii++)             //  Find the prefix we should
+    if (_blocks[ii]->nKmers() > 0)                       //  be decoding.
+      _prefix = min(_prefix, _blocks[ii]->prefix());
 
-  //  Decode the data!
+  uint32  totActive = 0;
+  uint32  active[_numIterations] = {0};
 
-  uint64  thisPrefix = 0;
+  for (uint32 ii=1; ii<_numIterations; ii++)             //  Remember which ones are active.
+    if ((_blocks[ii]->prefix() == _prefix) &&
+        (_blocks[ii]->nKmers() > 0))
+      active[totActive++] = ii;
 
-  for (uint32 kk=0; kk<_nKmers; kk++) {
-    thisPrefix += dumpData->getUnary();
+  for (uint32 ii=0; ii<totActive; ii++)                  //  Decode blocks with the
+    _blocks[ active[ii] ]->decodeBlock();                 //  next prefix.
 
-    _suffixes[kk] = (thisPrefix << binaryBits) | (dumpData->getBinary(binaryBits));
+  uint64  totnKmers = 0;
+  uint64  maxnKmers = 0;
+
+  for (uint32 ii=0; ii<totActive; ii++) {                //  Decide how many kmers we
+    uint64  bk = _blocks[ active[ii] ]->nKmers();         //  will need to store here.
+
+    totnKmers += bk;
+    maxnKmers  = max(maxnKmers, bk);
   }
 
-  for (uint32 kk=0; kk<_nKmers; kk++) {
-    _counts[kk] = dumpData->getBinary(32);
+  resizeArrayPair(_suffixes, _counts, 0, _nKmersMax, totnKmers, resizeArray_doNothing);
+
+#ifdef SHOW_LOAD
+  fprintf(stdout, "nextMer()-- found _prefix 0x%016lx totActive %u totnKmers %lu maxnKmers %lu\n",
+          _prefix, totActive, totnKmers, maxnKmers);
+#endif
+
+  //  If only one active, we can just copy the data from it to us.
+
+  if (totActive == 1) {
+    _nKmers = totnKmers;
+
+    memcpy(_suffixes, _blocks[ active[0] ]->_suffixes, sizeof(uint64) * _nKmers);
+    memcpy(_counts,   _blocks[ active[0] ]->_counts,   sizeof(uint32) * _nKmers);
   }
 
-  //  All done.
+  //  Otherwise, we need to merge data.
 
-  delete dumpData;
+  else {
+    uint32    p[totActive] = {0};  //  Position in s[] and c[]
+    uint64    l[totActive] = {0};  //  Number of entries in s[] and c[]
+    uint64   *s[totActive] = {0};  //  Pointer to the suffixes for piece x
+    uint32   *c[totActive] = {0};  //  Pointer to the counts   for piece x
+
+    for (uint32 ii=0; ii<totActive; ii++) {
+      p[ii] = 0;
+      l[ii] = _blocks[ active[ii] ]->nKmers();
+      s[ii] = _blocks[ active[ii] ]->_suffixes;
+      c[ii] = _blocks[ active[ii] ]->_counts;
+    }
+
+#ifdef SHOW_LOAD
+    for (uint32 ii=0; ii<totActive; ii++)
+      fprintf(stdout, "merging block %u (in active[%u]) with %lu kmers\n", active[ii], ii, l[ii]);
+#endif
+
+    _nKmers = 0;
+
+    while (1) {
+      uint64  minSuffix = UINT64_MAX;
+      uint32  sumCount  = 0;
+
+      //  Find the smallest suffix over all the active inputs,
+      //  and remember the sum of their counts.
+
+      for (uint32 ii=0; ii<totActive; ii++) {
+        if (s[ii] == NULL)   //  If all done, s[] is set to NULL.
+          continue;
+
+        if (minSuffix > s[ii][ p[ii] ]) {
+          minSuffix = s[ii][ p[ii] ];
+          sumCount  = c[ii][ p[ii] ];
+        }
+
+        else if (minSuffix == s[ii][ p[ii] ]) {
+          sumCount += c[ii][ p[ii] ];
+        }
+      }
+
+      //  If no counts, we're done.
+
+      if ((minSuffix == UINT64_MAX) && (sumCount == 0))
+        break;
+
+      //  Set the suffix/count in our merged list, reallocating if needed.
+
+      _suffixes[_nKmers] = minSuffix;
+      _counts  [_nKmers] = sumCount;
+
+      _nKmers++;
+
+      if (_nKmers > _nKmersMax)
+        fprintf(stderr, "_nKmers %lu > _nKmersMax %lu\n", _nKmers, _nKmersMax);
+      assert(_nKmers <= _nKmersMax);
+
+      //  Move to the next element of the lists we pulled data from.  If the list is
+      //  exhausted, mark it as so.
+
+      for (uint32 ii=0; ii<totActive; ii++) {
+        if (s[ii] == NULL)   //  If all done, s[] is set to NULL.
+          continue;
+
+        if (minSuffix == s[ii][ p[ii] ]) {
+          if (++p[ii] >= l[ii]) {
+            s[ii] = NULL;
+            c[ii] = NULL;
+          }
+        }
+      }
+    }
+
+#ifdef SHOW_LOAD
+    fprintf(stdout, "merged %lu kmers from %lu total and %lu max\n", _nKmers, totnKmers, maxnKmers);
+#endif
+  }
 
   //  Phew, lots of work just to do this.
 
@@ -381,6 +478,11 @@ kmerCountFileWriter::initialize(uint32 prefixSize) {
 
 #pragma omp critical
   if (_initialized == false) {
+
+    //  When counting large sets, we might run out of memory.  If so, whatever we have loaded is
+    //  dumped to disk, and a new batch is counted.  This counts how many batches we've written.
+
+    _iteration = 1;
 
     //  If the prefixSize is zero, set it to (arbitrary) 1/4 the kmer size.  This happens in the
     //  streaming writer (which is used when meryl does any non-count operation).  The prefixSize here
@@ -496,6 +598,7 @@ kmerCountFileWriter::~kmerCountFileWriter() {
   indexData->setBinary(32, _merSize);
   indexData->setBinary(32, _numFilesBits);
   indexData->setBinary(32, _numFiles);
+  indexData->setBinary(32, _iteration);
 
   _stats.dump(indexData);
 
@@ -557,14 +660,39 @@ kmerCountFileWriter::addMer(kmer   k,
 
 
 
-void
-kmerCountFileWriter::addBlock(uint64  prefix,
-                              uint64  nKmers,
-                              uint64 *suffixes,
-                              uint32 *counts) {
+uint64
+kmerCountFileWriter::firstPrefixInFile(uint32 ff) {
+  uint32  nfb = logBaseTwo32(_numFiles - 1);     //  Number of prefix bits stored in each file.
+  uint64  pp  = ff;
 
-  if (nKmers == 0)
-    return;
+  assert(_initialized);
+
+  pp <<= (_prefixSize - nfb);   //  The first prefix is just the file number shifted left.
+
+  return(pp);
+}
+
+
+
+uint64
+kmerCountFileWriter::lastPrefixInFile(uint32 ff) {
+  uint32  nfb = logBaseTwo32(_numFiles - 1);     //  Number of prefix bits stored in each file.
+  uint64  pp  = ff + 1;
+
+  assert(_initialized);
+
+  pp <<= (_prefixSize - nfb);   //  The first prefix of the _next_ file.
+  pp  -= 1;                     //  Subtract one to get the last valid prefix for file ff.
+
+  return(pp);
+}
+
+
+
+uint32
+kmerCountFileWriter::fileNumber(uint64  prefix) {
+
+  assert(_initialized);
 
   if (_initialized == false)     //  Take care of any deferred intiialization.  This one isn't
     initialize();                //  as bad as addMer(), 'cause we're working on a block of mers.
@@ -576,6 +704,41 @@ kmerCountFileWriter::addBlock(uint64  prefix,
   uint32  oi  = prefix >> (_prefixSize - nfb);   //  File index we are writing to.
 
   if (oi >= _numFiles)
+    fprintf(stderr, "addBlock()-- prefix 0x%016lx _prefixSize %u nfb %u oi %u >= numFiles %u\n",
+            prefix, _prefixSize, nfb, oi, _numFiles);
+  assert(oi < _numFiles);
+
+  return(oi);
+}
+
+
+
+void
+kmerCountFileWriter::addBlock(uint64  prefix,
+                              uint64  nKmers,
+                              uint64 *suffixes,
+                              uint32 *counts) {
+
+  //if (nKmers == 0)
+  //  return;
+
+  assert(_initialized);
+
+  if (_initialized == false)     //  Take care of any deferred intiialization.  This one isn't
+    initialize();                //  as bad as addMer(), 'cause we're working on a block of mers.
+
+  //  Based on the prefix, decide what output file to write to.
+  //  The prefix has _prefixSize bits.  We want to save the highest _numFiles bits.
+
+  uint32  nfb = logBaseTwo32(_numFiles - 1);     //  Number of prefix bits stored in each file.
+  uint32  oi  = prefix >> (_prefixSize - nfb);   //  File index we are writing to.
+
+#if 0
+  fprintf(stderr, "addBlock()-- thread %2u prefix 0x%016lx nkmers %8lu _prefixSize %u nfb %u oi %u >= numFiles %u\n",
+          omp_get_thread_num(), prefix, nKmers, _prefixSize, nfb, oi, _numFiles);
+#endif
+
+  if (oi >= _numFiles)
     fprintf(stderr, "addBlock()-- prefix 0x%016lx nkmers %lu _prefixSize %u nfb %u oi %u >= numFiles %u\n",
             prefix, nKmers, _prefixSize, nfb, oi, _numFiles);
   assert(oi < _numFiles);
@@ -583,7 +746,7 @@ kmerCountFileWriter::addBlock(uint64  prefix,
   //  Open a new file, if needed.
 
   if (_datFiles[oi] == NULL) {
-    char    *name = constructBlockName(_outName, oi, _numFiles);
+    char    *name = constructBlockName(_outName, oi, _numFiles, _iteration);
 
     pthread_mutex_lock(&_locks[oi]);
 
@@ -680,3 +843,14 @@ kmerCountFileWriter::addBlock(uint64  prefix,
 }
 
 
+
+void
+kmerCountFileWriter::incrementIteration(void) {
+
+  for (uint32 ii=0; ii<_numFiles; ii++) {
+    AS_UTL_closeFile(_datFiles[ii]);
+    _datFiles[ii] = NULL;
+  }
+
+  _iteration++;
+}
