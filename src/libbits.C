@@ -245,9 +245,21 @@ stuffedBits::setPosition(uint64 position, uint64 length) {
   _dataBit = 64 - _dataPos % 64;
 }
 
+
 uint64
 stuffedBits::getPosition(void) {
   return(_dataBlockBgn[_dataBlk] + _dataPos);
+}
+
+
+uint64
+stuffedBits::getLength(void) {
+  uint64 nBits = 0;
+
+  for (uint32 ii=0; ii<_dataBlocksLen; ii++)
+    nBits += _dataBlockLen[ii];
+
+  return(nBits);
 }
 
 
