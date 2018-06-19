@@ -18,11 +18,12 @@
 #define LIBKMER_H
 
 #include "AS_global.H"
-//#include "libbits.H"
+#include "libbits.H"
 
 //  merSize 1 NOT supported.  Fails _leftShift.
 
-class  stuffedBits;
+#undef SHOW_LOAD
+#undef DONT_PRINT
 
 
 class  kmerTiny {
@@ -182,13 +183,156 @@ private:
 
 
 
+class kmerCountFileReaderBlock {
+public:
+  kmerCountFileReaderBlock() {
+    _data       = NULL;
+
+    _prefix     = 0;
+    _nKmers     = 0;
+    _nKmersMax  = 0;
+
+    _kCode      = 0;
+    _unaryBits  = 0;
+    _binaryBits = 0;
+    _k1         = 0;
+
+    _cCode      = 0;
+    _c1         = 0;
+    _c2         = 0;
+
+    _suffixes   = NULL;
+    _counts     = NULL;
+  };
+
+  ~kmerCountFileReaderBlock() {
+    delete    _data;
+    delete [] _suffixes;
+    delete [] _counts;
+  };
+
+  bool      loadBlock(uint32 activeFile, uint32 activeIteration, FILE *inFile) {
+
+    //  If _data exists, we've already loaded the block, but haven't used it yet.
+
+    if (_data)
+      return(true);
+
+    //  Otherwise, allocate _data, read the block from disk.  If nothing loaded,
+    //  return false.
+
+    _data = new stuffedBits();
+
+    _prefix = UINT64_MAX;
+    _nKmers = 0;
+
+  loadAgain:
+    if (_data->loadFromFile(inFile) == false) { 
+#ifdef SHOW_LOAD
+      fprintf(stdout, "loadBlock()-- file %u iter %u FAILED TO LOAD.\n",
+              activeFile, activeIteration);
+#endif
+      delete _data;  _data = NULL;
+      return(false);
+    }
+
+    //  Decode the header of _data, but don't process the kmers yet.
+
+    uint64 m1 = _data->getBinary(64);    //  Magic number, part 1.
+    uint64 m2 = _data->getBinary(64);    //  Magic number, part 2.
+
+    if ((m1 != 0x7461446c7972656dllu) ||
+        (m2 != 0x0a3030656c694661llu)) {
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Magic number mismatch in activeFile " F_U32 " activeIteration " F_U32 " position " F_U64 ".\n",
+              activeFile, activeIteration, _data->getPosition());
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x7461446c7972656d got 0x%016" F_X64P "\n", m1);
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x0a3030656c694661 got 0x%016" F_X64P "\n", m2);
+      exit(1);
+    }
+
+    _prefix = _data->getBinary(64);
+    _nKmers = _data->getBinary(64);
+
+#ifdef SHOW_LOAD
+    fprintf(stdout, "loadBlock()-- file %u iter %u loaded " F_U64 " kmers for prefix 0x%016lx.\n",
+            activeFile, activeIteration, _nKmers, _prefix);
+#endif
+
+    //  If no kmers are in this block, go back and get another block.  This _should_ be caught
+    //  by the writer, and the writer should not be writing empty blocks.  Just in case.
+
+    if (_nKmers == 0)
+      goto loadAgain;
+
+    //  Decode the rest of the header.
+
+    _kCode      = _data->getBinary(8);
+    _unaryBits  = _data->getBinary(32);
+    _binaryBits = _data->getBinary(32);
+    _k1         = _data->getBinary(64);
+
+    _cCode      = _data->getBinary(8);
+    _c1         = _data->getBinary(64);
+    _c2         = _data->getBinary(64);
+
+    return(true);
+  };
+
+  //  Decode a the data into suffixes and counts.
+  void      decodeBlock() {
+
+    if (_data == NULL)
+      return;
+
+    resizeArrayPair(_suffixes, _counts, 0, _nKmersMax, _nKmers, resizeArray_doNothing);
+
+    uint64  thisPrefix = 0;
+
+    for (uint32 kk=0; kk<_nKmers; kk++) {
+      thisPrefix += _data->getUnary();
+
+      _suffixes[kk] = (thisPrefix << _binaryBits) | (_data->getBinary(_binaryBits));
+    }
+
+    for (uint32 kk=0; kk<_nKmers; kk++)
+      _counts[kk] = _data->getBinary(32);
+
+    delete _data;
+    _data = NULL;
+  };
+
+
+  uint64    prefix(void)   { return(_prefix); };
+  uint64    nKmers(void)   { return(_nKmers); };
+
+  stuffedBits  *_data;
+
+  uint64        _prefix;       //  The prefix of all kmers in this block
+  uint64        _nKmers;       //  The number of kmers in this block
+  uint64        _nKmersMax;    //  The number of kmers we've allocated space for in _suffixes and _counts
+
+  uint32        _kCode;        //  Encoding type of kmer, then 128 bits of parameters
+  uint32        _unaryBits;    //    bits in the unary prefix  (of the kmer suffix)
+  uint32        _binaryBits;   //    bits in the binary suffix (of the kmer suffix)
+  uint64        _k1;           //    unused
+
+  uint32        _cCode;        //  Encoding type of the counts, then 128 bits of parameters
+  uint64        _c1;           //    unused
+  uint64        _c2;           //    unused
+
+  uint64       *_suffixes;     //  Decoded suffixes and counts.
+  uint32       *_counts;       //
+};
+
+
+
 class kmerCountFileReader {
 public:
   kmerCountFileReader(const char *inputName, bool ignoreStats=true);
   ~kmerCountFileReader();
 
 private:
-  void    openFile(uint32 idx);
+  void    openFile(uint32 idx, uint32 iteration);
 
 public:
   bool    nextMer(void);
@@ -205,22 +349,24 @@ private:
   uint32              _merSize;
   uint32              _numFilesBits;
   uint32              _numFiles;
+  uint32              _numIterations;
 
   kmerCountStatistics _stats;
 
-  uint32              _datFilesLen;
-  FILE              **_datFiles;
+  FILE                      **_datFiles;
+  kmerCountFileReaderBlock  **_blocks;
 
   kmer                _kmer;
   uint32              _count;
 
   uint64              _prefix;
 
-  uint32              _activeMer;
+  uint64              _activeMer;
   uint32              _activeFile;
+  uint32              _activeIteration;
 
-  uint32              _nKmers;
-  uint32              _nKmersMax;
+  uint64              _nKmers;
+  uint64              _nKmersMax;
   uint64             *_suffixes;
   uint32             *_counts;
 };
@@ -236,32 +382,43 @@ public:
 
 public:
   void    initialize(uint32 prefixSize = 0);
+  char   *filename(void)  { return(_outName);  };
 
 public:
   void    addMer(kmer k, uint32 c);
+
+  uint32  numberOfFiles(void)           { return(_numFiles); };
+  uint64  firstPrefixInFile(uint32 ff);
+  uint64  lastPrefixInFile(uint32 ff);
+
+  uint32  fileNumber(uint64 prefix);
 
   void    addBlock(uint64  prefix,
                    uint64  nKmers,
                    uint64 *suffixes,
                    uint32 *counts);
 
-  char   *filename(void)  { return(_outName);  };
+  void    incrementIteration(void);
+
+
 
 private:
   bool                _initialized;
 
   char                _outName[FILENAME_MAX+1];
 
-  uint64              _batchPrefix;
-  uint64              _batchNumKmers;
+  uint32              _iteration;       //  Large datasets can be written in multiple passes.
+
+  uint64              _batchPrefix;     //  Temporary data used when adding
+  uint64              _batchNumKmers;   //  kmers one-at-a-time.
   uint64              _batchMaxKmers;
   uint64             *_batchSuffixes;
   uint32             *_batchCounts;
 
-  uint32              _prefixShift;
-  uint64              _suffixMask;
+  uint32              _prefixShift;     //  Parameters for converting one-at-a-time
+  uint64              _suffixMask;      //  kmers into prefix/suffix kmers.
 
-  uint32              _prefixSize;
+  uint32              _prefixSize;      //  Parameters for writing a block of kmers.
   uint32              _suffixSize;
   uint32              _merSize;
   uint32              _numFilesBits;

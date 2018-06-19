@@ -156,6 +156,8 @@ private:
 
 
 public:
+  uint64           numBits(void)        {  return(_nBits);  };
+
   void             countKmers(void);
   void             dumpCountedKmers(kmerCountFileWriter *out);
   void             removeCountedKmers(void);

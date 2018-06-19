@@ -113,8 +113,10 @@ main(int argc, char **argv) {
       uint64 memory = (uint64)(strtodouble(optString + 7) * 1024 * 1024 * 1024);
 
       if (memory > physMemory) {
-        fprintf(stderr, "WARNING: requested memory '%s' more than physcially available memory %.2f GB.\n",
-                optString, physMemory / 1024.0 / 1024.0 / 1024.0);
+        char *s = new char [1024];
+        snprintf(s, 1024, "Requested memory '%s' (GB) is more than physical memory %.2f GB.",
+                 optString, physMemory / 1024.0 / 1024.0 / 1024.0);
+        err.push_back(s);
       }
 
       if (opStack.size() == 0)

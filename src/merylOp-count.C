@@ -111,10 +111,21 @@ estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in
           nKmerEstimate / 1000000, merSize);
   fprintf(stderr, "\n");
 
-  if (maxMemory < minMemory) {
-    fprintf(stderr, "ERROR!  Cannot fit into memory limit %.3f GB.\n",
-            maxMemory / 1024.0 / 1024.0 / 1024.0);
+  uint32  nOutputs = minMemory / maxMemory + 1;
+
+  if (nOutputs > 32) {
+    fprintf(stderr, "WARNING:\n");
+    fprintf(stderr, "WARNING: Cannot fit into memory limit %.3f GB.\n", maxMemory / 1024.0 / 1024.0 / 1024.0);
+    fprintf(stderr, "WARNING: Will write %u outputs -- TOO MANY!\n", nOutputs);
+    fprintf(stderr, "WARNING:\n");
     exit(1);
+  }
+
+  if (nOutputs > 1) {
+    fprintf(stderr, "WARNING:\n");
+    fprintf(stderr, "WARNING: Cannot fit into memory limit %.3f GB.\n", maxMemory / 1024.0 / 1024.0 / 1024.0);
+    fprintf(stderr, "WARNING: Will write %u outputs.\n", nOutputs);
+    fprintf(stderr, "WARNING:\n");
   }
 
   return(minMemory);
@@ -203,15 +214,35 @@ merylOperation::count(void) {
 
   estimateSizes(_maxMemory, _expNumKmers, kmerSize, wPrefix, nPrefix, wData, wDataMask);
 
+  //  Configure the writer for the prefix bits we're counting with.
+  //
+  //  We split the kmer into wPrefix and wData (bits) pieces.
+  //  The prefix is used by the filewriter to decide which file to write to, by simply
+  //  shifting it to the right to keep the correct number of bits in the file.
+  //
+  //           kmer -- [ wPrefix (18) = prefixSize               | wData (36) ]
+  //           file -- [ numFileBits  | prefixSize - numFileBits ]
+
+  _output->initialize(wPrefix);
+
   //  Allocate buckets.  The buckets don't allocate space for mers until they're added,
   //  and allocate space for these mers in blocks of 64 * 8192 bits.
+  //
+  //  Need someway of balancing the number of prefixes we have and the size of each
+  //  initial allocation.
 
   merylCountArray  *data = new merylCountArray [nPrefix];
 
   for (uint32 pp=0; pp<nPrefix; pp++)
-    data[pp].initialize(pp, wData, 64 * 8192);
+    data[pp].initialize(pp, wData, 32 * 8192);
 
   //  Load bases, count!
+
+  uint32   memTest     = 0;
+  uint64   memUsed     = 0;
+  uint64   memReported = 0;
+
+  uint64   kmersAdded  = 0;
 
   for (uint32 ii=0; ii<_inputs.size(); ii++) {
     fprintf(stderr, "Loading kmers from '%s' into buckets.\n", _inputs[ii]->_name);
@@ -261,7 +292,48 @@ merylOperation::count(void) {
         assert(pp < nPrefix);
 
         data[pp].add(mm);
+
+        kmersAdded++;
       }
+
+      //  If we're out of space, process the data and dump.
+
+#if 1
+      memUsed = kmersAdded * wData;
+
+      //for (uint64 pp=0; pp<nPrefix; pp++)
+      //  memUsed += data[pp].numBits();
+
+      if (memUsed - memReported > (uint64)1 * 1024 * 1024 * 1024) {
+        memReported = memUsed;
+
+        fprintf(stderr, "Used %.3f GB (%lu bits) out of %.3f GB.\n",
+                memUsed    / 8 / 1024.0 / 1024.0 / 1024.0,
+                memUsed,
+                _maxMemory     / 1024.0 / 1024.0 / 1024.0);
+      }
+
+      if (memUsed > _maxMemory * 8) {
+        fprintf(stderr, "\n");
+        fprintf(stderr, "Memory full.  Writing results.\n");
+
+#pragma omp parallel for schedule(dynamic, 1)
+        for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
+          fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
+                  omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
+
+          for (uint64 pp=_output->firstPrefixInFile(ff); pp <= _output->lastPrefixInFile(ff); pp++) {
+            data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
+            data[pp].dumpCountedKmers(_output);   //  Write that list to disk.
+            data[pp].removeCountedKmers();        //  And remove the in-core data.
+          }
+        }
+          
+        _output->incrementIteration();
+
+        kmersAdded = 0;
+      }
+#endif
 
       if (endOfSeq)                   //  If the end of the sequence, clear
         kmerLoad = 0;                 //  the running kmer.
@@ -278,20 +350,30 @@ merylOperation::count(void) {
   //delete [] kmers;
   delete [] buffer;
 
-  //  MAke output files, one per thread.  Sort, dump and erase each block.
+  //  Sort, dump and erase each block.
+  //
+  //  A minor complication is that within each output file, the blocks must be in order.
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Creating up to " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
           nPrefix, _output->filename(), omp_get_max_threads());
 
-  _output->initialize(wPrefix);
+  //for (uint64 pp=0; pp<nPrefix; pp++)
+  //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _output->fileNumber(pp));
 
-#pragma omp parallel for
-  for (uint64 pp=0; pp<nPrefix; pp++) {
-    data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
-    data[pp].dumpCountedKmers(_output);   //  Write that list to disk.
-    data[pp].removeCountedKmers();        //  And remove the in-core data.
+#pragma omp parallel for schedule(dynamic, 1)
+  for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
+    fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
+            omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
+
+    for (uint64 pp=_output->firstPrefixInFile(ff); pp <= _output->lastPrefixInFile(ff); pp++) {
+      data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
+      data[pp].dumpCountedKmers(_output);   //  Write that list to disk.
+      data[pp].removeCountedKmers();        //  And remove the in-core data.
+    }
   }
+
+  _output->incrementIteration();
 
   //  Cleanup.
 
