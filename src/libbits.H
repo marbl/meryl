@@ -321,6 +321,8 @@ public:
   void     setPosition(uint64 position, uint64 length = 0);
   uint64   getPosition(void);
 
+  uint64   getLength(void);
+
   void     byteAlign(void);
 
   //  UNARY CODED DATA
