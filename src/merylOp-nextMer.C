@@ -231,6 +231,10 @@ merylOperation::nextMer(bool isRoot) {
       _count = (_actCount[0] == _parameter) ? _actCount[0] : 0;
       break;
 
+    case opNotEqualTo:
+      _count = (_actCount[0] != _parameter) ? _actCount[0] : 0;
+      break;
+
     case opUnion:                           //  Union
       _count = 1;
       break;

@@ -37,6 +37,7 @@ enum merylOp {
   opAtLeast,
   opAtMost,
   opEqualTo,
+  opNotEqualTo,
   opUnion,
   opUnionMin,
   opUnionMax,
