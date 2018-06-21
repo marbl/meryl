@@ -32,23 +32,35 @@ enum merylOp {
   opCountForward,
   opCountReverse,
   opPassThrough,         //  Internal operation; behaves just like opUnion, but only a single input.
+
   opLessThan,
   opGreaterThan,
   opAtLeast,
   opAtMost,
   opEqualTo,
   opNotEqualTo,
+
+  opIncrease,
+  opDecrease,
+  opMultiply,
+  opDivide,
+  opModulo,
+
   opUnion,
   opUnionMin,
   opUnionMax,
   opUnionSum,
+
   opIntersect,
   opIntersectMin,
   opIntersectMax,
   opIntersectSum,
+
   opDifference,
   opSymmetricDifference,
+
   opPrint,
+
   opNothing
 };
 
