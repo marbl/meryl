@@ -198,6 +198,8 @@ main(int argc, char **argv) {
     else if (0 == strcmp(optString, "count-reverse"))          opName = opCountReverse;
     else if (0 == strcmp(optString, "less-than"))              opName = opLessThan;
     else if (0 == strcmp(optString, "greater-than"))           opName = opGreaterThan;
+    else if (0 == strcmp(optString, "at-least"))               opName = opAtLeast;
+    else if (0 == strcmp(optString, "at-most"))                opName = opAtMost;
     else if (0 == strcmp(optString, "equal-to"))               opName = opEqualTo;
     else if (0 == strcmp(optString, "union"))                  opName = opUnion;
     else if (0 == strcmp(optString, "union-min"))              opName = opUnionMin;
