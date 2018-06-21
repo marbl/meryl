@@ -196,22 +196,33 @@ main(int argc, char **argv) {
     else if (0 == strcmp(optString, "count"))                  opName = opCount;
     else if (0 == strcmp(optString, "count-forward"))          opName = opCountForward;
     else if (0 == strcmp(optString, "count-reverse"))          opName = opCountReverse;
+
     else if (0 == strcmp(optString, "less-than"))              opName = opLessThan;
     else if (0 == strcmp(optString, "greater-than"))           opName = opGreaterThan;
     else if (0 == strcmp(optString, "at-least"))               opName = opAtLeast;
     else if (0 == strcmp(optString, "at-most"))                opName = opAtMost;
     else if (0 == strcmp(optString, "equal-to"))               opName = opEqualTo;
     else if (0 == strcmp(optString, "not-equal-to"))           opName = opNotEqualTo;
+
+    else if (0 == strcmp(optString, "increase"))               opName = opIncrease;
+    else if (0 == strcmp(optString, "decrease"))               opName = opDecrease;
+    else if (0 == strcmp(optString, "multiply"))               opName = opMultiply;
+    else if (0 == strcmp(optString, "divide"))                 opName = opDivide;
+    else if (0 == strcmp(optString, "modulo"))                 opName = opModulo;
+
     else if (0 == strcmp(optString, "union"))                  opName = opUnion;
     else if (0 == strcmp(optString, "union-min"))              opName = opUnionMin;
     else if (0 == strcmp(optString, "union-max"))              opName = opUnionMax;
     else if (0 == strcmp(optString, "union-sum"))              opName = opUnionSum;
+
     else if (0 == strcmp(optString, "intersect"))              opName = opIntersect;
     else if (0 == strcmp(optString, "intersect-min"))          opName = opIntersectMin;
     else if (0 == strcmp(optString, "intersect-max"))          opName = opIntersectMax;
     else if (0 == strcmp(optString, "intersect-sum"))          opName = opIntersectSum;
+
     else if (0 == strcmp(optString, "difference"))             opName = opDifference;
     else if (0 == strcmp(optString, "symmetric-difference"))   opName = opSymmetricDifference;
+
     else if (0 == strcmp(optString, "print"))                  opName = opPrint;
 
     else if (0 == strcmp(optString, "output"))            //  Flag the next arg as the output name
@@ -299,6 +310,12 @@ main(int argc, char **argv) {
     fprintf(stderr, "    greater-than N       return kmers that occur more than N times in the input.  accepts exactly one input.\n");
     fprintf(stderr, "    equal-to N           return kmers that occur exactly N times in the input.  accepts exactly one input.\n");
     fprintf(stderr, "    not-equal-to N       return kmers that do not occur exactly N times in the input.  accepts exactly one input.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "    increase X           add X to the count of each kmer.\n");
+    fprintf(stderr, "    decrease X           subtract X from the count of each kmer.\n");
+    fprintf(stderr, "    multiply X           multiply the count of each kmer by X.\n");
+    fprintf(stderr, "    divide X             divide the count of each kmer by X.\n");
+    fprintf(stderr, "    modulo X             set the count of each kmer to the remainder of the count divided by X.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    union                return kmers that occur in any input, set the count to 1.\n");
     fprintf(stderr, "    union-min            return kmers that occur in any input, set the count to the minimum count\n");

@@ -235,6 +235,41 @@ merylOperation::nextMer(bool isRoot) {
       _count = (_actCount[0] != _parameter) ? _actCount[0] : 0;
       break;
 
+    case opIncrease:
+      if (UINT64_MAX - _actCount[0] > _parameter)
+        _count = UINT64_MAX;    //  OVERFLOW!
+      else
+        _count = _actCount[0] + _parameter;
+      break;
+
+    case opDecrease:
+      if (_actCount[0] < _parameter)
+        _count = 0;             //  UNDERFLOW!
+      else
+        _count = _actCount[0] - _parameter;
+      break;
+
+    case opMultiply:
+      if (UINT64_MAX / _actCount[0] < _parameter)
+        _count = UINT64_MAX;    //  OVERFLOW!
+      else
+        _count = _actCount[0] * _parameter;
+      break;
+
+    case opDivide:
+      if (_parameter == 0)
+        _count = 0;             //  DIVIDE BY ZERO!
+      else
+        _count = _actCount[0] / _parameter;
+      break;
+
+    case opModulo:
+      if (_parameter == 0)
+        _count = 0;             //  DIVIDE BY ZERO!
+      else
+        _count = _actCount[0] % _parameter;
+      break;
+
     case opUnion:                           //  Union
       _count = 1;
       break;

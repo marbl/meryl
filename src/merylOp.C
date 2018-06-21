@@ -156,23 +156,35 @@ toString(merylOp op) {
     case opCountForward:         return("opCountForward");         break;
     case opCountReverse:         return("opCountReverse");         break;
     case opPassThrough:          return("opPassThrough");          break;
+
     case opLessThan:             return("opLessThan");             break;
     case opGreaterThan:          return("opGreaterThan");          break;
     case opAtLeast:              return("opAtLeast");              break;
     case opAtMost:               return("opAtMost");               break;
     case opEqualTo:              return("opEqualTo");              break;
     case opNotEqualTo:           return("opNotEqualTo");           break;
+
+    case opIncrease:             return("opIncrease");             break;
+    case opDecrease:             return("opDecrease");             break;
+    case opMultiply:             return("opMultiply");             break;
+    case opDivide:               return("opDivide");               break;
+    case opModulo:               return("opModulo");               break;
+
     case opUnion:                return("opUnion");                break;
     case opUnionMin:             return("opUnionMin");             break;
     case opUnionMax:             return("opUnionMax");             break;
     case opUnionSum:             return("opUnionSum");             break;
+
     case opIntersect:            return("opIntersect");            break;
     case opIntersectMin:         return("opIntersectMin");         break;
     case opIntersectMax:         return("opIntersectMax");         break;
     case opIntersectSum:         return("opIntersectSum");         break;
+
     case opDifference:           return("opDifference");           break;
     case opSymmetricDifference:  return("opSymmetricDifference");  break;
+
     case opPrint:                return("opPrint");                break;
+
     case opNothing:              return("opNothing");              break; 
   }
 
