@@ -161,6 +161,7 @@ toString(merylOp op) {
     case opAtLeast:              return("opAtLeast");              break;
     case opAtMost:               return("opAtMost");               break;
     case opEqualTo:              return("opEqualTo");              break;
+    case opNotEqualTo:           return("opNotEqualTo");           break;
     case opUnion:                return("opUnion");                break;
     case opUnionMin:             return("opUnionMin");             break;
     case opUnionMax:             return("opUnionMax");             break;
