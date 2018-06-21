@@ -158,6 +158,8 @@ toString(merylOp op) {
     case opPassThrough:          return("opPassThrough");          break;
     case opLessThan:             return("opLessThan");             break;
     case opGreaterThan:          return("opGreaterThan");          break;
+    case opAtLeast:              return("opAtLeast");              break;
+    case opAtMost:               return("opAtMost");               break;
     case opEqualTo:              return("opEqualTo");              break;
     case opUnion:                return("opUnion");                break;
     case opUnionMin:             return("opUnionMin");             break;

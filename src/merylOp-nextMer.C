@@ -219,6 +219,14 @@ merylOperation::nextMer(bool isRoot) {
       _count = (_actCount[0]  > _parameter) ? _actCount[0] : 0;
       break;
 
+    case opAtLeast:
+      _count = (_actCount[0] >= _parameter) ? _actCount[0] : 0;
+      break;
+
+    case opAtMost:
+      _count = (_actCount[0] <= _parameter) ? _actCount[0] : 0;
+      break;
+
     case opEqualTo:
       _count = (_actCount[0] == _parameter) ? _actCount[0] : 0;
       break;

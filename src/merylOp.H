@@ -34,6 +34,8 @@ enum merylOp {
   opPassThrough,         //  Internal operation; behaves just like opUnion, but only a single input.
   opLessThan,
   opGreaterThan,
+  opAtLeast,
+  opAtMost,
   opEqualTo,
   opUnion,
   opUnionMin,
