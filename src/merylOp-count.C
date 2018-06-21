@@ -194,6 +194,8 @@ merylOperation::count(void) {
   if (_expNumKmers == 0)
     fprintf(stderr, "ERROR: Estimate of number of kmers (-n) not supplied.\n"), exit(1);
 
+  omp_set_num_threads(_maxThreads);
+
   fprintf(stderr, "\n");
   fprintf(stderr, "Counting %lu %s%s%s " F_U32 "-mers from " F_SIZE_T " input file%s:\n",
           _expNumKmers,
@@ -316,6 +318,8 @@ merylOperation::count(void) {
       if (memUsed > _maxMemory * 8) {
         fprintf(stderr, "\n");
         fprintf(stderr, "Memory full.  Writing results.\n");
+        fprintf(stderr, "Creating up to " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
+                nPrefix, _output->filename(), omp_get_max_threads());
 
 #pragma omp parallel for schedule(dynamic, 1)
         for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
