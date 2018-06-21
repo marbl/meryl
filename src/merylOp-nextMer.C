@@ -260,9 +260,13 @@ merylOperation::nextMer(bool isRoot) {
       break;
 
     case opDifference:
+      if ((_actLen == 1) && (_actIndex[0] == 0))
+        _count = _actCount[0];
       break;
 
     case opSymmetricDifference:
+      if (_actLen == 1)
+        _count = _actCount[0];
       break;
 
     case opPrint:
