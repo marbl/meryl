@@ -298,6 +298,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "    less-than N          return kmers that occur fewer than N times in the input.  accepts exactly one input.\n");
     fprintf(stderr, "    greater-than N       return kmers that occur more than N times in the input.  accepts exactly one input.\n");
     fprintf(stderr, "    equal-to N           return kmers that occur exactly N times in the input.  accepts exactly one input.\n");
+    fprintf(stderr, "    not-equal-to N       return kmers that do not occur exactly N times in the input.  accepts exactly one input.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    union                return kmers that occur in any input, set the count to 1.\n");
     fprintf(stderr, "    union-min            return kmers that occur in any input, set the count to the minimum count\n");
