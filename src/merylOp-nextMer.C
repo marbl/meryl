@@ -236,7 +236,7 @@ merylOperation::nextMer(bool isRoot) {
       break;
 
     case opIncrease:
-      if (UINT64_MAX - _actCount[0] > _parameter)
+      if (UINT64_MAX - _actCount[0] < _parameter)
         _count = UINT64_MAX;    //  OVERFLOW!
       else
         _count = _actCount[0] + _parameter;
