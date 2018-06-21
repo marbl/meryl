@@ -133,24 +133,16 @@ main(int argc, char **argv) {
              (isNumber(optString + 8) == true)) {
       uint32 threads = strtouint32(optString + 8);
 
-      if (opStack.size() == 0)
+      if (opStack.size() == 0) {
         allowedThreads = threads;
-      else
+        omp_set_num_threads(allowedThreads);
+      }
+      else {
         opStack.top()->setThreadLimit(threads);
-
-      //omp_set_num_threads(allowedThreads);
+      }
 
       continue;
     }
-
-    //  Global thread limit
-    else if ((opStack.size() == 0) &&
-             (optStringLen > 8) &&
-             (strncmp(optString, "threads=", 8) == 0) &&
-             (isNumber(optString + 8) == true)) {
-      continue;
-    }
-
 
 
     else if (strncmp(optString, "-V", 2) == 0) {      //  Anything that starts with -V
