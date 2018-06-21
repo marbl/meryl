@@ -45,6 +45,8 @@ merylOperation::countSimple(void) {
   if (fmer.merSize() == 0)
     fprintf(stderr, "ERROR: Kmer size (-k) not supplied.\n"), exit(1);
 
+  omp_set_num_threads(_maxThreads);
+
   fprintf(stderr, "\n");
   fprintf(stderr, "Counting %s%s%s " F_U32 "-mers from " F_SIZE_T " input file%s:\n",
           (_operation == opCount)        ? "canonical" : "",
