@@ -101,6 +101,7 @@ main(int argc, char **argv) {
 
     //  Threshold values for less-than, greater-than and equal-to are just a number.
     else if ((opStack.size() > 0) &&
+             (opStack.top()->needsParameter() == true) &&
              (isNumber(optString))) {
       opStack.top()->setParameter(strtouint64(optString));
       continue;

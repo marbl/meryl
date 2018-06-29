@@ -110,6 +110,20 @@ public:
     return(isCounting() == false);
   };
 
+  bool    needsParameter(void) {
+    return((_operation == opLessThan)    ||
+           (_operation == opGreaterThan) ||
+           (_operation == opAtLeast)     ||
+           (_operation == opAtMost)      ||
+           (_operation == opEqualTo)     ||
+           (_operation == opNotEqualTo)  ||
+           (_operation == opIncrease)    ||
+           (_operation == opDecrease)    ||
+           (_operation == opMultiply)    ||
+           (_operation == opDivide)      ||
+           (_operation == opModulo));
+  };
+
   kmer   &theFMer(void)            { return(_kmer);   };
   uint64  theCount(void)           { return(_count);  };
 
