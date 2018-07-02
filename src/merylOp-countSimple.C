@@ -213,6 +213,10 @@ merylOperation::countSimple(void) {
     delete [] cBlock;
   }
 
+  //  Even though there are no iterations, we still need to finish.
+
+  _output->finishIteration();
+
   //  Cleanup.
 
   delete [] lowBits;
