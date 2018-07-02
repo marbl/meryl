@@ -246,6 +246,13 @@ merylOperation::count(void) {
 
   uint64   kmersAdded  = 0;
 
+#undef  SKIP_COUNTING
+#ifdef  SKIP_COUNTING
+
+  _output->incrementIteration();
+
+#else
+
   for (uint32 ii=0; ii<_inputs.size(); ii++) {
     fprintf(stderr, "Loading kmers from '%s' into buckets.\n", _inputs[ii]->_name);
 
@@ -300,7 +307,6 @@ merylOperation::count(void) {
 
       //  If we're out of space, process the data and dump.
 
-#if 1
       memUsed = kmersAdded * wData;
 
       //for (uint64 pp=0; pp<nPrefix; pp++)
@@ -337,7 +343,6 @@ merylOperation::count(void) {
 
         kmersAdded = 0;
       }
-#endif
 
       if (endOfSeq)                   //  If the end of the sequence, clear
         kmerLoad = 0;                 //  the running kmer.
@@ -377,7 +382,12 @@ merylOperation::count(void) {
     }
   }
 
-  _output->incrementIteration();
+#endif  //  SKIP_COUNTING
+
+  //  Merge any iterations into a single file, or just rename
+  //  the single file to the final name.
+
+  _output->finishIteration();
 
   //  Cleanup.
 

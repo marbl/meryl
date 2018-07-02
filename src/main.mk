@@ -36,6 +36,9 @@ SOURCES      := AS_global.C \
                 \
                 libsequence.C \
                 libkmer.C \
+                libkmer-reader.C \
+                libkmer-writer.C \
+                libkmer-statistics.C \
                 libbits.C
 
 ifeq (${BUILDSTACKTRACE}, 1)
