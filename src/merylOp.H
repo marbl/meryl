@@ -164,8 +164,6 @@ private:
 
   kmerCountFileWriter           *_output;
 
-  //kmer                           _smallest;
-
   uint32                         _actLen;
   uint64                        *_actCount;
   uint32                        *_actIndex;
