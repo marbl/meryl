@@ -111,6 +111,59 @@ kmerCountFileReader::~kmerCountFileReader() {
 
 
 
+//  Like loadBlock, but just reports all blocks in the file, ignoring
+//  the kmer data.
+//
+void
+dumpMerylDataFile(char *name) {
+
+  if (AS_UTL_fileExists(name) == false)
+    fprintf(stderr, "ERROR: '%s' doesn't exist.  Can't dump it.\n",
+            name), exit(1);
+
+  FILE                     *F = AS_UTL_openInputFile(name);
+  stuffedBits              *D = new stuffedBits;
+
+  fprintf(stdout, "            prefix   nKmers kCode uBits bBits                 k1 cCode                 c1                 c2\n");
+  fprintf(stdout, "------------------ -------- ----- ----- ----- ------------------ ----- ------------------ ------------------\n");
+
+  while (D->loadFromFile(F)) {
+    uint64 position   = D->getPosition();
+
+    uint64 m1         = D->getBinary(64);
+    uint64 m2         = D->getBinary(64);
+
+    uint64 prefix     = D->getBinary(64);
+    uint64 nKmers     = D->getBinary(64);
+
+    uint8  kCode      = D->getBinary(8);
+    uint32 unaryBits  = D->getBinary(32);
+    uint32 binaryBits = D->getBinary(32);
+    uint64 k1         = D->getBinary(64);
+
+    uint8  cCode      = D->getBinary(8);
+    uint64 c1         = D->getBinary(64);
+    uint64 c2         = D->getBinary(64);
+
+    if ((m1 != 0x7461446c7972656dllu) ||
+        (m2 != 0x0a3030656c694661llu)) {
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Magic number mismatch at position " F_U64 ".\n", position);
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x7461446c7972656d got 0x%016" F_X64P "\n", m1);
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x0a3030656c694661 got 0x%016" F_X64P "\n", m2);
+      exit(1);
+    }
+
+    fprintf(stdout, "0x%016lx %8lu %5u %5u %5u 0x%016lx %5u 0x%016lx 0x%016lx\n",
+            prefix, nKmers, kCode, unaryBits, binaryBits, k1, cCode, c1, c2);
+  }
+
+  delete D;
+
+  AS_UTL_closeFile(F);
+}
+
+
+
 bool
 kmerCountFileReader::nextMer(void) {
 
