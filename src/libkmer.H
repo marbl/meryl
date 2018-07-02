@@ -254,45 +254,21 @@ public:
     _prefix = UINT64_MAX;
     _nKmers = 0;
 
-  loadAgain:
     if (_data->loadFromFile(inFile) == false) { 
-#ifdef SHOW_LOAD
-      fprintf(stdout, "loadBlock()-- file %u iter %u FAILED TO LOAD.\n",
-              activeFile, activeIteration);
-#endif
-      delete _data;  _data = NULL;
+      delete _data;
+      _data = NULL;
+
       return(false);
     }
 
     //  Decode the header of _data, but don't process the kmers yet.
 
-    uint64 m1 = _data->getBinary(64);    //  Magic number, part 1.
-    uint64 m2 = _data->getBinary(64);    //  Magic number, part 2.
+    uint64 pos  = _data->getPosition();
+    uint64 m1   = _data->getBinary(64);
+    uint64 m2   = _data->getBinary(64);
 
-    if ((m1 != 0x7461446c7972656dllu) ||
-        (m2 != 0x0a3030656c694661llu)) {
-      fprintf(stderr, "kmerCountFileReader::nextMer()-- Magic number mismatch in activeFile " F_U32 " activeIteration " F_U32 " position " F_U64 ".\n",
-              activeFile, activeIteration, _data->getPosition());
-      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x7461446c7972656d got 0x%016" F_X64P "\n", m1);
-      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x0a3030656c694661 got 0x%016" F_X64P "\n", m2);
-      exit(1);
-    }
-
-    _prefix = _data->getBinary(64);
-    _nKmers = _data->getBinary(64);
-
-#ifdef SHOW_LOAD
-    fprintf(stdout, "loadBlock()-- file %u iter %u loaded " F_U64 " kmers for prefix 0x%016lx.\n",
-            activeFile, activeIteration, _nKmers, _prefix);
-#endif
-
-    //  If no kmers are in this block, go back and get another block.  This _should_ be caught
-    //  by the writer, and the writer should not be writing empty blocks.  Just in case.
-
-    if (_nKmers == 0)
-      goto loadAgain;
-
-    //  Decode the rest of the header.
+    _prefix     = _data->getBinary(64);
+    _nKmers     = _data->getBinary(64);
 
     _kCode      = _data->getBinary(8);
     _unaryBits  = _data->getBinary(32);
@@ -302,6 +278,27 @@ public:
     _cCode      = _data->getBinary(8);
     _c1         = _data->getBinary(64);
     _c2         = _data->getBinary(64);
+
+#ifdef SHOW_LOAD
+    fprintf(stdout, "loadBlock()-- file %u iter %u:\n", activeFile, activeIteration);
+    fprintf(stdout, "    prefix     0x%016lx\n", _prefix);
+    fprintf(stdout, "    nKmers     " F_U64 "\n", _nKmers);
+    fprintf(stdout, "    kCode      " F_U32 "\n", _kCode);
+    fprintf(stdout, "    unaryBits  " F_U32 "\n", _unaryBits);
+    fprintf(stdout, "    binaryBits " F_U32 "\n", _binaryBits);
+    fprintf(stdout, "    k1efix     " F_U64 "\n", _k1);
+    fprintf(stdout, "    cCode      " F_U32 "\n", _cCode);
+    fprintf(stdout, "    c1         " F_U64 "\n", _c1);
+    fprintf(stdout, "    c2         " F_U64 "\n", _c2);
+#endif
+
+    if ((m1 != 0x7461446c7972656dllu) ||
+        (m2 != 0x0a3030656c694661llu)) {
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Magic number mismatch in activeFile " F_U32 " activeIteration " F_U32 " position " F_U64 ".\n", activeFile, activeIteration, pos);
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x7461446c7972656d got 0x%016" F_X64P "\n", m1);
+      fprintf(stderr, "kmerCountFileReader::nextMer()-- Expected 0x0a3030656c694661 got 0x%016" F_X64P "\n", m2);
+      exit(1);
+    }
 
     return(true);
   };
