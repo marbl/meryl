@@ -371,21 +371,20 @@ main(int argc, char **argv) {
   while (opStack.size() > 1)
     opStack.pop();
 
-  merylOperation *op = opStack.top();
+  //  If there is an operation (debug operations and -h have no operations)
+  //  keep calling nextMer() on that top operation until there are no more mers.
 
-  //  Dump the tree that we're going to process.
+  if (opStack.size() > 0) {
+    merylOperation *op = opStack.top();
 
-  fprintf(stderr, "Detected %u available threads and %.3f GB memory.\n",
-          physThreads, physMemory / 1024.0 / 1024.0 / 1024.0);
+    //fprintf(stderr, "Detected %u available threads and %.3f GB memory.\n",
+    //        physThreads, physMemory / 1024.0 / 1024.0 / 1024.0);
 
-  //  Then keep calling nextMer() on the root node until all kmers have been processed.
+    while (op->nextMer(true) == true)
+      ;
 
-  while (op->nextMer(true) == true)
-    ;
-
-  //  Cleanup by deleting the root operation, which will then delete all its inputs, etc.
-
-  delete op;
+    delete op;  //  Deletes all the child operations too.
+  }
 
   fprintf(stderr, "Bye.\n");
 
