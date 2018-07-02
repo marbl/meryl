@@ -117,18 +117,13 @@ kmerCountFileReader::nextMer(void) {
   _activeMer++;
 
   //  If we've still got data, just update and get outta here.
+  //  Otherwise, we need to load another block.
 
   if (_activeMer < _nKmers) {
     _kmer.setPrefixSuffix(_prefix, _suffixes[_activeMer], _suffixSize);
     _count = _counts[_activeMer];
     return(true);
   }
-
-  //  Otherwise, we need to load another block.
-
-#ifdef SHOW_LOAD
-  fprintf(stdout, "nextMer()-- need another block.\n");
-#endif
 
   //  Make sure all files are opened.
 
