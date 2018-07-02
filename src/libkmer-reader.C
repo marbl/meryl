@@ -22,7 +22,7 @@
 
 
 
-kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats) {
+kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats, bool beVerbose) {
   char   N[FILENAME_MAX+1];
 
   //  Save the input name for later use, but fail if
@@ -82,11 +82,13 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
 
   uint32  merSize = (_prefixSize + _suffixSize) / 2;
 
-  fprintf(stderr, "Opened '%s'.\n", _inName);
-  fprintf(stderr, "  prefixSize     %u\n", _prefixSize);
-  fprintf(stderr, "  suffixSize     %u\n", _suffixSize);
-  fprintf(stderr, "  numFilesBits   %u\n", _numFilesBits);
-  fprintf(stderr, "  numBlocksBits  %u\n", _numBlocksBits);
+  if (beVerbose) {
+    fprintf(stderr, "Opened '%s'.\n", _inName);
+    fprintf(stderr, "  prefixSize     %u\n", _prefixSize);
+    fprintf(stderr, "  suffixSize     %u\n", _suffixSize);
+    fprintf(stderr, "  numFilesBits   %u (%u files)\n", _numFilesBits, _numFiles);
+    fprintf(stderr, "  numBlocksBits  %u (%u blocks)\n", _numBlocksBits, _numBlocks);
+  }
 
   if (kmer::merSize() == 0)    //  If the global kmer size isn't set yet, set it.
     kmer::setSize(merSize);    //  Then make sure all files are the same.
