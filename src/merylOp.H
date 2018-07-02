@@ -127,6 +127,9 @@ public:
   kmer   &theFMer(void)            { return(_kmer);   };
   uint64  theCount(void)           { return(_count);  };
 
+private:
+  bool    nextMer_doCounting(bool isRoot);
+public:
   bool    nextMer(bool isRoot=false);
   bool    validMer(void)           { return(_valid);  };
 
