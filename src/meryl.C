@@ -74,6 +74,14 @@ main(int argc, char **argv) {
     strncpy(indexName, argv[arg], FILENAME_MAX);
     strncat(indexName, "/merylIndex", FILENAME_MAX - optStringLen - 1);
 
+    //  Scan for debug options.
+
+    if (strcmp(optString, "dumpFile") == 0) {
+      arg++;
+      dumpMerylDataFile(argv[arg++]);
+      continue;
+    }
+
     //  Scan for options.  If any trigger, set the option and move on to the next word on the command line.
 
     if     ((strcmp(optString, "-h")   == 0) ||

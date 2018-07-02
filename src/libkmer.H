@@ -211,6 +211,11 @@ private:
 
 
 
+void
+dumpMerylDataFile(char *name);
+
+
+
 class kmerCountFileReaderBlock {
 public:
   kmerCountFileReaderBlock() {
