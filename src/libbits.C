@@ -98,10 +98,6 @@ stuffedBits::stuffedBits(FILE *inFile) {
 
 stuffedBits::~stuffedBits() {
 
-  //fprintf(stderr, "stuffedBits()--  Deleting %u blocks storing " F_U64 " bits.\n",
-  //        _dataBlocksLen,
-  //        _dataBlockBgn[_dataBlocksLen - 1] + _dataBlockLen[_dataBlocksLen - 1]);
-
   for (uint32 ii=0; ii<_dataBlocksLen; ii++)
     delete [] _dataBlocks[ii];
 
@@ -143,8 +139,6 @@ stuffedBits::loadFromFile(FILE *F) {
   if (F == NULL)     //  No file,
     return(false);   //  no load.
 
-  //fprintf(stderr, "stuffedBits::loadFromFile()-- Loading at position " F_U64 ".\n", AS_UTL_ftell(F));
-
   //  Try to load the new parameters into temporary storage, so we can
   //  compare against what have already allocated.
 
@@ -152,10 +146,8 @@ stuffedBits::loadFromFile(FILE *F) {
   nLoad += AS_UTL_safeRead(F, &inLen,    "dataBlocksLen",   sizeof(uint32), 1);  //  Number of blocks stored.
   nLoad += AS_UTL_safeRead(F, &inMax,    "dataBlocksMax",   sizeof(uint32), 1);  //  Number of blocks allocated.
 
-  if (nLoad != 3) {
-    //fprintf(stderr, "stuffedBits::loadFromFile()-- End of file detected.\n");
+  if (nLoad != 3)
     return(false);
-  }
 
   //  If the input blocks are not the same size as the blocks we have, remove them.
 
@@ -188,14 +180,8 @@ stuffedBits::loadFromFile(FILE *F) {
 
   //  Load the data.
 
-  //fprintf(stderr, "stuffedBits::loadFromFile()--   Found " F_U32 " blocks (max length " F_U64 ").\n", _dataBlocksLen, _dataBlockLenMax);
-
   AS_UTL_safeRead(F,  _dataBlockBgn,  "dataBlockBgn",  sizeof(uint64), _dataBlocksLen);
   AS_UTL_safeRead(F,  _dataBlockLen,  "dataBlockLen",  sizeof(uint64), _dataBlocksLen);
-
-  //for (uint32 ii=0; ii<_dataBlocksLen; ii++)
-  //  fprintf(stderr, "stuffedBits::loadFromFile()--     %2" F_U32P " begin %12" F_U64P " length %12" F_U64P "\n",
-  //          ii, _dataBlockBgn[ii], _dataBlockLen[ii]);
 
   for (uint32 ii=0; ii<_dataBlocksLen; ii++) {
     uint64  nWordsToRead  = _dataBlockLen[ii] / 64 + (((_dataBlockLen[ii] % 64) == 0) ? 0 : 1);
