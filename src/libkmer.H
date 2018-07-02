@@ -368,7 +368,7 @@ public:
 
 class kmerCountFileReader {
 public:
-  kmerCountFileReader(const char *inputName, bool ignoreStats=true);
+  kmerCountFileReader(const char *inputName, bool ignoreStats=true, bool beVerbose=false);
   ~kmerCountFileReader();
 
 public:
