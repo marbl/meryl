@@ -172,8 +172,8 @@ merylOperation::countSimple(void) {
   uint64                 sMask      = ((uint64)1 << wSuffix) - 1;
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "Creating up to " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
-          nPrefix, _output->filename(), omp_get_max_threads());
+  fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
+          _output->filename(), omp_get_max_threads());
 
   _output->initialize(wPrefix);
 

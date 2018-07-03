@@ -331,9 +331,8 @@ merylOperation::count(void) {
 
       if (memUsed > _maxMemory * 8) {
         fprintf(stderr, "\n");
-        fprintf(stderr, "Memory full.  Writing results.\n");
-        fprintf(stderr, "Creating up to " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
-                nPrefix, _output->filename(), omp_get_max_threads());
+        fprintf(stderr, "Memory full.  Writing results to '%s', using " F_S32 " threads.\n",
+                _output->filename(), omp_get_max_threads());
 
 #pragma omp parallel for schedule(dynamic, 1)
         for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
@@ -372,8 +371,8 @@ merylOperation::count(void) {
   //  A minor complication is that within each output file, the blocks must be in order.
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "Creating up to " F_U64 " output files in directory '%s', using " F_S32 " threads.\n",
-          nPrefix, _output->filename(), omp_get_max_threads());
+  fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
+          _output->filename(), omp_get_max_threads());
 
   //for (uint64 pp=0; pp<nPrefix; pp++)
   //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _output->fileNumber(pp));
