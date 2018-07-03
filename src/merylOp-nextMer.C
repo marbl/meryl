@@ -194,7 +194,15 @@ merylOperation::nextMer(bool isRoot) {
       fprintf(stderr, "merylOp::nextMer()-- No inputs found, all done here.\n");
       fprintf(stderr, "\n");
     }
+
     _valid = false;
+
+    if (_output)
+      _output->finishIteration();
+
+    delete _output;   //  Not sure if this is really necessary.
+    _output = NULL;   //  It'll get deleted when everything else is done.
+
     return(false);
   }
 
