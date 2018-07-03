@@ -59,7 +59,7 @@ enum merylOp {
   opDifference,
   opSymmetricDifference,
 
-  opPrint,
+  opHistogram,
 
   opNothing
 };
@@ -90,6 +90,7 @@ public:
   void    addInput(dnaSeqFile *sequence);
 
   void    addOutput(kmerCountFileWriter *writer);
+  void    addPrinter(FILE *printer);
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
@@ -166,6 +167,7 @@ private:
   uint64                         _maxMemory;
 
   kmerCountFileWriter           *_output;
+  FILE                          *_printer;
 
   uint32                         _actLen;
   uint64                        *_actCount;
