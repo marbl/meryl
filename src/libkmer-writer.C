@@ -187,14 +187,6 @@ kmerCountFileWriter::addMer(kmer   k,
   bool  dump1 = (_batchNumKmers >= _batchMaxKmers);
   bool  dump2 = (_batchPrefix != prefix) && (_batchNumKmers > 0);
 
-#if 0
-  fprintf(stderr, "suffixSize %u suffixMask 0x%016lx\n", _suffixSize, _suffixMask);
-  fprintf(stderr, "dump1 %d _batchNumKmers %lu _batchMaxKmers %lu\n", dump1, _batchNumKmers, _batchMaxKmers);
-  fprintf(stderr, "dump2 %d _batchPrefix 0x%016lx\n", dump2, _batchPrefix);
-  fprintf(stderr, "              prefix 0x%016lx\n", prefix);
-  fprintf(stderr, "                   k 0x%016lx\n", (uint64)k);
-#endif
-
   if (dump1 || dump2) {
     addBlock(_batchPrefix, _batchNumKmers, _batchSuffixes, _batchCounts);
 
