@@ -36,7 +36,7 @@ kmerCountFileWriter::initialize(uint32 prefixSize) {
   //  initialization until a block of data is actually written.
   //  Thus, we need to have some concurrecny control.
 
-#pragma omp critical
+#pragma omp critical (kmerCountFileWriterInit)
   if (_initialized == false) {
 
     //  If the prefixSize is zero, set it to (arbitrary) 1/4 the kmer size.
@@ -358,7 +358,7 @@ kmerCountFileWriter::addBlock(uint64  prefix,
 
   //  Finally, don't forget to insert the counts into the histogram!
 
-#warning NEED MUTEX ON STATS
+#pragma omp critical (kmerCountFileWriterAddCount)
   for (uint32 kk=0; kk<nKmers; kk++)
     _stats.addCount(counts[kk]);
 }
@@ -551,7 +551,7 @@ kmerCountFileWriter::mergeIterations(uint32 oi) {
 
     //  Finally, don't forget to insert the counts into the histogram!
 
-#warning NEED MUTEX ON STATS
+#pragma omp critical (kmerCountFileWriterAddCount)
     for (uint32 kk=0; kk<savnKmers; kk++)
       _stats.addCount(counts[kk]);
 
