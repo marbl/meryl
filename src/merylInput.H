@@ -34,6 +34,10 @@ public:
 
   void   nextMer(void);
 
+  bool   isFromOperation(void)    { return(_operation != NULL); };
+  bool   isFromDatabase(void)     { return(_stream    != NULL); };
+  bool   isFromSequence(void)     { return(_sequence  != NULL); };
+
   merylOperation        *_operation;
   kmerCountFileReader   *_stream;
   dnaSeqFile            *_sequence;
