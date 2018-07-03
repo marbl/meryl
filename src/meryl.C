@@ -234,6 +234,8 @@ main(int argc, char **argv) {
     else if (0 == strcmp(optString, "difference"))             opName = opDifference;
     else if (0 == strcmp(optString, "symmetric-difference"))   opName = opSymmetricDifference;
 
+    else if (0 == strcmp(optString, "histogram"))              opName = opHistogram;
+
     else if (0 == strcmp(optString, "output"))            //  Flag the next arg as the output name for a database
       outputArg = arg + 1;                                //  if we see 'output'.
 
@@ -404,25 +406,44 @@ main(int argc, char **argv) {
     exit(1);
   }
 
+  //  If nothing on the stack, nothing to do.
+
+  if (opStack.size() == 0)
+    exit(1);
+
   //  Pop the stack until we get back to the root operation.
 
   while (opStack.size() > 1)
     opStack.pop();
 
+  //  opHistogram is limited to showing only histograms already stored in a database.
+  //  opHistogram cannot take input from anything but a database.
+  //  opHistogram does not generate kmer outputs.
+  //  So, if the top op is histogram, all we can do is load the histogram and dump it.
+  //
+  //  Eventully, maybe, opHistogram will pass through mers (but then we need to figure out
+  //  where to report the histogram).
+  //
+  //  Eventually, maybe, opHistogram will allow input from a kmer stream.
+
+  if (opStack.top()->getOperation() == opHistogram) {
+    opStack.top()->nextMer();          //  To load the file.
+    opStack.top()->reportHistogram();
+    exit(0);
+  }
+   
   //  If there is an operation (debug operations and -h have no operations)
   //  keep calling nextMer() on that top operation until there are no more mers.
 
-  if (opStack.size() > 0) {
-    merylOperation *op = opStack.top();
+  merylOperation *op = opStack.top();
 
-    //fprintf(stderr, "Detected %u available threads and %.3f GB memory.\n",
-    //        physThreads, physMemory / 1024.0 / 1024.0 / 1024.0);
+  //fprintf(stderr, "Detected %u available threads and %.3f GB memory.\n",
+  //        physThreads, physMemory / 1024.0 / 1024.0 / 1024.0);
 
-    while (op->nextMer(true) == true)
-      ;
+  while (op->nextMer(true) == true)
+    ;
 
-    delete op;  //  Deletes all the child operations too.
-  }
+  delete op;  //  Deletes all the child operations too.
 
   fprintf(stderr, "Bye.\n");
 

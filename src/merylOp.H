@@ -137,6 +137,8 @@ public:
   void    count(void);
   void    countSimple(void);
 
+  void    reportHistogram(void);
+
   static
   void    showProgress(void)                { _showProgress = true;       };
   static
@@ -165,6 +167,8 @@ private:
 
   uint32                         _maxThreads;
   uint64                         _maxMemory;
+
+  kmerCountStatistics           *_stats;
 
   kmerCountFileWriter           *_output;
   FILE                          *_printer;
