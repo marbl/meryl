@@ -187,7 +187,12 @@ merylOperation::nextMer(bool isRoot) {
     }
   }
 
-  //  If no active kmers, we're done.
+  //  If no active kmers, we're done.  Several bits of housekeeping need to be done:
+  //
+  //  Histogram operations need to finish up and report the histogram now.
+  //  Alternatively, it could be done in the destructor.
+  //
+  //  Any outputs need to call finishIteration() to rename and/or merge their intermediate outputs.
 
   if (_actLen == 0) {
     if (_verbosity >= sayDetails) {
@@ -196,6 +201,9 @@ merylOperation::nextMer(bool isRoot) {
     }
 
     _valid = false;
+
+    if (_operation == opHistogram)
+      reportHistogram();
 
     if (_output)
       _output->finishIteration();

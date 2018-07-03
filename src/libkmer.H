@@ -193,6 +193,12 @@ public:
   void      load(stuffedBits *bits);
   void      load(FILE        *inFile);
 
+  uint64    numUnique(void)                 { return(_numUnique);   };
+  uint64    numDistinct(void)               { return(_numDistinct); };
+  uint64    numTotal(void)                  { return(_numTotal);    };
+
+  uint32    numFrequencies(void)            { return(_histMax);     };
+  uint64    numKmersAtFrequency(uint32 ii)  { return(_hist[ii]);    };
 
 private:
   uint64              _numUnique;
@@ -369,7 +375,7 @@ public:
 
 class kmerCountFileReader {
 public:
-  kmerCountFileReader(const char *inputName, bool ignoreStats=true, bool beVerbose=false);
+  kmerCountFileReader(const char *inputName, bool ignoreStats=false, bool beVerbose=false);
   ~kmerCountFileReader();
 
 public:
@@ -378,6 +384,10 @@ public:
   uint32  theCount(void)  { return(_count);   };
 
   char   *filename(void)  { return(_inName);  };
+
+  kmerCountStatistics       *stats(void) {
+    return(&_stats);
+  }
 
 private:
   char                       _inName[FILENAME_MAX+1];

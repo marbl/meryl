@@ -30,6 +30,8 @@ merylOperation::merylOperation(merylOp op, uint32 threads, uint64 memory) {
   _maxThreads    = threads;
   _maxMemory     = memory;
 
+  _stats         = NULL;
+
   _output        = NULL;
   _printer       = NULL;
 
@@ -46,6 +48,7 @@ merylOperation::~merylOperation() {
 
   clearInputs();
 
+  delete    _stats;
   delete    _output;
 
   if (_printer != stdout)
@@ -99,6 +102,9 @@ merylOperation::addInput(merylOperation *operation) {
 
   if (operation->_operation == opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't be used as an input: it doesn't supply kmers.\n", toString(operation->_operation)), exit(1);
+
+  if (_operation == opHistogram)
+    fprintf(stderr, "ERROR: operation '%s' can't take input from '%s': it can only accept databases.\n", toString(_operation), toString(operation->_operation)), exit(1);
 
   checkInputs(toString(operation->getOperation()));
 }
