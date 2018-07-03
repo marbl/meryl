@@ -567,8 +567,8 @@ kmerCountFileWriter::mergeIterations(uint32 oi) {
   for (uint32 ii=1; ii <= _iteration; ii++)
     AS_UTL_closeFile(inFiles[ii]);
 
-  //for (uint32 ii=1; ii <= _iteration; ii++)
-  //  removeBlock(_outName, oi, _numFiles, ii);
+  for (uint32 ii=1; ii <= _iteration; ii++)
+    removeBlock(_outName, oi, _numFiles, ii);
 
   fprintf(stderr, "thread %2u merged file %2u with prefixes 0x%016lx to 0x%016lx - %lu input kmers %lu output kmers\n",
           omp_get_thread_num(), oi, firstPrefixInFile(oi), lastPrefixInFile(oi), kmersIn, kmersOut);
