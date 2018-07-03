@@ -156,12 +156,9 @@ void
 merylOperation::addPrinter(FILE *printer) {
 
   if (_verbosity >= sayConstruction)
-    if (printer == stdout)
-      fprintf(stderr, "Adding printer to stdout from operation '%s'\n",
-              toString(_operation));
-    else
-      fprintf(stderr, "Adding printer to file from operation '%s'\n",
-              toString(_operation));
+    fprintf(stderr, "Adding printer to %s from operation '%s'\n",
+            (printer == stdout) ? "(stdout)" : "(a file)",
+            toString(_operation));
 
   if (_printer)
     fprintf(stderr, "ERROR: already have a printer set!\n"), exit(1);
