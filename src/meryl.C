@@ -49,7 +49,9 @@ main(int argc, char **argv) {
   stack<merylOperation *>   opStack;
   merylOp                   opName         = opNothing;
   uint32                    outputArg      = UINT32_MAX;
+  uint32                    printArg       = UINT32_MAX;
   kmerCountFileWriter      *writer         = NULL;
+  FILE                     *printer        = NULL;
   kmerCountFileReader      *reader         = NULL;
   dnaSeqFile               *sequence       = NULL;
 
@@ -232,13 +234,23 @@ main(int argc, char **argv) {
     else if (0 == strcmp(optString, "difference"))             opName = opDifference;
     else if (0 == strcmp(optString, "symmetric-difference"))   opName = opSymmetricDifference;
 
-    else if (0 == strcmp(optString, "print"))                  opName = opPrint;
-
-    else if (0 == strcmp(optString, "output"))            //  Flag the next arg as the output name
+    else if (0 == strcmp(optString, "output"))            //  Flag the next arg as the output name for a database
       outputArg = arg + 1;                                //  if we see 'output'.
 
-    else if (arg == outputArg)                            //  If this is the output nane, make a new
+    else if (0 == strcmp(optString, "print"))             //  Flag the next arg as the output name for printing
+      printArg = arg + 1;                                 //  if we see 'print'.
+
+    else if (arg == outputArg)                            //  If this is the output name, make a new
       writer = new kmerCountFileWriter(inoutName);        //  output writer.
+
+    else if ((arg == printArg) &&                         //  This this _should_ have been an output name,
+             (AS_UTL_fileExists(inoutName, true))) {      //  but is instead a directory; user is asking for
+      printer = stdout;                                   //  the database in the directory to be printed.
+      reader  = new kmerCountFileReader(inoutName);
+    }
+
+    else if (arg == printArg)                             //  If this is the printer name, make a new file to print
+      printer = AS_UTL_openOutputFile(inoutName);         //  to.  Note: this isn't triggered if the arg is an op.
 
     else if ((opStack.size() > 0) &&                      //  If a command exists,
              (opStack.top()->isCounting()  == false) &&   //  and it isn't for counting,
@@ -256,9 +268,21 @@ main(int argc, char **argv) {
       err.push_back(s);
     }
 
+    //  A couple of special cases for printing that can't be handled above.
+
+    if ((printer != NULL) &&       //  A printer and a reader exist but there isn't anything
+        (reader  != NULL) &&       //  on the stack, we've been told to print a meryl database.
+        (opStack.size() == 0))     //  Use the NoOp op opPassThrough just to give the print
+      opName = opPassThrough;      //  something to hang on.
+
+    if ((arg == printArg) &&       //  This this _should_ have been an output name,
+        (opName != opNothing))     //  but is instead an operation, send the printer
+      printer = stdout;            //  to stdout.
+
     //  Now, do something with the parsed word.
     //    If 'op' is set, make a new command.
     //    If 'writer' exists, set the output of the top most command to that.
+    //    If 'printer' exists, set the printer of the top most command to that.
     //    If 'reader' or 'sequence' exist, add it to the inputs of the top most command.
 
     if (opName != opNothing) {
@@ -275,6 +299,12 @@ main(int argc, char **argv) {
         (opStack.size() > 0)) {            //  one actually exists.  If not, wait until the
       opStack.top()->addOutput(writer);    //  command is created.
       writer = NULL;
+    }
+
+    if ((printer != NULL) &&               //  Same as for writer, except for the printer.
+        (opStack.size() > 0)) {
+      opStack.top()->addPrinter(printer);
+      printer = NULL;
     }
 
     if (reader != NULL) {                  //  Add the reader to the top most command.  The

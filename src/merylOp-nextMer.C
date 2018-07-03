@@ -327,9 +327,7 @@ merylOperation::nextMer(bool isRoot) {
         _count = _actCount[0];
       break;
 
-    case opPrint:
-      if (_actCount[0] > 0)
-        fprintf(stdout, "%s\t" F_U64 "\n", _kmer.toString(kmerString), _actCount[0]);
+    case opHistogram:
       break;
 
     case opNothing:
@@ -338,15 +336,25 @@ merylOperation::nextMer(bool isRoot) {
 
   //  If flagged for output, output!
 
+  if ((_output != NULL) &&
+      (_count  > 0)) {
+    _output->addMer(_kmer, _count);
+  }
+
+  //  If flagged for printing, print!
+
+  if ((_printer != NULL) &&
+      (_count > 0)) {
+    fprintf(stdout, "%s\t" F_U64 "\n", _kmer.toString(kmerString), _actCount[0]);
+  }
+
+  //  
+
   if (_verbosity >= sayDetails) {
     fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation %s with kmer %s count " F_U64 "%s\n",
             toString(_operation), _kmer.toString(kmerString), _count, ((_output != NULL) && (_count != 0)) ? " OUTPUT" : "");
     fprintf(stderr, "\n");
   }
-
-  if ((_output != NULL) &&
-      (_count  != 0))
-    _output->addMer(_kmer, _count);
 
   return(true);
 }

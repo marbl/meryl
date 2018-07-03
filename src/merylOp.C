@@ -31,6 +31,7 @@ merylOperation::merylOperation(merylOp op, uint32 threads, uint64 memory) {
   _maxMemory     = memory;
 
   _output        = NULL;
+  _printer       = NULL;
 
   _actLen        = 0;
   _actCount      = new uint64 [1024];
@@ -46,6 +47,10 @@ merylOperation::~merylOperation() {
   clearInputs();
 
   delete    _output;
+
+  if (_printer != stdout)
+    AS_UTL_closeFile(_printer);
+
   delete [] _actCount;
   delete [] _actIndex;
 }
@@ -69,11 +74,12 @@ merylOperation::clearInputs(void) {
 void
 merylOperation::checkInputs(const char *name) {
 
-  if ((_actLen > 1) && ((_operation == opLessThan)    ||
+  if ((_actLen > 1) && ((_operation == opPassThrough) ||
+                        (_operation == opLessThan)    ||
                         (_operation == opGreaterThan) ||
                         (_operation == opEqualTo)     ||
-                        (_operation == opPrint))) {
-    fprintf(stderr, "merylOp::addInput()-- ERROR: Can't add input '%s' to operation '%s': only one input supported.\n",
+                        (_operation == opHistogram))) {
+    fprintf(stderr, "merylOp::addInput()-- ERROR: can't add input '%s' to operation '%s': only one input supported.\n",
             name, toString(_operation));
     exit(1);
   }
@@ -88,11 +94,11 @@ merylOperation::addInput(merylOperation *operation) {
     fprintf(stderr, "Adding input from operation '%s' to operation '%s'\n",
             toString(operation->_operation), toString(_operation));
 
-  if ((_inputs.size() > 0) && (_operation == opPrint))
-    fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n"), exit(1);
-
   _inputs.push_back(new merylInput(operation));
   _actIndex[_actLen++] = _inputs.size() - 1;
+
+  if (operation->_operation == opHistogram)
+    fprintf(stderr, "ERROR: operation '%s' can't be used as an input: it doesn't supply kmers.\n", toString(operation->_operation)), exit(1);
 
   checkInputs(toString(operation->getOperation()));
 }
@@ -104,9 +110,6 @@ merylOperation::addInput(kmerCountFileReader *reader) {
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
             reader->filename(), toString(_operation));
-
-  if ((_inputs.size() > 0) && (_operation == opPrint))
-    fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n"), exit(1);
 
   _inputs.push_back(new merylInput(reader->filename(), reader));
   _actIndex[_actLen++] = _inputs.size() - 1;
@@ -122,13 +125,11 @@ merylOperation::addInput(dnaSeqFile *sequence) {
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
             sequence->filename(), toString(_operation));
 
-  if ((_inputs.size() > 0) && (_operation == opPrint))
-    fprintf(stderr, "ERROR: 'print' operation can have exactly one input.\n"), exit(1);
-
   _inputs.push_back(new merylInput(sequence->filename(), sequence));
   _actIndex[_actLen++] = _inputs.size() - 1;
 
-  checkInputs(sequence->filename());
+  if (isCounting() == false)
+    fprintf(stderr, "ERROR: operation '%s' cannot use sequence files as inputs.\n", toString(_operation)), exit(1);
 }
 
 
@@ -143,7 +144,32 @@ merylOperation::addOutput(kmerCountFileWriter *writer) {
   if (_output)
     fprintf(stderr, "ERROR: already have an output set!\n"), exit(1);
 
+  if (_operation == opHistogram)
+    fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
+
   _output = writer;
+}
+
+
+
+void
+merylOperation::addPrinter(FILE *printer) {
+
+  if (_verbosity >= sayConstruction)
+    if (printer == stdout)
+      fprintf(stderr, "Adding printer to stdout from operation '%s'\n",
+              toString(_operation));
+    else
+      fprintf(stderr, "Adding printer to file from operation '%s'\n",
+              toString(_operation));
+
+  if (_printer)
+    fprintf(stderr, "ERROR: already have a printer set!\n"), exit(1);
+
+  if (_operation == opHistogram)
+    fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
+
+  _printer = printer;
 }
 
 
@@ -183,7 +209,7 @@ toString(merylOp op) {
     case opDifference:           return("opDifference");           break;
     case opSymmetricDifference:  return("opSymmetricDifference");  break;
 
-    case opPrint:                return("opPrint");                break;
+    case opHistogram:            return("opHistogram");            break;
 
     case opNothing:              return("opNothing");              break; 
   }
