@@ -23,7 +23,6 @@
 //  merSize 1 NOT supported.  Fails _leftShift.
 
 #undef  SHOW_LOAD
-#undef  DONT_PRINT
 
 
 
