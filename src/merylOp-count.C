@@ -17,6 +17,15 @@
 #include "meryl.H"
 
 
+//  Define this, for testing, to skip reading input sequence into outpout merylData
+//  files - i.e., only do the merge at the end.  Helps if you also turn off
+//  the removeBlock() at the end of libkmer-writer.C.
+//
+//  You'll also need to adjust the number of iterations needed.
+//
+#undef  SKIP_COUNTING
+
+
 
 uint64
 scaledNumber(uint64 n, uint32 div=1024) {
@@ -246,7 +255,6 @@ merylOperation::count(void) {
 
   uint64   kmersAdded  = 0;
 
-#undef  SKIP_COUNTING
 #ifdef  SKIP_COUNTING
 
   _output->incrementIteration();
