@@ -78,6 +78,12 @@ main(int argc, char **argv) {
 
     //  Scan for debug options.
 
+    if (strcmp(optString, "dumpIndex") == 0) {
+      arg++;
+      delete new kmerCountFileReader(argv[arg++], true, true);
+      continue;
+    }
+
     if (strcmp(optString, "dumpFile") == 0) {
       arg++;
       dumpMerylDataFile(argv[arg++]);
