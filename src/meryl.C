@@ -358,12 +358,12 @@ main(int argc, char **argv) {
     fprintf(stderr, "    divide X             divide the count of each kmer by X.\n");
     fprintf(stderr, "    modulo X             set the count of each kmer to the remainder of the count divided by X.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    union                return kmers that occur in any input, set the count to 1.\n");
+    fprintf(stderr, "    union                return kmers that occur in any input, set the count to the number of inputs with this kmer.\n");
     fprintf(stderr, "    union-min            return kmers that occur in any input, set the count to the minimum count\n");
     fprintf(stderr, "    union-max            return kmers that occur in any input, set the count to the maximum count\n");
     fprintf(stderr, "    union-sum            return kmers that occur in any input, set the count to the sum of the counts\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    intersect            return kmers that occur in all inputs, set the count to 1.\n");
+    fprintf(stderr, "    intersect            return kmers that occur in all inputs, set the count to the count in the first input.\n");
     fprintf(stderr, "    intersect-min        return kmers that occur in all inputs, set the count to the minimum count.\n");
     fprintf(stderr, "    intersect-max        return kmers that occur in all inputs, set the count to the maximum count.\n");
     fprintf(stderr, "    intersect-sum        return kmers that occur in all inputs, set the count to the sum of the counts.\n");

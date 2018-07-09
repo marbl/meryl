@@ -298,7 +298,7 @@ merylOperation::nextMer(bool isRoot) {
       break;
 
     case opUnion:                           //  Union
-      _count = 1;
+      _count = _actLen;
       break;
 
     case opUnionMin:                        //  Union, retain smallest count
@@ -315,7 +315,7 @@ merylOperation::nextMer(bool isRoot) {
 
     case opIntersect:                       //  Intersect
       if (_actLen == _inputs.size())
-        _count = 1;
+        _count = _actCount[0];
       break;
 
     case opIntersectMin:                    //  Intersect, retain smallest count
