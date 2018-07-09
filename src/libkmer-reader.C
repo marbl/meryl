@@ -83,7 +83,15 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
   uint32  merSize = (_prefixSize + _suffixSize) / 2;
 
   if (beVerbose) {
+    char    m[17] = { 0 };
+
+    for (uint32 i=0, s=0; i<8; i++, s+=8) {
+      m[i + 0] = (m1 >> s) & 0xff;
+      m[i + 8] = (m2 >> s) & 0xff;
+    }
+
     fprintf(stderr, "Opened '%s'.\n", _inName);
+    fprintf(stderr, "  magic          0x%016lx%016lx '%s'\n", m1, m2, m);
     fprintf(stderr, "  prefixSize     %u\n", _prefixSize);
     fprintf(stderr, "  suffixSize     %u\n", _suffixSize);
     fprintf(stderr, "  numFilesBits   %u (%u files)\n", _numFilesBits, _numFiles);
