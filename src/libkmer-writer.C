@@ -440,6 +440,8 @@ kmerCountFileWriter::mergeIterations(uint32 oi) {
   uint32   *c[_iteration+1] = {0};  //  Pointer to the counts   for piece x
 
   for (uint32 bb=0; bb<_numBlocks; bb++) {
+    uint64  totnKmers = 0;
+    uint64  savnKmers = 0;
 
     //  Load and decode each block.  NO ERROR CHECKING.
 
@@ -451,29 +453,23 @@ kmerCountFileWriter::mergeIterations(uint32 oi) {
       l[ii] = inBlocks[ii].nKmers();
       s[ii] = inBlocks[ii]._suffixes;
       c[ii] = inBlocks[ii]._counts;
-    }
 
-    fprintf(stderr, "MERGE prefix 0x%04lx %8lu kmers and 0x%04lx %8lu kmers.\n",
-            inBlocks[1]._prefix, l[1], inBlocks[2]._prefix, l[2]);
+      totnKmers += l[ii];
+    }
 
     //  Check that everyone has loaded the same prefix.
 
     uint64  prefix = inBlocks[1]._prefix;
 
-    for (uint32 ii=1; ii <= _iteration; ii++)
-      if (inBlocks[1]._prefix != inBlocks[ii]._prefix) {
+    //fprintf(stderr, "MERGE prefix 0x%04lx %8lu kmers and 0x%04lx %8lu kmers.\n",
+    //        prefix, l[1], inBlocks[2]._prefix, l[2]);
+
+    for (uint32 ii=1; ii <= _iteration; ii++) {
+      if (prefix != inBlocks[ii]._prefix)
         fprintf(stderr, "ERROR: File %u segments 1 and %u differ in prefix: 0x%016lx vs 0x%016lx\n",
-                oi, ii, inBlocks[1]._prefix, inBlocks[ii]._prefix);
-        exit(1);
-      }
-
-    //  Decode all the blocks.  Count the number of suffixes, etc.
-
-    uint64  totnKmers = 0;
-    uint64  savnKmers = 0;
-
-    for (uint32 ii=1; ii <= _iteration; ii++)
-      totnKmers += inBlocks[ii].nKmers();
+                oi, ii, prefix, inBlocks[ii]._prefix);
+      assert(prefix == inBlocks[ii]._prefix);
+    }
 
     //  Setup the merge.
 
@@ -481,7 +477,7 @@ kmerCountFileWriter::mergeIterations(uint32 oi) {
 
     //  Merge!  We don't know the number of different kmers in the input, and are forced
     //  to loop infinitely.
-
+ 
     while (1) {
       uint64  minSuffix = UINT64_MAX;
       uint32  sumCount  = 0;
@@ -490,16 +486,15 @@ kmerCountFileWriter::mergeIterations(uint32 oi) {
       //  Remember the sum of their counts.
 
       for (uint32 ii=1; ii <= _iteration; ii++) {
-        if (s[ii] == NULL)   //  If all done, s[] is set to NULL.
-          continue;
+        if (p[ii] < l[ii]) {
+          if (minSuffix > s[ii][ p[ii] ]) {
+            minSuffix = s[ii][ p[ii] ];
+            sumCount  = c[ii][ p[ii] ];
+          }
 
-        if (minSuffix > s[ii][ p[ii] ]) {
-          minSuffix = s[ii][ p[ii] ];
-          sumCount  = c[ii][ p[ii] ];
-        }
-
-        else if (minSuffix == s[ii][ p[ii] ]) {
-          sumCount += c[ii][ p[ii] ];
+          else if (minSuffix == s[ii][ p[ii] ]) {
+            sumCount += c[ii][ p[ii] ];
+          }
         }
       }
 
@@ -523,17 +518,9 @@ kmerCountFileWriter::mergeIterations(uint32 oi) {
       //  exhausted, mark it as so.
 
       for (uint32 ii=1; ii <= _iteration; ii++) {
-        if (s[ii] == NULL)   //  If all done, s[] is set to NULL.
-          continue;
-
-        if (minSuffix == s[ii][ p[ii] ]) {
+        if ((p[ii] < l[ii]) &&
+            (minSuffix == s[ii][ p[ii] ]))
           p[ii]++;
-
-          if (p[ii] >= l[ii]) {
-            s[ii] = NULL;
-            c[ii] = NULL;
-          }
-        }
       }
     }
 
