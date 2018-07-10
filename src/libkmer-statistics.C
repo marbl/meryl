@@ -45,6 +45,21 @@ kmerCountStatistics::~kmerCountStatistics() {
 }
 
 
+
+void
+kmerCountStatistics::clear(void) {
+  _numUnique     = 0;
+  _numDistinct   = 0;
+  _numTotal      = 0;
+
+  for (uint64 ii=0; ii<_histMax; ii++)
+    _hist[ii] = 0;
+
+  _hbigLen       = 0;
+}
+
+
+
 void
 kmerCountStatistics::dump(stuffedBits *bits) {
   bits->setBinary(64, _numUnique);

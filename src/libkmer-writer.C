@@ -392,6 +392,8 @@ kmerCountFileWriter::finishIteration(void) {
 
   //  Otherwise, merge the multiple iterations into a single file.
 
+  _stats.clear();
+
 #pragma omp parallel for
   for (uint32 oi=0; oi<64; oi++)
     mergeIterations(oi);
