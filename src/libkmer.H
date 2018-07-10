@@ -187,6 +187,8 @@ public:
     }
   };
 
+  void      clear(void);
+
   void      dump(stuffedBits *bits);
   void      dump(FILE        *outFile);
 
