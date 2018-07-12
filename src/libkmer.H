@@ -113,12 +113,21 @@ public:
   };
 
 public:
-  bool    operator!=(kmerTiny const &r) const { return(_mer != r._mer); };
-  bool    operator==(kmerTiny const &r) const { return(_mer == r._mer); };
-  bool    operator< (kmerTiny const &r) const { return(_mer <  r._mer); };
-  bool    operator> (kmerTiny const &r) const { return(_mer >  r._mer); };
-  bool    operator<=(kmerTiny const &r) const { return(_mer <= r._mer); };
-  bool    operator>=(kmerTiny const &r) const { return(_mer >= r._mer); };
+  bool        operator!=(kmerTiny const &r) const { return(_mer != r._mer); };
+  bool        operator==(kmerTiny const &r) const { return(_mer == r._mer); };
+  bool        operator< (kmerTiny const &r) const { return(_mer <  r._mer); };
+  bool        operator> (kmerTiny const &r) const { return(_mer >  r._mer); };
+  bool        operator<=(kmerTiny const &r) const { return(_mer <= r._mer); };
+  bool        operator>=(kmerTiny const &r) const { return(_mer >= r._mer); };
+
+  bool        isFirst(void)                 const { return(_mer == 0);                        };
+  bool        isLast(void)                  const { return(_mer == (UINT64_MAX & _fullMask)); };
+
+  kmerTiny   &operator++()                        {                           _mer++;  return(*this);  };
+  kmerTiny    operator++(int)                     { kmerTiny before = *this;  _mer++;  return(before); };
+
+  kmerTiny   &operator--()                        {                           _mer--;  return(*this);  };
+  kmerTiny    operator--(int)                     { kmerTiny before = *this;  _mer--;  return(before); };
 
 public:
   char    *toString(char *str) const {
