@@ -48,6 +48,33 @@ merylOperation::findSumCount(void) {
 
 
 bool
+merylOperation::initialize(bool isRoot) {
+
+  //  If there is an output associated with this operation, and the operation
+  //  isn't for counting (those initialize outputs differently), initialize
+  //  the output.
+
+  if ((_output) && (isCounting() == false))
+    _output->initialize();
+
+  //  Then propagate to any children we have.
+
+  for (uint32 ii=0; ii<_inputs.size(); ii++)
+    _inputs[ii]->initialize();
+
+  //  Finally, do any counting operations.
+
+  if (isCounting() == true)
+    return(nextMer_doCounting(isRoot));
+
+  //  Return true to start iteration of kmers.
+
+  return(true);
+}
+
+
+
+bool
 merylOperation::nextMer_doCounting(bool isRoot) {
 
   //  This is a bit more complicated than I like.  We need to close
@@ -100,32 +127,21 @@ merylOperation::nextMer(bool isRoot) {
 
   char  kmerString[256];
 
-  //  Find the smallest kmer in the _inputs, and save their counts in _actCount.
-  //  Mark which input was used in _actIndex.
+  //  Get some logging out of the way.
 
   if (_verbosity >= sayDetails) {
     fprintf(stderr, "\n");
     fprintf(stderr, "merylOp::nextMer()-- STARTING for operation %s\n",
             toString(_operation));
+
+    if (_verbosity >= sayEverything)
+      for (uint32 ii=0; ii<_inputs.size(); ii++)
+        fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count " F_U64 " %s\n",
+                _inputs[ii]->_name,
+                _inputs[ii]->_kmer.toString(kmerString),
+                _inputs[ii]->_count,
+                _inputs[ii]->_valid ? "valid" : "INVALID");
   }
-
-  //  If we're counting, do that entirely right now, then reset so we
-  //  can iterate through the kmers we just counted.
-
-  if ((_operation == opCount) ||
-      (_operation == opCountForward) ||
-      (_operation == opCountReverse))
-    if (nextMer_doCounting(isRoot) == false)
-      return(false);
-
-
-  if (_verbosity >= sayEverything)
-    for (uint32 ii=0; ii<_inputs.size(); ii++)
-      fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count " F_U64 " %s\n",
-              _inputs[ii]->_name,
-              _inputs[ii]->_kmer.toString(kmerString),
-              _inputs[ii]->_count,
-              _inputs[ii]->_valid ? "valid" : "INVALID");
 
   //  Grab the next mer for every input that was active in the last iteration.
   //  (on the first call, all inputs were 'active' last time)
@@ -138,8 +154,10 @@ merylOperation::nextMer(bool isRoot) {
 
   _actLen = 0;
 
-  //  Log.
+  //  Find the smallest kmer in the _inputs, and save their counts in _actCount.
+  //  Mark which input was used in _actIndex.
 
+#if 0
   if (_verbosity >= sayEverything)
     for (uint32 ii=0; ii<_inputs.size(); ii++)
       fprintf(stderr, "merylOp::nextMer()--   BEFORE OPERATION: input %s kmer %s count " F_U64 " %s\n",
@@ -147,6 +165,7 @@ merylOperation::nextMer(bool isRoot) {
               _inputs[ii]->_kmer.toString(kmerString),
               _inputs[ii]->_count,
               _inputs[ii]->_valid ? "valid" : "INVALID");
+#endif
 
   //  Build a list of the inputs that have the smallest kmer.
 

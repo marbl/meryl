@@ -173,8 +173,7 @@ void
 kmerCountFileWriter::addMer(kmer   k,
                             uint32 c) {
 
-  if (_initialized == false)   //  Unfortunately, we need to know suffixSize and suffixMask, so need
-    initialize();              //  to be initialized.  Sadly, we need to check for every mer.
+  assert(_initialized);
 
   if (_batchSuffixes == NULL) {
     _batchSuffixes = new uint64 [_batchMaxKmers];
@@ -333,9 +332,6 @@ kmerCountFileWriter::addBlock(uint64  prefix,
   //  a bit of size to small datasets, but makes merging thing much easier.
 
   assert(_initialized);
-
-  if (_initialized == false)     //  Take care of any deferred intiialization.  This one isn't
-    initialize();                //  as bad as addMer(), 'cause we're working on a block of mers.
 
   //  Open a new file, if needed.
 

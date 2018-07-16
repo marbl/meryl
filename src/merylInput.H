@@ -32,6 +32,7 @@ public:
   merylInput(char *n, dnaSeqFile *f);
   ~merylInput();
 
+  void   initialize(void);
   void   nextMer(void);
 
   bool   isFromOperation(void)    { return(_operation != NULL); };

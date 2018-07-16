@@ -446,8 +446,14 @@ main(int argc, char **argv) {
   //fprintf(stderr, "Detected %u available threads and %.3f GB memory.\n",
   //        physThreads, physMemory / 1024.0 / 1024.0 / 1024.0);
 
-  while (op->nextMer(true) == true)
-    ;
+  //  Initialization and counting are special cases that we don't want
+  //  to test for over and over and over on every kmer.  If initialize
+  //  returns false, then the first operation was a counting operation,
+  //  and we don't need to run through the kmers.
+
+  if (op->initialize(true) == true)
+    while (op->nextMer() == true)
+      ;
 
   delete op;  //  Deletes all the child operations too.
 
