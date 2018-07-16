@@ -303,6 +303,194 @@ private:
 
 
 
+////////////////////////////////////////
+//
+//  wordArray
+//
+//  An array that efficiently stores non-machine-word size integer words by
+//  packing the bits into machine-size words.
+//
+//  The array is variable length, but not sparse.  Accessing element
+//  1,000,000 will allocate elements 0 through 999,999.
+//
+//  No array operator can be provided since we cannot return a reference to
+//  values across machine words, let alone a reference to a value inside a
+//  machine word.
+//
+//  The constructor needs to know the size of the words being stored,
+//  and how many bits to store per allocation.
+//
+class wordArray {
+public:
+  wordArray(uint32 wordWidth, uint32 segmentSize = 65536 * 8) {
+    _valueWidth       = wordWidth;
+    _segmentSize      = segmentSize;
+    _valuesPerSegment = (uint64)_segmentSize / (uint64)_valueWidth;
+
+    _nextElement      = 0;
+
+    _segmentsLen      = 0;
+    _segmentsMax      = 16;
+    _segments         = new uint64 * [_segmentsMax];
+
+    for (uint32 ss=0; ss<_segmentsMax; ss++)
+      _segments[ss] = NULL;
+  }
+
+  ~wordArray() {
+    for (uint32 i=0; i<_segmentsLen; i++)
+      delete [] _segments[i];
+
+    delete [] _segments;
+  };
+
+  void     clear(void) {
+    _nextElement = 0;
+    _segmentsLen = 0;
+  }
+
+  uint64   get(uint64 element) {
+    uint64 seg =                element / _valuesPerSegment;     //  Which segment are we in?
+    uint64 pos = _valueWidth * (element % _valuesPerSegment);    //  Bit position of the start of the value.
+
+    uint64 wrd = pos / 64;   //  The word we start in.
+    uint64 bit = pos % 64;   //  Starting at this bit.
+
+    uint64 val = 0;
+
+    assert(element < _nextElement);
+
+    //  If the value is all in one word, just shift that word to the right to put
+    //  the proper bits in the proper position.
+
+    if (bit + _valueWidth <= 64) {
+      val   = _segments[seg][wrd] >> (64 - _valueWidth - bit);
+    }
+
+    //  Otherwise, the value spans two words.  First, shift the first word so the end of it
+    //  is at the start of the value.  Then shift the second word to the start of it is
+    //  at the end of the value.
+    //
+    //                                 ssssssssssssssssssssss <- second shift
+    //  [--word--][--first-word--][--second-word--][--word--]
+    //                      [--value--]
+    //                            fffff <- first shift
+    //
+    else {
+      uint32  fShift = _valueWidth - (64 - bit);
+      uint32  sShift = 64 - fShift;
+
+      val   = _segments[seg][wrd+0] << fShift;
+      val  |= _segments[seg][wrd+1] >> sShift;
+    }
+
+    //  Finally, mask off the stuff we don't care about.
+
+    val  &= uint64MASK(_valueWidth);
+
+    return(val);
+  };
+
+  void     set(uint64 element, uint64 value) {
+    uint64 seg =                element / _valuesPerSegment;     //  Which segment are we in?
+    uint64 pos = _valueWidth * (element % _valuesPerSegment);    //  Which word in the segment?
+
+    uint64 wrd = pos / 64;   //  The word we start in.
+    uint64 bit = pos % 64;   //  Starting at this bit.
+
+    if (element >= _nextElement)
+      _nextElement = element+1;
+
+    if (seg >= _segmentsMax)
+      resizeArray(_segments, _segmentsLen, _segmentsMax, seg + 16, resizeArray_copyData | resizeArray_clearNew);
+
+    while (_segmentsLen <= seg) {
+      uint64  nWords = _segmentSize / 64;
+
+      _segments[_segmentsLen] = new uint64 [_segmentSize / 64];
+
+      memset(_segments[_segmentsLen], 0xff, sizeof(uint64) * nWords);
+
+      _segmentsLen++;
+    }
+
+    //  Mask the value, just in case.
+
+    value &= uint64MASK(_valueWidth);
+
+    //  Set the value in the segment.
+
+    //          [--------------------]
+    //                 [value]
+    //           lSave           rSave
+    //
+    if (bit + _valueWidth <= 64) {
+      uint32   lSave = bit;
+      uint32   rSave = 64 - _valueWidth - bit;
+
+      _segments[seg][wrd] = (saveLeftBits(_segments[seg][wrd], lSave) |
+                             (value << rSave)                         |
+                             saveRightBits(_segments[seg][wrd], rSave));
+    }
+
+    //            --lSave--               --rSave--
+    //  [--word--][--first-word--][--second-word--][--word--]
+    //                     [----value---=]
+    //                      lSize  rSize
+    //
+    else {
+      uint32   lSave =      bit,   rSave = 128 - _valueWidth - bit;
+      uint32   lSize = 64 - bit,   rSize = _valueWidth - (64 - bit);
+
+      _segments[seg][wrd+0] = saveLeftBits(_segments[seg][wrd+0], lSave) | (value >> rSize);
+      _segments[seg][wrd+1] = (value << rSave) | saveRightBits(_segments[seg][wrd+1], rSave);
+    }
+  };
+
+  void     show(void) {
+    fprintf(stderr, "wordArray:   valueWidth  %2u\n", _valueWidth);
+    fprintf(stderr, "wordArray:   segmentSize %8lu   valuesPerSegment %8lu\n", _segmentSize, _valuesPerSegment);
+    fprintf(stderr, "\n");
+
+    uint32  bit  = 64;
+    uint32  word = 0;
+    char    bits[65];
+
+    for (uint32 ss=0; ss<_segmentsLen; ss++) {
+      fprintf(stderr, "Segment %u:\n", ss);
+
+      for(uint32 wrd=0, bit=0; bit<_valuesPerSegment * _valueWidth; bit++) {
+        if ((bit % 64) == 0) {
+          displayWord(_segments[ss][wrd++], bits);
+        }
+
+        if ((bit % _valueWidth) == 0)
+          fprintf(stderr, "word %2u: ", wrd);
+
+        fprintf(stderr, "%c", bits[bit % 64]);
+
+        if ((bit % _valueWidth) == _valueWidth - 1)
+          fprintf(stderr, "\n");
+      }
+    }
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "\n");
+  }
+
+private:
+  uint32   _valueWidth;
+  uint64   _segmentSize;
+  uint64   _valuesPerSegment;
+
+  uint64   _nextElement;  //  the first invalid element
+
+  uint64   _segmentsLen;
+  uint64   _segmentsMax;
+  uint64 **_segments;
+};
+
+
 
 class stuffedBits {
 public:
