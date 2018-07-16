@@ -103,6 +103,26 @@ testBitArray(uint64 maxLength) {
 
 
 void
+testWordArray(uint64 wordSize) {
+  wordArray  *wa = new wordArray(wordSize, 8 * 64);
+
+  for (uint32 ii=0; ii<1000; ii++)
+    wa->set(ii, 0xffffffff);
+
+  for (uint32 ii=0; ii<1000; ii++)
+    wa->set(ii, ii);
+
+  wa->show();
+
+  for (uint32 ii=0; ii<1000; ii++)
+    assert(wa->get(ii) == (ii & uint64MASK(wordSize)));
+
+  delete wa;
+}
+
+
+
+void
 testUnary(uint32 testSize) {
   uint32      maxN   = 10000000;
   uint32     *random = new uint32 [maxN];
@@ -231,6 +251,12 @@ main(int argc, char **argv) {
       uint64  maxLength = strtouint64(argv[++arg]);
 
       testBitArray(maxLength);
+    }
+
+    else if (strcmp(argv[arg], "-wordarray") == 0) {
+      uint64  wordSize = strtouint64(argv[++arg]);
+
+      testWordArray(wordSize);
     }
 
     else if (strcmp(argv[arg], "-unary") == 0) {
