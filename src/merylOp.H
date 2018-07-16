@@ -131,6 +131,8 @@ public:
 private:
   bool    nextMer_doCounting(bool isRoot);
 public:
+  bool    initialize(bool isRoot=false);
+
   bool    nextMer(bool isRoot=false);
   bool    validMer(void)           { return(_valid);  };
 

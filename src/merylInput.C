@@ -67,6 +67,14 @@ merylInput::~merylInput() {
 
 
 void
+merylInput::initialize(void) {
+  if (_operation)
+    _operation->initialize();
+}
+
+
+
+void
 merylInput::nextMer(void) {
   char kmerString[256];
 
