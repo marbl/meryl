@@ -30,7 +30,8 @@ char *
 constructBlockName(char   *prefix,
                    uint64  outIndex,
                    uint32  numFiles,
-                   uint32  iteration) {
+                   uint32  iteration,
+                   bool    isIndex) {
   char *name = new char [FILENAME_MAX+1];
   char  bits[67];
 
@@ -46,9 +47,9 @@ constructBlockName(char   *prefix,
   bits[bp] = 0;
 
   if (iteration == 0)
-    snprintf(name, FILENAME_MAX, "%s/%s.merylData", prefix, bits);
+    snprintf(name, FILENAME_MAX, "%s/%s.%s", prefix, bits, (isIndex == false) ? "merylData" : "merylIndex");
   else
-    snprintf(name, FILENAME_MAX, "%s/%s[%03u].merylData", prefix, bits, iteration);
+    snprintf(name, FILENAME_MAX, "%s/%s[%03u].%s", prefix, bits, iteration, (isIndex == false) ? "merylData" : "merylIndex");
 
   return(name);
 }
@@ -60,7 +61,7 @@ openOutputBlock(char   *prefix,
                 uint64  fileIndex,
                 uint32  numFiles,
                 uint32  iteration) {
-  char    *name = constructBlockName(prefix, fileIndex, numFiles, iteration);
+  char    *name = constructBlockName(prefix, fileIndex, numFiles, iteration, false);
 
   FILE *F = AS_UTL_openOutputFile(name);
 
@@ -76,7 +77,7 @@ openInputBlock(char   *prefix,
                uint64  fileIndex,
                uint32  numFiles,
                uint32  iteration) {
-  char    *name = constructBlockName(prefix, fileIndex, numFiles, iteration);
+  char    *name = constructBlockName(prefix, fileIndex, numFiles, iteration, false);
 
   FILE *F = AS_UTL_openInputFile(name);
 
@@ -92,7 +93,7 @@ removeBlock(char   *prefix,
             uint64  fileIndex,
             uint32  numFiles,
             uint32  iteration) {
-  char    *name = constructBlockName(prefix, fileIndex, numFiles, iteration);
+  char    *name = constructBlockName(prefix, fileIndex, numFiles, iteration, false);
 
   AS_UTL_unlink(name);
 

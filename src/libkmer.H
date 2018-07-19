@@ -18,6 +18,7 @@
 #define LIBKMER_H
 
 #include "AS_global.H"
+#include "AS_UTL_fileIO.H"
 #include "libbits.H"
 
 //  merSize 1 NOT supported.  Fails _leftShift.
@@ -30,7 +31,8 @@ char *
 constructBlockName(char   *prefix,
                    uint64  outIndex,
                    uint32  numFiles,
-                   uint32  iteration=0);
+                   uint32  iteration,
+                   bool    isIndex);
 
 FILE *
 openOutputBlock(char   *prefix,
@@ -363,6 +365,10 @@ public:
   uint64    prefix(void)   { return(_prefix); };
   uint64    nKmers(void)   { return(_nKmers); };
 
+  uint64   *suffixes(void) { return(_suffixes); };   //  direct access to decoded data
+  uint32   *counts(void)   { return(_counts);   };
+
+private:
   stuffedBits  *_data;
 
   uint64        _prefix;       //  The prefix of all kmers in this block
@@ -384,10 +390,45 @@ public:
 
 
 
+class kmerCountFileIndex {
+public:
+  kmerCountFileIndex() {
+    clear();
+  };
+
+  void       set(uint64  prefix,
+                 FILE   *F,
+                 uint64  nKmers) {
+    _blockPrefix   = prefix;
+    _blockPosition = AS_UTL_ftell(F);
+    _numKmers      = nKmers;
+  };
+
+  void       clear(void) {
+    _blockPrefix   = UINT64_MAX;
+    _blockPosition = UINT64_MAX;
+    _numKmers      = 0;
+  }
+
+  uint64     blockPrefix(void)     { return(_blockPrefix);   };
+  uint64     blockPosition(void)   { return(_blockPosition); };
+  uint64     numKmers(void)        { return(_numKmers);      };
+
+private:
+  uint64    _blockPrefix;
+  uint64    _blockPosition;
+  uint64    _numKmers;
+};
+
+
+
 class kmerCountFileReader {
 public:
   kmerCountFileReader(const char *inputName, bool ignoreStats=false, bool beVerbose=false);
   ~kmerCountFileReader();
+
+public:
+  void    loadBlockIndex(void);
 
 public:
   bool    nextMer(void);
@@ -399,6 +440,30 @@ public:
   kmerCountStatistics       *stats(void) {
     return(&_stats);
   }
+
+  //  For direct access to the kmer blocks.
+public:
+  uint32  prefixSize(void)     { return(_prefixSize); };
+  uint32  suffixSize(void)     { return(_suffixSize); };
+
+  uint32  numFiles(void)       { return(_numFiles);  };
+  uint32  numBlocks(void)      { return(_numBlocks); };
+
+  uint32  numFilesBits(void)   { return(_numFilesBits);  };
+  uint32  numBlocksBits(void)  { return(_numBlocksBits); };
+
+  FILE   *blockFile(uint32 ff) {
+    FILE *F = NULL;
+
+    if (ff < _numFiles)
+      F = openInputBlock(_inName, ff, _numFiles);
+
+    return(F);
+  };
+
+  kmerCountFileIndex   &blockIndex(uint32 bb) {
+    return(_blockIndex[bb]);
+  };
 
 private:
   char                       _inName[FILENAME_MAX+1];
@@ -414,7 +479,9 @@ private:
   kmerCountStatistics        _stats;
 
   FILE                      *_datFile;
+
   kmerCountFileReaderBlock  *_block;
+  kmerCountFileIndex        *_blockIndex;
 
   kmer                       _kmer;
   uint32                     _count;
@@ -453,47 +520,166 @@ public:
   uint32  fileNumber(uint64 prefix);
 
 private:
-  void    writeBlockToFile(FILE    *F,
+  void    writeBlockToFile(uint32   Fnum,
                            uint64   prefix,
                            uint64   nKmers,
                            uint64  *suffixes,
                            uint32  *counts);
+
+  void    writeIndexToFile(uint32 Fnum);
 
 public:
   void    addBlock(uint64  prefix,
                    uint64  nKmers,
                    uint64 *suffixes,
                    uint32 *counts);
+  void    addBlock(uint64 nextPrefix);
 
   void    incrementIteration(void);
   void    finishIteration(void);
   void    mergeIterations(uint32 oi);
 
 private:
-  bool                _initialized;
-  uint32              _iteration;
+  bool                       _initialized;
+  uint32                     _iteration;
 
-  char                _outName[FILENAME_MAX+1];
+  char                       _outName[FILENAME_MAX+1];
 
-  uint64              _batchPrefix;     //  Temporary data used when adding
-  uint64              _batchNumKmers;   //  kmers one-at-a-time.
-  uint64              _batchMaxKmers;
-  uint64             *_batchSuffixes;
-  uint32             *_batchCounts;
+  uint64                     _batchPrefix;     //  Temporary data used when adding
+  uint64                     _batchNumKmers;   //  kmers one-at-a-time.
+  uint64                     _batchMaxKmers;
+  uint64                    *_batchSuffixes;
+  uint32                    *_batchCounts;
 
-  uint32              _prefixSize;
+  uint32                     _prefixSize;
 
-  uint32              _suffixSize;
-  uint64              _suffixMask;
+  uint32                     _suffixSize;
+  uint64                     _suffixMask;
 
-  uint32              _numFilesBits;
-  uint32              _numBlocksBits;
-  uint64              _numFiles;
-  uint64              _numBlocks;
+  uint32                     _numFilesBits;
+  uint32                     _numBlocksBits;
+  uint64                     _numFiles;
+  uint64                     _numBlocks;
 
-  FILE              **_datFiles;
+  FILE                     **_datFiles;
+  kmerCountFileIndex       **_datFileIndex;
 
-  kmerCountStatistics _stats;
+  kmerCountStatistics        _stats;
+};
+
+
+
+class kmerCountExactLookup {
+public:
+  kmerCountExactLookup(kmerCountFileReader *input);
+  ~kmerCountExactLookup() {
+    delete [] _suffixStart;
+    delete    _suffixData;
+  };
+
+  bool             exists(kmer k) {
+    uint64  kmer   = (uint64)k;
+    uint64  prefix = kmer >> _suffixBits;
+    uint64  suffix = kmer  & _suffixMask;
+
+    uint64  bgn = _suffixStart[prefix    ];
+    uint64  mid;
+    uint64  end = _suffixStart[prefix + 1];
+
+    uint64  dat;
+
+    ///
+    ///  Needs to binary search.
+    ///
+
+#if 1
+    while (bgn + 8 < end) {
+      mid = bgn + (end - bgn) / 2;
+
+      dat = _suffixData->get(mid);
+
+      if (dat == suffix)
+        return(true);
+
+      if (suffix < dat)
+        end = mid;
+
+      else
+        bgn = mid + 1;
+    }
+#endif
+
+    for (mid=bgn; mid < end; mid++) {
+      dat = _suffixData->get(mid);
+
+      if (dat == suffix)
+        return(true);
+    }
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "FAILED kmer   0x%016lx\n", kmer);
+    fprintf(stderr, "FAILED prefix 0x%016lx\n", prefix);
+    fprintf(stderr, "FAILED suffix 0x%016lx\n", suffix);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "original  %9lu %9lu\n", _suffixStart[prefix], _suffixStart[prefix + 1]);
+    fprintf(stderr, "final     %9lu %9lu\n", bgn, end);
+    fprintf(stderr, "\n");
+
+    bgn = _suffixStart[prefix    ];
+    end = _suffixStart[prefix + 1];
+
+    while (bgn + 8 < end) {
+      mid = bgn + (end - bgn) / 2;
+
+      dat = _suffixData->get(mid);
+
+      fprintf(stderr, "TEST bgn %8lu %8lu %8lu end -- dat %lu =?= %lu suffix\n", bgn, mid, end, dat, suffix);
+
+      if (dat == suffix)
+        return(true);
+
+      if (suffix < dat)
+        end = mid;
+
+      else
+        bgn = mid + 1;
+    }
+
+    for (mid=bgn; mid < end; mid++) {
+      dat = _suffixData->get(mid);
+
+      fprintf(stderr, "ITER bgn %8lu %8lu %8lu end -- dat %lu =?= %lu suffix\n", bgn, mid, end, dat, suffix);
+
+      if (dat == suffix)
+        return(true);
+    }
+
+    assert(0);
+
+    return(false);
+  };
+
+  uint32           count(kmer k) {
+    return(0);
+  };
+
+private:
+  uint32          _Kbits;
+
+  uint32          _prefixBits;  //  How many high-end bits of the kmer is an index into _suffixStart.
+  uint32          _suffixBits;  //  How many bits of the kmer are in the suffix table.
+  uint32          _valueBits;   //  How many bits of the suffix entry are data.
+
+  uint64          _suffixMask;
+  uint64          _dataMask;
+
+  uint64          _nPrefix;     //  How many entries in _suffixStart == 2 ^ _prefixBits.
+  uint64          _nSuffix;     //  How many entries in _suffixData  == nDistinct in the input database.
+
+  uint32          _prePtrBits;  //  How many bits wide is _suffixStart (used only if _suffixStart is a wordArray).
+
+  uint64         *_suffixStart; //  Pointers into suffixData
+  wordArray      *_suffixData;  //  Finally, kmer data!
 };
 
 

@@ -26,6 +26,10 @@
 #undef  SKIP_COUNTING
 
 
+//  The number of bits to use for a merylCountArray segment.
+#define SEGMENT_SIZE  8192 * 64
+
+
 
 uint64
 scaledNumber(uint64 n, uint32 div=1024) {
@@ -64,6 +68,32 @@ estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in
               uint64  &wDataMask_) {       //  Output: A mask to return just the data of the mer
 
   uint64   minMemory = UINT64_MAX;
+  uint32   minPrefix = 0;
+
+  //
+  //  First pass, to find the minimum memory we'll fit into.
+  //
+
+  for (uint32 wp=1; wp < 2 * merSize; wp++) {
+    uint64  nPrefix          = (uint64)1 << wp;                        //  Number of prefix == number of blocks of data
+    uint64  kmersPerPrefix   = nKmerEstimate / nPrefix + 1;            //  Expected number of kmers we need to store per prefix
+    uint64  kmersPerSeg      = SEGMENT_SIZE / (2 * merSize - wp);      //  Kmers per segment
+    uint64  segsPerPrefix    = kmersPerPrefix / kmersPerSeg + 1;       //  
+
+    uint64  structMemory     = ((sizeof(merylCountArray) * nPrefix) +                  //  Basic structs
+                                (sizeof(uint64 *)        * nPrefix * segsPerPrefix));  //  Pointers to segments
+    uint64  dataMemory       = nPrefix * segsPerPrefix * SEGMENT_SIZE / 8;
+    uint64  totalMemory      = structMemory + dataMemory;
+
+    if ((wp >= 3) && (totalMemory - 16 * 1024 * 1024 < minMemory)) {
+      minMemory  = totalMemory;
+      minPrefix  = wp;
+    }
+  }
+
+  //
+  //  Second pass, to print a pretty report and find the values to use
+  //
 
   fprintf(stderr, "\n");
   fprintf(stderr, "prefix     # of   struct   kmers/    segs/     data    total\n");
@@ -72,20 +102,13 @@ estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in
 
   for (uint32 wp=1; wp < 2 * merSize; wp++) {
     uint64  nPrefix          = (uint64)1 << wp;                        //  Number of prefix == number of blocks of data
-
     uint64  kmersPerPrefix   = nKmerEstimate / nPrefix + 1;            //  Expected number of kmers we need to store per prefix
-
-    uint64  segSize          = 8192 * 64;                              //  BITS per segment
-    uint64  kmersPerSeg      = segSize / (2 * merSize - wp);           //  Kmers per segment
-
+    uint64  kmersPerSeg      = SEGMENT_SIZE / (2 * merSize - wp);      //  Kmers per segment
     uint64  segsPerPrefix    = kmersPerPrefix / kmersPerSeg + 1;       //  
-
 
     uint64  structMemory     = ((sizeof(merylCountArray) * nPrefix) +                  //  Basic structs
                                 (sizeof(uint64 *)        * nPrefix * segsPerPrefix));  //  Pointers to segments
-
-    uint64  dataMemory       = nPrefix * segsPerPrefix * segSize / 8;
-
+    uint64  dataMemory       = nPrefix * segsPerPrefix * SEGMENT_SIZE / 8;
     uint64  totalMemory      = structMemory + dataMemory;
 
     fprintf(stderr, "%6" F_U32P "  %4" F_U64P " %cP  %4" F_U64P " %cB  %4" F_U64P " %cM  %4" F_U64P " %cS  %4" F_U64P " %cB  %4" F_U64P " %cB",
@@ -97,10 +120,10 @@ estimateSizes(uint64   maxMemory,          //  Input:  Maximum allowed memory in
             scaledNumber(dataMemory),     scaledUnit(dataMemory),
             scaledNumber(totalMemory),    scaledUnit(totalMemory));
 
-    if ((wp >= 3) && (totalMemory < minMemory)) {
-      fprintf(stderr, "  *\n");
+    //if ((wp >= 3) && (totalMemory < minMemory))
+    if (wp == minPrefix) {
+      fprintf(stderr, "  Best Value!\n");
 
-      minMemory  = totalMemory;
       wPrefix_   = wp;
       nPrefix_   = nPrefix;
       wData_     = 2 * merSize - wp;
@@ -240,15 +263,15 @@ merylOperation::count(void) {
   _output->initialize(wPrefix);
 
   //  Allocate buckets.  The buckets don't allocate space for mers until they're added,
-  //  and allocate space for these mers in blocks of 64 * 8192 bits.
+  //  and allocate space for these mers in blocks of 8192 * 64 bits.
   //
   //  Need someway of balancing the number of prefixes we have and the size of each
   //  initial allocation.
 
-  merylCountArray  *data = new merylCountArray [nPrefix];
+  merylCountArray **data = new merylCountArray * [nPrefix];
 
   for (uint32 pp=0; pp<nPrefix; pp++)
-    data[pp].initialize(pp, wData, 32 * 8192);
+    data[pp] = new merylCountArray(pp, wData, SEGMENT_SIZE);
 
   //  Load bases, count!
 
@@ -311,7 +334,7 @@ merylOperation::count(void) {
         
         assert(pp < nPrefix);
 
-        data[pp].add(mm);
+        data[pp]->add(mm);
 
         kmersAdded++;
       }
@@ -343,9 +366,9 @@ merylOperation::count(void) {
                   omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
 
           for (uint64 pp=_output->firstPrefixInFile(ff); pp <= _output->lastPrefixInFile(ff); pp++) {
-            data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
-            data[pp].dumpCountedKmers(_output);   //  Write that list to disk.
-            data[pp].removeCountedKmers();        //  And remove the in-core data.
+            data[pp]->countKmers();                //  Convert the list of kmers into a list of (kmer, count).
+            data[pp]->dumpCountedKmers(_output);   //  Write that list to disk.
+            data[pp]->removeCountedKmers();        //  And remove the in-core data.
           }
         }
           
@@ -386,9 +409,9 @@ merylOperation::count(void) {
             omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
 
     for (uint64 pp=_output->firstPrefixInFile(ff); pp <= _output->lastPrefixInFile(ff); pp++) {
-      data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
-      data[pp].dumpCountedKmers(_output);   //  Write that list to disk.
-      data[pp].removeCountedKmers();        //  And remove the in-core data.
+      data[pp]->countKmers();                //  Convert the list of kmers into a list of (kmer, count).
+      data[pp]->dumpCountedKmers(_output);   //  Write that list to disk.
+      data[pp]->removeCountedKmers();        //  And remove the in-core data.
     }
   }
 
@@ -400,6 +423,9 @@ merylOperation::count(void) {
   _output->finishIteration();
 
   //  Cleanup.
+
+  for (uint32 pp=0; pp<nPrefix; pp++)
+    delete data[pp];
 
   delete [] data;
 
