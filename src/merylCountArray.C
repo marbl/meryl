@@ -17,16 +17,16 @@
 #include "meryl.H"
 
 
-merylCountArray::merylCountArray(void) {
-  _width       = 0;
+merylCountArray::merylCountArray(uint64 prefix, uint32 width, uint32 segsize) {
+  _width       = width;
 
-  _prefix      = 0;
+  _prefix      = prefix;
   _suffix      = NULL;
   _counts      = NULL;
 
   _nKmers      = 0;
 
-  _segSize     = 64 * 8192;
+  _segSize     = segsize;
   _segAlloc    = 0;
   _segments    = NULL;
 

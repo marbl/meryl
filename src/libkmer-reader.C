@@ -22,7 +22,9 @@
 
 
 
-kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats, bool beVerbose) {
+kmerCountFileReader::kmerCountFileReader(const char *inputName,
+                                         bool        ignoreStats,
+                                         bool        beVerbose) {
   char   N[FILENAME_MAX+1];
 
   //  Save the input name for later use, but fail if
@@ -36,29 +38,31 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
     fprintf(stderr, "ERROR: '%s' doesn't appear to be a meryl input; file '%s' doesn't exist.\n",
             _inName, N), exit(1);
 
-  //  Open the index and initialize from it.
+  //  Open the master index and initialize from it.
 
-  stuffedBits  *indexData = new stuffedBits(N);
+  stuffedBits  *masterIndex = new stuffedBits(N);
 
-  uint64  m1 = indexData->getBinary(64);
-  uint64  m2 = indexData->getBinary(64);
+  uint64  m1 = masterIndex->getBinary(64);
+  uint64  m2 = masterIndex->getBinary(64);
 
-  if ((m1 != 0x646e496c7972656dllu) ||
-      (m2 != 0x0000617461447865llu))
+  if ((m1 != 0x646e496c7972656dllu) ||  //  merylInd
+      (m2 != 0x31302e765f5f7865llu))    //  ex__v.01
     fprintf(stderr, "ERROR: '%s' doesn't look like a meryl input; file '%s' fails magic number check.\n",
             _inName, N), exit(1);
 
-  _prefixSize    = indexData->getBinary(32);
-  _suffixSize    = indexData->getBinary(32);
+  _prefixSize    = masterIndex->getBinary(32);
+  _suffixSize    = masterIndex->getBinary(32);
 
-  _numFilesBits  = indexData->getBinary(32);
-  _numBlocksBits = indexData->getBinary(32);
+  _numFilesBits  = masterIndex->getBinary(32);
+  _numBlocksBits = masterIndex->getBinary(32);
 
   _numFiles      = (uint64)1 << _numFilesBits;
   _numBlocks     = (uint64)1 << _numBlocksBits;
 
   _datFile       = NULL;
+
   _block         = new kmerCountFileReaderBlock();
+  _blockIndex    = NULL;
 
   _kmer          = kmer();
   _count         = 0;
@@ -74,9 +78,9 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
   _counts        = new uint32 [_nKmersMax];
 
   if (ignoreStats == false)
-    _stats.load(indexData);
+    _stats.load(masterIndex);
 
-  delete indexData;
+  delete masterIndex;
 
   //  Check and setup the mer size if needed.
 
@@ -109,12 +113,36 @@ kmerCountFileReader::kmerCountFileReader(const char *inputName, bool ignoreStats
 
 kmerCountFileReader::~kmerCountFileReader() {
 
+  delete [] _blockIndex;
+
   delete [] _suffixes;
   delete [] _counts;
 
   AS_UTL_closeFile(_datFile);
 
   delete    _block;
+}
+
+
+
+void
+kmerCountFileReader::loadBlockIndex(void) {
+
+  if (_blockIndex != NULL)
+    return;
+
+  _blockIndex = new kmerCountFileIndex [_numFiles * _numBlocks];
+
+  for (uint32 ii=0; ii<_numFiles; ii++) {
+    char  *idxname = constructBlockName(_inName, ii, _numFiles, 0, true);
+    FILE  *idxfile = AS_UTL_openInputFile(idxname);
+
+    AS_UTL_safeRead(idxfile, _blockIndex + _numBlocks * ii , "", sizeof(kmerCountFileIndex), _numBlocks);
+
+    AS_UTL_closeFile(idxfile, idxname);
+
+    delete [] idxname;
+  }
 }
 
 

@@ -39,6 +39,7 @@ SOURCES      := AS_global.C \
                 libkmer-reader.C \
                 libkmer-writer.C \
                 libkmer-statistics.C \
+                libkmer-exact.C \
                 libbits.C
 
 ifeq (${BUILDSTACKTRACE}, 1)
@@ -61,6 +62,7 @@ SRC_INCDIRS  := . \
                 utility
 
 SUBMAKEFILES := meryl.mk \
+                lookup.mk \
                 elias-fano.mk \
                 sequence.mk \
                 libbitsTest.mk

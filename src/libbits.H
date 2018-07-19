@@ -347,7 +347,25 @@ public:
   void     clear(void) {
     _nextElement = 0;
     _segmentsLen = 0;
-  }
+  };
+
+  void     allocate(uint64 nElements) {
+
+    //for (uint64 ee=0; ee<nElements; ee+=_valuesPerSegment) {
+    //  set(ee, 0xffffffffffffffffllu);
+    //  fprintf(stderr, "allocate()-- ee %lu segmentsLen %lu\n", ee, _segmentsLen);
+    //}
+
+    uint64 nSegs = nElements / _valuesPerSegment + 1;
+
+    resizeArray(_segments, _segmentsLen, _segmentsMax, nSegs, resizeArray_copyData | resizeArray_clearNew);
+
+    for (uint32 seg=0; seg<nSegs; seg++) {
+      _segments[_segmentsLen] = new uint64 [_segmentSize / 64];
+
+      memset(_segments[_segmentsLen], 0xff, sizeof(uint64) * _segmentSize / 64);
+    }
+  };
 
   uint64   get(uint64 element) {
     uint64 seg =                element / _valuesPerSegment;     //  Which segment are we in?
@@ -360,16 +378,17 @@ public:
 
     assert(element < _nextElement);
 
-    //  If the value is all in one word, just shift that word to the right to put
-    //  the proper bits in the proper position.
+    //  If the value is all in one word, just shift that word to the right to
+    //  put the proper bits in the proper position.  We'll clean up the extra
+    //  bits in just a moment.
 
     if (bit + _valueWidth <= 64) {
       val   = _segments[seg][wrd] >> (64 - _valueWidth - bit);
     }
 
-    //  Otherwise, the value spans two words.  First, shift the first word so the end of it
-    //  is at the start of the value.  Then shift the second word to the start of it is
-    //  at the end of the value.
+    //  Otherwise, the value spans two words.  First, shift the first word so
+    //  the end of it is at the start of the value.  Then shift the second
+    //  word to the start of it is at the end of the value.
     //
     //                                 ssssssssssssssssssssss <- second shift
     //  [--word--][--first-word--][--second-word--][--word--]
@@ -405,11 +424,9 @@ public:
       resizeArray(_segments, _segmentsLen, _segmentsMax, seg + 16, resizeArray_copyData | resizeArray_clearNew);
 
     while (_segmentsLen <= seg) {
-      uint64  nWords = _segmentSize / 64;
-
       _segments[_segmentsLen] = new uint64 [_segmentSize / 64];
 
-      memset(_segments[_segmentsLen], 0xff, sizeof(uint64) * nWords);
+      memset(_segments[_segmentsLen], 0xff, sizeof(uint64) * _segmentSize / 64);
 
       _segmentsLen++;
     }

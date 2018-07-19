@@ -22,14 +22,8 @@
 
 class merylCountArray {
 public:
-  merylCountArray(void);
+  merylCountArray(uint64 prefix, uint32 width, uint32 segsize);
   ~merylCountArray();
-
-  void      initialize(uint64 prefix, uint32 width, uint32 segsize) {
-    _prefix  = prefix;
-    _width   = width;
-    _segSize = segsize;
-  };
 
 private:
   void      removeSegments(void);
