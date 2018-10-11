@@ -26,21 +26,34 @@ TARGET       := libmeryl.a
 
 SOURCES      := AS_global.C \
                 \
-                utility/mt19937ar.C \
-                utility/AS_UTL_stackTrace.C \
-                utility/AS_UTL_alloc.C \
-                utility/AS_UTL_fileIO.C \
-                utility/AS_UTL_fasta.C \
-                utility/readBuffer.C \
-                utility/memoryMappedFile.C \
+                utility/files.C \
+                utility/files-buffered.C \
+                utility/files-compressed.C \
+                utility/files-memoryMapped.C \
                 \
-                libsequence.C \
-                libkmer.C \
-                libkmer-reader.C \
-                libkmer-writer.C \
-                libkmer-statistics.C \
-                libkmer-exact.C \
-                libbits.C
+                utility/strings.C \
+                \
+                utility/system.C \
+                utility/system-stackTrace.C \
+                \
+                utility/sequence.C \
+                \
+                utility/kmers.C \
+                utility/kmers-reader.C \
+                utility/kmers-writer.C \
+                utility/kmers-writer-block.C \
+                utility/kmers-writer-stream.C \
+                utility/kmers-statistics.C \
+                utility/kmers-exact.C \
+                \
+                utility/bits.C \
+                \
+                utility/hexDump.C \
+                utility/md5.C \
+                utility/mt19937ar.C \
+                utility/objectStore.C \
+                utility/speedCounter.C \
+                utility/sweatShop.C
 
 ifeq (${BUILDSTACKTRACE}, 1)
 SOURCES      += utility/libbacktrace/atomic.c \
@@ -59,10 +72,9 @@ SOURCES      += utility/libbacktrace/atomic.c \
 endif
 
 SRC_INCDIRS  := . \
+                meryl \
                 utility
 
-SUBMAKEFILES := meryl.mk \
-                lookup.mk \
-                elias-fano.mk \
-                sequence.mk \
-                libbitsTest.mk
+SUBMAKEFILES := meryl/meryl.mk \
+                meryl/lookup.mk \
+                sequence/sequence.mk

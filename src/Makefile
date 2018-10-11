@@ -641,10 +641,10 @@ $(foreach TGT,${ALL_TGTS},\
 $(foreach TGT,${ALL_TGTS},\
   $(eval -include ${${TGT}_DEPS}))
 
-#  A fake target, to regenerate the canu_version.H file on every build.
+#  A fake target, to regenerate the meryl_version.H file on every build.
 .PHONY: UPDATE_VERSION
 UPDATE_VERSION:
-	@./canu_version_update.pl
+	@./meryl_version_update.pl
 
 AS_global.C: UPDATE_VERSION
 
