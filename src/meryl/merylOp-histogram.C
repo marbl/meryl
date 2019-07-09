@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #include "meryl.H"
@@ -34,15 +43,10 @@ merylOperation::reportHistogram(void) {
 
   //  Now just dump it.
 
-  for (uint32 frequency=1; frequency<stats->numFrequencies(); frequency++) {
-    uint64 nkmers = stats->numKmersAtFrequency(frequency);
-
-    if (nkmers > 0)
-      fprintf(stdout, F_U32 "\t" F_U64 "\n", frequency, nkmers);
-  }
-
-  //for (uint32 ii=0; ii<stats->_hbigLen; ii++) {
-  //}
+  for (uint32 ii=0; ii<stats->histogramLength(); ii++)
+    fprintf(stdout, F_U64 "\t" F_U64 "\n",
+            stats->histogramValue(ii),
+            stats->histogramOccurrences(ii));
 }
 
 
@@ -80,24 +84,21 @@ merylOperation::reportStatistics(void) {
   fprintf(stdout, "frequency        kmers     distinct        total       (1e-6)\n");
   fprintf(stdout, "--------- ------------ ------------ ------------ ------------\n");
 
-  for (uint32 frequency=1; frequency<stats->numFrequencies(); frequency++) {
-    uint64 nkmers = stats->numKmersAtFrequency(frequency);
+  for (uint32 ii=0; ii<stats->histogramLength(); ii++) {
+    uint64  value = stats->histogramValue(ii);
+    uint64  occur = stats->histogramOccurrences(ii);
 
-    sDistinct  += nkmers;
-    sTotal     += nkmers * frequency;
+    sDistinct  += occur;
+    sTotal     += occur * value;
 
-    if (nkmers > 0)
-      fprintf(stdout, "%9" F_U32P " %12" F_U64P " %12.4f %12.4f %12.6f\n",
-              frequency,
-              nkmers,
-              (double)sDistinct / stats->numDistinct(),
-              (double)sTotal    / stats->numTotal(),
-              (double)frequency / stats->numTotal() * 1000000.0);
+    fprintf(stdout, "%9" F_U64P " %12" F_U64P " %12.4f %12.4f %12.6f\n",
+            value,
+            occur,
+            (double)sDistinct / stats->numDistinct(),
+            (double)sTotal    / stats->numTotal(),
+            (double)value     / stats->numTotal() * 1000000.0);
   }
 
   assert(sDistinct == stats->numDistinct());
   assert(sTotal    == stats->numTotal());
-
-  //for (uint32 ii=0; ii<stats->_hbigLen; ii++) {
-  //}
 }

@@ -13,11 +13,17 @@
  *  Canu branched from Celera Assembler at its revision 4587.
  *  Canu branched from the kmer project at its revision 1994.
  *
+ *  This file is derived from:
+ *
+ *    src/utility/decodeBooleanString.C
+ *    src/utility/findKeyAndValue.H
+ *    src/utility/splitToWords.H
+ *
  *  Modifications by:
  *
- *    Brian P. Walenz on 2014-NOV-26
- *      are Copyright 2014 Battelle National Biodefense Institute, and
- *      are subject to the BSD 3-Clause License
+ *    Brian P. Walenz beginning on 2018-AUG-13
+ *      are a 'United States Government Work', and
+ *      are released in the public domain
  *
  *  File 'README.licenses' in the root directory of this distribution contains
  *  full conditions and disclaimers for each license.
@@ -109,6 +115,8 @@ decodeBoolean(char *value) {
 
 
 //  Returns true if a key and value are found.  line is modified.
+//  Returns true, with value == NULL, if no delimiter is found.
+//  Returns false if the line is blank, or is a comment.
 //
 bool
 KeyAndValue::find(char *line) {
@@ -136,6 +144,11 @@ KeyAndValue::find(char *line) {
   while ((*val_ != 0) &&
          (isdelimiter(*val_) == false))  //  The key cannot contain a delimiter.
     val_++;
+
+  if (*val_ == 0) {                      //   If at the end of the string, there isn't a
+    val_ = NULL;                         //   value, but we'll return true and a key anyway.
+    return(true);
+  }
 
   *val_++ = 0;
 

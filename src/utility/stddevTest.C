@@ -15,11 +15,16 @@
  *
  *  Modifications by:
  *
+ *    Brian P. Walenz beginning on 2018-JUL-20
+ *      are a 'United States Government Work', and
+ *      are released in the public domain
+ *
  *  File 'README.licenses' in the root directory of this distribution contains
  *  full conditions and disclaimers for each license.
  */
 
 #include "stddev.H"
+#include "mt19937ar.H"
 
 //  g++ -Wall -o stddevTest -I. -I.. stddevTest.C
 
@@ -102,11 +107,47 @@ testRemove(void) {
 
 
 
+void
+testBig(uint32 nSamples) {
+  histogramStatistics   hist;
+  mtRandom              mt(10 + nSamples);
+
+  fprintf(stderr, "\n");
+  fprintf(stderr, "testBig for nSamples %u\n", nSamples);
+  fprintf(stderr, "\n");
+
+  for (uint32 ii=0; ii<nSamples; ii++) {
+    uint32  val = (mt.mtRandom32() % 10);
+    uint32  num = (mt.mtRandom32() % 1000);
+
+    //fprintf(stderr, "INSERT val %u num %u\n", val, num);
+
+    hist.add(val, num);
+  }
+
+  hist.finalizeData();
+
+  fprintf(stderr, "size:   %lu\n", hist.numberOfObjects());
+  fprintf(stderr, "mean:   %f +- %f\n", hist.mean(), hist.stddev());
+  fprintf(stderr, "median: %lu +- %lu\n", hist.median(), hist.mad());
+}
+
+
+
 int
 main(int argc, char **argv) {
 
   testInsert();
   testRemove();
+
+  testBig(1);
+  testBig(2);
+  testBig(3);
+  testBig(4);
+  testBig(5);
+  testBig(10);
+  testBig(100);
+  testBig(1000);
 
   exit(0);
 }

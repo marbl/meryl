@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #ifndef LIBSEQUENCE_H
@@ -22,11 +31,31 @@
 #include "files.H"
 
 
-void  reverseComplementSequence(char *seq, int len);
-char *reverseComplementCopy(char *seq, int len);
+void   reverseComplementSequence(char *seq, int len);
+char  *reverseComplementCopy(char *seq, int len);
 
 template<typename qvType>
-void  reverseComplement(char *seq, qvType *qlt, int len);
+void   reverseComplement(char *seq, qvType *qlt, int len);
+
+uint32 homopolyCompress(char *bases, char *compr=NULL);
+
+
+//  Encode a sequence into chunk.  The length of the chunk in bytes is returned.
+//  If the chunk is NULL, it is allocated.  Otherwise, it must be
+//  at least seqLen bytes in length.
+uint32 encode2bitSequence(uint8 *&chunk, char *seq, uint32 seqLen);
+uint32 encode3bitSequence(uint8 *&chunk, char *seq, uint32 seqLen);
+uint32 encode8bitSequence(uint8 *&chunk, char *seq, uint32 seqLen);
+
+
+//  Decode an encoded sequence (in chunk) of length chunkLen.
+//  If seq is NULL, space will be allocated, otherwise, seqLen+1 bytes
+//  must be allocated.
+//  seqLen must be the length of the sequence to decode.
+void   decode2bitSequence(uint8 *chunk, uint32 chunkLen, char *seq, uint32 seqLen);
+void   decode3bitSequence(uint8 *chunk, uint32 chunkLen, char *seq, uint32 seqLen);
+void   decode8bitSequence(uint8 *chunk, uint32 chunkLen, char *seq, uint32 seqLen);
+
 
 
 
@@ -115,23 +144,23 @@ public:
 
 private:
   uint64
-  loadFASTA(char   *&name,     uint32   nameMax,
+  loadFASTA(char   *&name,     uint32  &nameMax,
             char   *&seq,
-            uint8  *&qlt,      uint64   seqMax);
+            uint8  *&qlt,      uint64  &seqMax);
 
   uint64
-  loadFASTQ(char   *&name,     uint32   nameMax,
+  loadFASTQ(char   *&name,     uint32  &nameMax,
             char   *&seq,
-            uint8  *&qlt,      uint64   seqMax);
+            uint8  *&qlt,      uint64  &seqMax);
 
 
 public:
   //  Return the next sequence in the file.
   //  Returns false if EOF, true otherwise, even if the sequence is length zero.
   //
-  bool   loadSequence(char   *&name,     uint32   nameMax,
+  bool   loadSequence(char   *&name,     uint32  &nameMax,
                       char   *&seq,
-                      uint8  *&qlt,      uint64   seqMax,
+                      uint8  *&qlt,      uint64  &seqMax,
                       uint64  &seqLen);
 
   bool   loadSequence(dnaSeq &seq) {

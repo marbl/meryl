@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #include "bits.H"
@@ -27,7 +36,7 @@ testLogBaseTwo(void) {
   uint64  val = 0;
 
   for (uint32 ii=0; ii<64; ii++) {
-    assert(ii == logBaseTwo64(val));
+    assert(ii == countNumberOfBits64(val));
 
     val <<= 1;
     //val++;
@@ -227,6 +236,172 @@ testBinary(uint32 testSize) {
 
 
 
+
+
+
+
+void
+testPrefixFree(uint32 type) {
+  uint32      maxN   = 100000000;
+  uint64      length = 0;
+  uint32     *width  = new uint32 [maxN];
+  uint64     *random = new uint64 [maxN];
+  uint64     *histo  = new uint64 [65];
+  mtRandom    mt;
+
+  fprintf(stderr, "Creating.\n");
+
+  //  need to limit the number of bits in each value,
+  //  but not as aggressively as above.
+
+  for (uint32 ii=0; ii<65; ii++)
+    histo[ii] = 0;
+
+  for (uint32 ii=0; ii<maxN; ii++) {
+    width[ii]   =  mt.mtRandom32() % 64 + 1;
+
+#if 0
+    double x = mt.mtRandomGaussian(0.0, 1.0) * 27 / 6;
+
+    if (x < 0)
+      x = -x;
+
+    width[ii]   = (uint32)ceil(x);
+
+    if (width[ii] > 27)
+      width[ii] = 27;
+
+    if (width[ii] > 64)
+      width[ii] = 64;
+#endif
+
+    length     += width[ii];
+    histo[width[ii]]++;
+
+    random[ii]  =  mt.mtRandom64() & uint64MASK(width[ii]);
+
+    if (random[ii] == 0)
+      ii--;
+  }
+
+  {
+    FILE *F = fopen("length.histo", "w");
+    for (uint32 ii=0; ii<65; ii++)
+      fprintf(F, "%u\t%lu\n", ii, histo[ii]);
+    fclose(F);
+  }
+
+  if (0) {
+    FILE *F = fopen("length.dat", "w");
+    for (uint32 ii=0; ii<maxN; ii++)
+      fprintf(F, "%u\n", width[ii]);
+    fclose(F);
+  }
+
+  fprintf(stderr, "Created %u numbers with total length %lu bits.\n", maxN, length);
+
+  fprintf(stderr, "Setting.\n");
+
+  stuffedBits *bits = new stuffedBits;
+
+  for (uint32 ii=0; ii<maxN; ii++) {
+    switch (type) {
+      case 0:
+        bits->setEliasGamma(random[ii]);
+        break;
+      case 1:
+        bits->setEliasDelta(random[ii]);
+        break;
+      case 2:
+        bits->setZeckendorf(random[ii]);
+        break;
+    }
+
+    //assert(bits->getPosition() == total);
+  }
+
+  fprintf(stderr, "Set %lu bits.\n", bits->getPosition());
+  fprintf(stderr, "Testing.\n");
+
+  bits->setPosition(0);
+
+  for (uint32 ii=0; ii<10; ii++)
+    fprintf(stderr, "value %2u %22lu width %2u\n", ii, random[ii], width[ii]);
+
+  for (uint32 ii=0; ii<5; ii++)
+    fprintf(stderr, "word %2u %s\n", ii, bits->displayWord(ii));
+
+  for (uint32 ii=0; ii<maxN; ii++) {
+    uint64  b = 0;
+
+    switch (type) {
+      case 0:
+        b = bits->getEliasGamma();
+        break;
+      case 1:
+        b = bits->getEliasDelta();
+        break;
+      case 2:
+        b = bits->getZeckendorf();
+        break;
+    }
+
+    if (b != random[ii])
+      fprintf(stderr, "Failed at ii %u expect random=%lu got b=%lu\n",
+              ii, random[ii], b);
+    assert(random[ii] == b);
+  }
+
+  fprintf(stderr, "Tested.\n");
+
+  delete    bits;
+  delete [] random;
+  delete [] width;
+}
+
+
+
+
+
+
+
+//  Just a useful report of the fibonacci numbers.
+void
+showFibonacciNumbers(void) {
+  uint64  _fibDataMax = 93;
+  uint64 *_fibData    = new uint64 [_fibDataMax + 1];
+
+  _fibData[0] = 1;
+  _fibData[1] = 1;
+
+  for (uint32 ii=2; ii<_fibDataMax; ii++) {
+    _fibData[ii] = _fibData[ii-1] + _fibData[ii-2];
+
+    fprintf(stderr, "%4u -- %22lu = %22lu + %22lu -- %22lu\n",
+            ii, _fibData[ii], _fibData[ii-1], _fibData[ii-2], UINT64_MAX - _fibData[ii]);
+
+    assert(_fibData[ii] > _fibData[ii-1]);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 int
 main(int argc, char **argv) {
   int32 arg=1;
@@ -277,6 +452,22 @@ main(int argc, char **argv) {
       }
     }
 
+    else if (strcmp(argv[arg], "-eliasgamma") == 0) {
+      testPrefixFree(0);
+    }
+
+    else if (strcmp(argv[arg], "-eliasdelta") == 0) {
+      testPrefixFree(1);
+    }
+
+    else if (strcmp(argv[arg], "-zeckendorf") == 0) {
+      testPrefixFree(2);
+    }
+
+    else if (strcmp(argv[arg], "-show-fibonacci") == 0) {
+      showFibonacciNumbers();
+    }
+
     else if (strcmp(argv[arg], "") == 0) {
     }
 
@@ -286,6 +477,9 @@ main(int argc, char **argv) {
 
     arg++;
   }
+
+  if (err)
+    fprintf(stderr, "ERROR: didn't parse command line.\n"), exit(1);
 
   exit(0);
 }

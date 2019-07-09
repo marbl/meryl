@@ -1,16 +1,22 @@
+
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
- *      are a 'United States Government Work', and
- *      are released in the public domain
- *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 //  g++6 -o filesTest -I.. -I. filesTest.C files.C
@@ -22,12 +28,12 @@ typedef  uint8   TYPE;
 
 int32
 main(int32 argc, char **argv) {
-  uint64   nObj  = (uint64)16 * 1024 * 1024 * 1024;
+  uint64   nObj  = (uint64)16 * 1024 * 1024;
   TYPE    *array = new TYPE [nObj];
   TYPE     value = 0;
 
 
-  if (0) {
+  if (1) {
     fprintf(stderr, "Initializing.\n");
 
     for (uint64 ii=0; ii<nObj; ii++)
@@ -35,7 +41,7 @@ main(int32 argc, char **argv) {
 
     fprintf(stderr, "Writing.\n");
 
-    FILE *OUT = AS_UTL_openOutputFile("/hitachi/filesTest.dat");
+    FILE *OUT = AS_UTL_openOutputFile("./filesTest.dat");
 
     writeToFile(array, "array", nObj, OUT);
 
@@ -46,7 +52,7 @@ main(int32 argc, char **argv) {
   if (1) {
     fprintf(stderr, "Reading - as one block.\n");
 
-    FILE *IN = AS_UTL_openInputFile("/hitachi/filesTest.dat");
+    FILE *IN = AS_UTL_openInputFile("./filesTest.dat");
     loadFromFile(array, "array", nObj, IN);
     AS_UTL_closeFile(IN);
 
@@ -58,7 +64,7 @@ main(int32 argc, char **argv) {
   if (1) {
     fprintf(stderr, "Reading.\n");
 
-    FILE *IN = AS_UTL_openInputFile("/hitachi/filesTest.dat");
+    FILE *IN = AS_UTL_openInputFile("./filesTest.dat");
 
     for (uint64 ii=0; ii<nObj; ii++) {
       loadFromFile(value, "value", IN);
