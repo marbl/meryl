@@ -26,6 +26,8 @@ TARGET       := libmeryl.a
 
 SOURCES      := AS_global.C \
                 \
+                utility/edlib.C \
+                \
                 utility/files.C \
                 utility/files-buffered.C \
                 utility/files-compressed.C \
@@ -76,5 +78,6 @@ SRC_INCDIRS  := . \
                 utility
 
 SUBMAKEFILES := meryl/meryl.mk \
-                meryl/lookup.mk \
+                meryl/meryl-import.mk \
+                meryl/meryl-lookup.mk \
                 sequence/sequence.mk

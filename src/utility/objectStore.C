@@ -15,6 +15,10 @@
  *
  *  Modifications by:
  *
+ *    Brian P. Walenz beginning on 2018-JUL-20
+ *      are a 'United States Government Work', and
+ *      are released in the public domain
+ *
  *  File 'README.licenses' in the root directory of this distribution contains
  *  full conditions and disclaimers for each license.
  */
@@ -203,11 +207,11 @@ fetchFromObjectStore(char *requested) {
   if (fileExists(requested))
     return(false);
 
-  char  *dx = getenv("CANU_OBJECT_STORE_CLIENT");
+  char  *da = getenv("CANU_OBJECT_STORE_CLIENT_DA");
   char  *ns = getenv("CANU_OBJECT_STORE_NAMESPACE");
   char  *pr = getenv("CANU_OBJECT_STORE_PROJECT");
 
-  if ((dx == NULL) ||
+  if ((da == NULL) ||
       (ns == NULL) ||
       (pr == NULL))
     return(false);
@@ -248,7 +252,7 @@ fetchFromObjectStore(char *requested) {
 
   char *args[8];
 
-  args[0] = "dx";  //  technically should be the last component of 'dx'
+  args[0] = "da";  //  technically should be the last component of 'da'
   args[1] = "download";
   args[2] = "--overwrite";
   args[3] = "--no-progress";
@@ -274,7 +278,7 @@ fetchFromObjectStore(char *requested) {
   //  left intact.
 
   if (pid == 0) {
-    execve(dx, args, environ);
+    execve(da, args, environ);
     fprintf(stderr, "fetchFromObjectStore()-- execve() failed with error '%s'.\n", strerror(errno));
     _exit(127);
   }
@@ -286,7 +290,7 @@ fetchFromObjectStore(char *requested) {
 
   if ((WIFEXITED(err)) &&
       (WEXITSTATUS(err) == 127))
-    fprintf(stderr, "fetchFromObjectStore()-- failed to execve() 'dx'.\n"), exit(1);
+    fprintf(stderr, "fetchFromObjectStore()-- failed to execve() 'da'.\n"), exit(1);
 
   //  Make sure that we actually grabbed the file.  If not, BOOM!
 

@@ -1,23 +1,34 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #ifndef LIBBITS_H
 #define LIBBITS_H
 
 #include "AS_global.H"
+
+#include "files.H"
 
 #include <algorithm>
 
@@ -55,7 +66,7 @@ displayWord(uint64 word, char *buffer=NULL) {
 
   for (uint32 ii=0; ii<64; ii++)
     buffer[ii] = (word & (uint64)1 << (63 - ii)) ? '1' : '0';
-  
+
   buffer[64] = 0;
 
   return(buffer);
@@ -159,9 +170,13 @@ countNumberOfSetBits64(uint64 x) {
 }
 
 
+//  Return the number of bits needed to represent 'x'.
+//  It's really floor(log_2(x)) + 1.
+//  Note that x=0 returns 0.
+//
 inline
 uint32
-logBaseTwo32(uint32 x) {
+countNumberOfBits32(uint32 x) {
   x |= x >> 1;
   x |= x >> 2;
   x |= x >> 4;
@@ -172,7 +187,7 @@ logBaseTwo32(uint32 x) {
 
 inline
 uint64
-logBaseTwo64(uint64 x) {
+countNumberOfBits64(uint64 x) {
   x |= x >> 1;
   x |= x >> 2;
   x |= x >> 4;
@@ -516,9 +531,20 @@ public:
   stuffedBits(uint64 nBits=16 * 1024 * 1024 * 8);
   stuffedBits(const char *inputName);
   stuffedBits(FILE *inFile);
+  stuffedBits(readBuffer *B);
+  //stuffedBits(stuffedBits &that);   //  Untested.
   ~stuffedBits();
 
+  //  Debugging.
+
+  char    *displayWord(uint64 w) {
+    return(::displayWord(_data[w]));
+  };
+
   //  Files.
+
+  void     dumpToBuffer(writeBuffer *B);
+  bool     loadFromBuffer(readBuffer *B);
 
   void     dumpToFile(FILE *F);
   bool     loadFromFile(FILE *F);
@@ -532,31 +558,108 @@ public:
 
   void     byteAlign(void);
 
+  //  SINGLE BITS
+
+  bool     getBit(void);           //  get a bit.
+  bool     testBit(void);          //  get a bit, but don't move position.
+  void     setBit(bool on=true);   //  set a bit.
+
   //  UNARY CODED DATA
 
   uint64   getUnary(void);
   uint64  *getUnary(uint64 number, uint64 *values);
 
-  void     setUnary(uint64 value);
-  void     setUnary(uint64 number, uint64 *values);
+  uint32   setUnary(uint64 value);
+  uint32   setUnary(uint64 number, uint64 *values);
 
   //  BINARY CODED DATA
 
   uint64   getBinary(uint32 width);
   uint64  *getBinary(uint32 width, uint64 number, uint64 *values=NULL);
 
-  void     setBinary(uint32 width, uint64 value);
-  void     setBinary(uint32 width, uint64 number, uint64 *values);
+  uint32   setBinary(uint32 width, uint64 value);
+  uint32   setBinary(uint32 width, uint64 number, uint64 *values);
 
-  //  GENERALIZED UNARY CODED DATA
+  //  ELIAS GAMMA CODED DATA
 
-  uint64   getGeneralizedUnary(void);
-  uint64  *getGeneralizedUnary(uint64 number, uint64 *values=NULL);
+  uint64   getEliasGamma(void);
+  uint64  *getEliasGamma(uint64 number, uint64 *values=NULL);
 
-  void     setGeneralizedUnary(uint64 value);
-  void     setGeneralizedUnary(uint64 number, uint64 *values);
+  uint32   setEliasGamma(uint64 value);
+  uint32   setEliasGamma(uint64 number, uint64 *values);
+
+  //  ELIAS DELTA CODED DATA
+
+  uint64   getEliasDelta(void);
+  uint64  *getEliasDelta(uint64 number, uint64 *values=NULL);
+
+  uint32   setEliasDelta(uint64 value);
+  uint32   setEliasDelta(uint64 number, uint64 *values);
+
+  //  ELIAS OMEGA CODED DATA - the omega code looks hard to implement - the
+  //  encoding and decoding streams are backwards from each other.  The idea
+  //  is:
+  //
+  //    push the binary representation of the value onto a stack.
+  //    set value to one less than the number of bits emitted last.
+  //    loop until the value is 1.
+  //
+  //  The stream is constructed by emitting the words on the stack, and
+  //  terminating the stream with an extra '0'.
+  //
+#if 0
+  uint64   getEliasOmega(void);
+  uint64  *getEliasOmega(uint64 number, uint64 *values=NULL);
+
+  uint32   setEliasOmega(uint64 value);
+  uint32   setEliasOmega(uint64 number, uint64 *values);
+#endif
+
+  //  GOLOMB CODED DATA
+  //
+  //  Pick m.  For m == power_of_two, this is RICE CODED DATA.
+  //
+  //    q = floow(n/m).
+  //    r = n-qm
+  //    c = ceil(log_2 m)
+  //
+  //  Unary encode q, binary encode r.
+  //
+  //  The first 2^c-m values are encoded as c-1 bit values, starting with 00...00,
+  //  The rest as c-bit numbers, ending with 11...11
+  //
 
 
+  //  FIBONACCI CODED DATA
+  //
+  //  A Fibonacci number is F(n) = F(n-1) + F(n-2), wher F(0) = F(1) = 1.
+  //
+  //  The Zeckendorf representation of a number encodes it such that no
+  //  two consecurive Fibonacci numbers are used.  From the definition
+  //  of a Fibonacci number, any pattern "100" can be replaced with "011".
+  //  A number encoded after this transofmration is in the Fibonacci
+  //  representation ("Zeckendorf representation" seems to be a real thing,
+  //  I just made up "Fibonacci representation" - the two terms seem to
+  //  be used synonymously in the real world).
+  //
+  //  Once encoded, it's added to the bit stream reversed.
+  //
+  //  For the Zeckendorf representation, a single 1-bit is added, terminating
+  //  the number with the last '1' bit of data, followed immediately by
+  //  another '1' bit.  (Because, by definition, there are no two adjacent
+  //  set bits in the encoded number).
+  //
+  //  For the Fibonacci representation, we need to append two '0' bits.
+  //  (Because, by definition, there are no two adjacent unset bits in the
+  //  representation).  BUT, this representation saves at most one bit
+  //  (replacing 100 at the start of the string by 011), but the savings
+  //  is lost by the extra stop bit we need.
+  //
+  uint64   getZeckendorf(void);
+  uint64  *getZeckendorf(uint64 number, uint64 *values=NULL);
+
+  uint32   setZeckendorf(uint64 value);
+  uint32   setZeckendorf(uint64 number, uint64 *values);
 
   //  Old meryl uses preDecrement() when using compressed bucket counting.
   //  Nothing else in canu uses these, and they're painful, so left unimplemented.
@@ -567,11 +670,6 @@ public:
   uint64   postDecrementBinary(uint64 width, uint64 position);
 #endif
 
-  //  ELIAS GAMMA CODED DATA
-
-  //  ELIAS DELTA CODED DATA
-
-  //  FIBONACCI CODED DATA
 
 private:
 
@@ -604,7 +702,7 @@ private:
 
     //  If in this block, nothing to do.
 
-    //fprintf(stderr, "updateBlk()--  at _dataPos " F_U64P "  _dataBlockLen[%u] = " F_U64P "\n", _dataPos, _dataBlk, _dataBlockLen[_dataBlk]);
+    //fprintf(stderr, "updateBlk()--  at _dataPos " F_U64 "  _dataBlockLen[%u] = " F_U64 "\n", _dataPos, _dataBlk, _dataBlockLen[_dataBlk]);
 
     if (_dataPos + readLength <= _dataBlockLen[_dataBlk])
       return;
@@ -617,6 +715,8 @@ private:
 
     _dataBlk += 1;
 
+    if (_dataBlk >= _dataBlocksLen)
+      fprintf(stderr, "ERROR: _dataBlk = %lu  _dataBlocksLen = %u\n", _dataBlk, _dataBlocksLen);
     assert(_dataBlk < _dataBlocksLen);
 
     _dataPos  = 0;
@@ -683,6 +783,8 @@ private:
   uint64   _dataBlk;         //  Active data block.
   uint64   _dataWrd;         //  Active word in the active data block.
   uint64   _dataBit;         //  Active bit in the active word in the active data block (aka, number of bits left in this word)
+
+  uint64   _fibData[93];      //  A pile of Fibonacci numbers.
 };
 
 

@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #ifndef MERYLOP_H
@@ -96,7 +105,7 @@ private:
 #endif
   uint64  guesstimateNumberOfkmersInInput(void);
 
-  //  Returns true 
+  //  Returns true
   void    configureCounting(uint64   memoryAllowed,      //  Input:  Maximum allowed memory in bytes
                             bool    &useSimple_,         //  Output: algorithm to use
                             uint32  &wPrefix_,           //  Output: Number of bits in the prefix (== bucket address)
@@ -115,23 +124,23 @@ public:
   void    addOutput(kmerCountFileWriter *writer);
   char   *getOutputName(void);
 
+  void    finalize(void);
+
   void    addPrinter(FILE *printer);
   char   *getPrinterName(void);
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
 
-  void    setThreshold(uint64 p)               { _threshold   = p;  };
-  void    setFractionDistinct(double p)        { _fracDist    = p;  };
-  void    setWordFrequency(double p)           { _wordFreq    = p;  };
+  void    setConstant(uint64 p)                { _mathConstant = p;  };
+  void    setThreshold(uint64 p)               { _threshold    = p;  };
+  void    setFractionDistinct(double p)        { _fracDist     = p;  };
+  void    setWordFrequency(double p)           { _wordFreq     = p;  };
 
-  //void    setIntegerParameter(uint64 p)        { _intParam    = p;  };
-  //void    setRealParameter(double p)           { _realParam   = p;  };
+  void    setExpectedNumberOfKmers(uint64 n)   { _expNumKmers  = n;  };
 
-  void    setExpectedNumberOfKmers(uint64 n)   { _expNumKmers = n;  };
-
-  void    setMemoryLimit(uint64 m)             { _maxMemory   = m;  };
-  void    setThreadLimit(uint32 t)             { _maxThreads  = t;  };
+  void    setMemoryLimit(uint64 m)             { _maxMemory    = m;  };
+  void    setThreadLimit(uint32 t)             { _maxThreads   = t;  };
 
   bool    isCounting(void) {
     return((_operation == opCount)        ||
@@ -161,17 +170,25 @@ public:
   //  return((_operation == opMostFrequent));
   //};
 
-  kmer   &theFMer(void)            { return(_kmer);   };
-  uint64  theCount(void)           { return(_count);  };
+  bool    isMultiSet(void)         { return(_isMultiSet); };
+
+  kmer   &theFMer(void)            { return(_kmer);       };
+  uint64  theValue(void)           { return(_value);      };
 
 public:
   void    doCounting(void);
-  void    convertToPassThrough(char *inputName);
+  void    convertToPassThrough(char *inputName, uint32 threadFile);
 
 public:
   void    initializeThreshold(void);
   bool    initialize(void);
 
+private:
+  void    nextMer_findSmallestNormal(void);
+  void    nextMer_findSmallestMultiSet(void);
+  bool    nextMer_finish(void);
+
+public:
   bool    nextMer(void);
 
   bool    validMer(void)           { return(_valid);  };
@@ -207,6 +224,7 @@ private:
   void    findSumCount(void);
 
   vector<merylInput *>           _inputs;
+  bool                           _isMultiSet;
 
   merylOp                        _operation;
 
@@ -215,9 +233,6 @@ private:
   double                         _fracDist;
   double                         _wordFreq;
 
-  //uint64                         _intParam;
-  //double                         _realParam;
-
   uint64                         _expNumKmers;
 
   uint32                         _maxThreads;
@@ -225,8 +240,8 @@ private:
 
   kmerCountStatistics           *_stats;
 
-  kmerCountFileWriter           *_output;
-  kmerCountStreamWriter         *_writer;
+  kmerCountFileWriter           *_output;    //  This is the main output object, but for streaming
+  kmerCountStreamWriter         *_writer;    //  operations, _writer is used.
   FILE                          *_printer;
 
   uint32                         _fileNumber;
@@ -236,7 +251,7 @@ private:
   uint32                        *_actIndex;
 
   kmer                           _kmer;
-  uint64                         _count;
+  uint64                         _value;
   bool                           _valid;
 
   static bool                    _onlyConfig;

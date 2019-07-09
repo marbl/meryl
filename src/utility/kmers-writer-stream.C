@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-AUG-25
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #include "kmers.H"
@@ -53,7 +62,7 @@ kmerCountStreamWriter::kmerCountStreamWriter(kmerCountFileWriter *writer,
   _batchNumKmers = 0;
   _batchMaxKmers = 16 * 1048576;
   _batchSuffixes = NULL;
-  _batchCounts   = NULL;
+  _batchValues   = NULL;
 }
 
 
@@ -66,7 +75,7 @@ kmerCountStreamWriter::~kmerCountStreamWriter() {
     dumpBlock();
 
   delete [] _batchSuffixes;
-  delete [] _batchCounts;
+  delete [] _batchValues;
 
   AS_UTL_closeFile(_datFile);
 
@@ -93,19 +102,22 @@ kmerCountStreamWriter::~kmerCountStreamWriter() {
 void
 kmerCountStreamWriter::dumpBlock(uint64 nextPrefix) {
 
+  //fprintf(stderr, "kmerCountStreamWriter::dumpBlock()-- write batch for prefix %lu with %lu kmers.\n",
+  //        _batchPrefix, _batchNumKmers);
+
   //  Encode and dump to disk.
 
   _writer->writeBlockToFile(_datFile, _datFileIndex,
                             _batchPrefix,
                             _batchNumKmers,
                             _batchSuffixes,
-                            _batchCounts);
+                            _batchValues);
 
   //  Insert counts into the histogram.
 
-#pragma omp critical (kmerCountFileWriterAddCount)
+#pragma omp critical (kmerCountFileWriterAddValue)
   for (uint32 kk=0; kk<_batchNumKmers; kk++)
-    _writer->_stats.addCount(_batchCounts[kk]);
+    _writer->_stats.addValue(_batchValues[kk]);
 
   //  Set up for the next block of kmers.
 
@@ -116,7 +128,7 @@ kmerCountStreamWriter::dumpBlock(uint64 nextPrefix) {
 
 
 void
-kmerCountStreamWriter::addMer(kmer k, uint32 c) {
+kmerCountStreamWriter::addMer(kmer k, uint64 c) {
 
   uint64  prefix = (uint64)k >> _suffixSize;
   uint64  suffix = (uint64)k  & _suffixMask;
@@ -125,12 +137,12 @@ kmerCountStreamWriter::addMer(kmer k, uint32 c) {
   //  Or can we just init to the first prefix we see?
 
   if (_batchSuffixes == NULL) {
-    //fprintf(stderr, "kmerCountFileWriteR::addMer()-- ff %2u allocate %7lu kmers for a batch\n", ff, _batchMaxKmers);
+    //fprintf(stderr, "kmerCountFileWriter::addMer()-- ff %2u allocate %7lu kmers for a batch\n", ff, _batchMaxKmers);
     _batchPrefix   = prefix;
     _batchNumKmers = 0;
     _batchMaxKmers = 16 * 1048576;
     _batchSuffixes = new uint64 [_batchMaxKmers];
-    _batchCounts   = new uint32 [_batchMaxKmers];
+    _batchValues   = new uint64 [_batchMaxKmers];
   }
 
   //  If the batch is full, or we've got a kmer for a different batch, dump the batch
@@ -153,7 +165,7 @@ kmerCountStreamWriter::addMer(kmer k, uint32 c) {
   assert(_batchNumKmers < _batchMaxKmers);
 
   _batchSuffixes[_batchNumKmers] = suffix;
-  _batchCounts  [_batchNumKmers] = c;
+  _batchValues  [_batchNumKmers] = c;
 
   _batchNumKmers++;
 }

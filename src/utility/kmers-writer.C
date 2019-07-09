@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #include "kmers.H"
@@ -22,7 +31,7 @@
 
 
 void
-kmerCountFileWriter::initialize(uint32 prefixSize) {
+kmerCountFileWriter::initialize(uint32 prefixSize, bool isMultiSet) {
 
   if (_initialized == true)    //  Nothing to do if we're already done.
     return;
@@ -48,7 +57,7 @@ kmerCountFileWriter::initialize(uint32 prefixSize) {
 
 #warning how to set prefix size for streaming operations?
     if (_prefixSize == 0)
-      _prefixSize = 9;  //max((uint32)8, 2 * kmer::merSize() / 3);
+      _prefixSize = 12;  //max((uint32)8, 2 * kmer::merSize() / 3);
 
     _suffixSize         = 2 * kmer::merSize() - _prefixSize;
     _suffixMask         = uint64MASK(_suffixSize);
@@ -61,6 +70,8 @@ kmerCountFileWriter::initialize(uint32 prefixSize) {
 
     _numFiles           = (uint64)1 << _numFilesBits;
     _numBlocks          = (uint64)1 << _numBlocksBits;
+
+    _isMultiSet         = isMultiSet;
 
     //  Now we're initialized!
 
@@ -88,7 +99,7 @@ kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
 
   AS_UTL_mkdir(_outName);
 
-  //  Parameters on how the suffixes/counts are encoded are set once we know
+  //  Parameters on how the suffixes/values are encoded are set once we know
   //  the kmer size.  See initialize().
 
   _prefixSize    = prefixSize;
@@ -100,22 +111,31 @@ kmerCountFileWriter::kmerCountFileWriter(const char *outputName,
   _numBlocksBits = 0;
   _numFiles      = 0;
   _numBlocks     = 0;
+
+  _isMultiSet    = false;
 }
 
 
 
 kmerCountFileWriter::~kmerCountFileWriter() {
+  uint32   flags = (uint32)0x0000;
+
+  //  Set flags.
+
+  if (_isMultiSet)
+    flags |= (uint32)0x0001;
 
   //  Create a master index with the parameters.
 
   stuffedBits  *masterIndex = new stuffedBits;
 
-  masterIndex->setBinary(64, 0x646e496c7972656dllu);  //  merylInd
-  masterIndex->setBinary(64, 0x31302e765f5f7865llu);  //  ex__v.01
+  masterIndex->setBinary(64, 0x646e496c7972656dllu);  //  HEX: ........  ONDISK: merylInd
+  masterIndex->setBinary(64, 0x33302e765f5f7865llu);  //       30.v__xe          ex__v.03
   masterIndex->setBinary(32, _prefixSize);
   masterIndex->setBinary(32, _suffixSize);
   masterIndex->setBinary(32, _numFilesBits);
   masterIndex->setBinary(32, _numBlocksBits);
+  masterIndex->setBinary(32, flags);
 
   _stats.dump(masterIndex);
 
@@ -173,7 +193,7 @@ kmerCountFileWriter::writeBlockToFile(FILE                *datFile,
                                       uint64               prefix,
                                       uint64               nKmers,
                                       uint64              *suffixes,
-                                      uint32              *counts) {
+                                      uint32              *values) {
 
   //  Figure out the optimal size of the Elias-Fano prefix.  It's just log2(N)-1.
 
@@ -201,8 +221,8 @@ kmerCountFileWriter::writeBlockToFile(FILE                *datFile,
   dumpData->setBinary(32, binaryBits);
   dumpData->setBinary(64, 0);
 
-  dumpData->setBinary(8,  1);                        //  Count coding type
-  dumpData->setBinary(64, 0);                        //  Count coding parameters
+  dumpData->setBinary(8,  1);                        //  Value coding type
+  dumpData->setBinary(64, 0);                        //  Value coding parameters
   dumpData->setBinary(64, 0);
 
   //  Split the kmer suffix into two pieces, one unary encoded offsets and one binary encoded.
@@ -219,13 +239,89 @@ kmerCountFileWriter::writeBlockToFile(FILE                *datFile,
     lastPrefix = thisPrefix;
   }
 
-  //  Save the counts, too.  Eventually these will be cleverly encoded.  Really.
+  //  Save the values, too.  Eventually these will be cleverly encoded.  Really.
 
-  uint64  lastCount = 0;
-  uint64  thisCount = 0;
+  uint64  lastValue = 0;
+  uint64  thisValue = 0;
 
   for (uint32 kk=0; kk<nKmers; kk++) {
-    dumpData->setBinary(32, counts[kk]);
+    dumpData->setBinary(32, values[kk]);
+  }
+
+  //  Save the index entry.
+
+  uint64  block = prefix & uint64MASK(_numBlocksBits);
+
+  datFileIndex[block].set(prefix, datFile, nKmers);
+
+  //  Dump data to disk, cleanup, and done!
+
+  dumpData->dumpToFile(datFile);
+
+  delete dumpData;
+}
+
+
+
+void
+kmerCountFileWriter::writeBlockToFile(FILE                *datFile,
+                                      kmerCountFileIndex  *datFileIndex,
+                                      uint64               prefix,
+                                      uint64               nKmers,
+                                      uint64              *suffixes,
+                                      uint64              *values) {
+
+  //  Figure out the optimal size of the Elias-Fano prefix.  It's just log2(N)-1.
+
+  uint32  unaryBits = 0;
+  uint64  unarySum  = 1;
+  while (unarySum < nKmers) {
+    unaryBits  += 1;
+    unarySum  <<= 1;
+  }
+
+  uint32  binaryBits = _suffixSize - unaryBits;      //  Only _suffixSize is used from the class.
+
+  //  Dump data.
+
+  stuffedBits   *dumpData = new stuffedBits;
+
+  dumpData->setBinary(64, 0x7461446c7972656dllu);    //  Magic number, part 1.
+  dumpData->setBinary(64, 0x0a3030656c694661llu);    //  Magic number, part 2.
+
+  dumpData->setBinary(64, prefix);
+  dumpData->setBinary(64, nKmers);
+
+  dumpData->setBinary(8,  1);                        //  Kmer coding type
+  dumpData->setBinary(32, unaryBits);                //  Kmer coding parameters
+  dumpData->setBinary(32, binaryBits);
+  dumpData->setBinary(64, 0);
+
+  dumpData->setBinary(8,  2);                        //  Value coding type
+  dumpData->setBinary(64, 0);                        //  Value coding parameters
+  dumpData->setBinary(64, 0);
+
+  //  Split the kmer suffix into two pieces, one unary encoded offsets and one binary encoded.
+
+  uint64  lastPrefix = 0;
+  uint64  thisPrefix = 0;
+
+  for (uint32 kk=0; kk<nKmers; kk++) {
+    thisPrefix = suffixes[kk] >> binaryBits;
+
+    dumpData->setUnary(thisPrefix - lastPrefix);
+    dumpData->setBinary(binaryBits, suffixes[kk]);
+
+    lastPrefix = thisPrefix;
+  }
+
+  //  Save the values, too.  Eventually these will be cleverly encoded.  Really.
+
+  uint64  lastValue = 0;
+  uint64  thisValue = 0;
+
+  for (uint32 kk=0; kk<nKmers; kk++) {
+    dumpData->setBinary(64, values[kk]);
   }
 
   //  Save the index entry.

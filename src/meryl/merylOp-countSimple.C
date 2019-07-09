@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #include "meryl.H"
@@ -29,21 +38,7 @@ merylOperation::countSimple(void) {
   uint64          kmersLen   = 0;
   kmerTiny       *kmers      = new kmerTiny [bufferMax];
 
-  kmerTiny        fmer;
-  kmerTiny        rmer;
-
-  uint32          kmerLoad   = 0;
-  uint32          kmerValid  = fmer.merSize() - 1;
-  uint32          kmerSize   = fmer.merSize();
-
-  uint64          nEntries   = (uint64)1 << (2 * kmerSize);
-
-  char            str[32];
-  char            strf[32];
-  char            strr[32];
-
-
-
+  uint64          nEntries   = (uint64)1 << (2 * kmerTiny::merSize());
 
   //  If we're only configuring, stop now.
 
@@ -72,35 +67,21 @@ merylOperation::countSimple(void) {
 
       kmersLen = 0;
 
-      for (uint64 bb=0; bb<bufferLen; bb++) {
-        if ((buffer[bb] != 'A') && (buffer[bb] != 'a') &&   //  If not valid DNA, don't
-            (buffer[bb] != 'C') && (buffer[bb] != 'c') &&   //  make a kmer, and reset
-            (buffer[bb] != 'G') && (buffer[bb] != 'g') &&   //  the count until the next
-            (buffer[bb] != 'T') && (buffer[bb] != 't')) {   //  valid kmer is available.
-          kmerLoad = 0;
-          continue;
-        }
+      kmerIterator  kiter(buffer, bufferLen);
 
-        fmer.addR(buffer[bb]);
-        rmer.addL(buffer[bb]);
-
-        if (kmerLoad < kmerValid) {   //  If not a full kmer, increase the length we've
-          kmerLoad++;                 //  got loaded, and keep going.
-          continue;
-        }
-
+      while (kiter.nextMer()) {
         if      (_operation == opCount)
-          kmers[kmersLen++] = (fmer < rmer) ? fmer : rmer;
+          kmers[kmersLen++] = (kiter.fmer() < kiter.rmer()) ? kiter.fmer() : kiter.rmer();
 
         else if (_operation == opCountForward)
-          kmers[kmersLen++] = fmer;
+          kmers[kmersLen++] = kiter.fmer();
 
         else
-          kmers[kmersLen++] = rmer;
+          kmers[kmersLen++] = kiter.rmer();
       }
 
       if (endOfSeq)                   //  If the end of the sequence, clear
-        kmerLoad = 0;                 //  the running kmer.
+        kiter.reset();                //  the running kmer.
 
       //  Now, just pass our list of kmers to the counting engine.
 
@@ -150,7 +131,7 @@ merylOperation::countSimple(void) {
   //  Then dump.
 
   uint32                 wPrefix    = 10;
-  uint32                 wSuffix    = fmer.merSize() * 2 - wPrefix;
+  uint32                 wSuffix    = kmerTiny::merSize() * 2 - wPrefix;
 
   uint64                 nPrefix    = ((uint64)1 << wPrefix);
   uint64                 nSuffix    = ((uint64)1 << wSuffix);

@@ -20,6 +20,10 @@
  *
  *  Modifications by:
  *
+ *    Brian P. Walenz beginning on 2018-JUL-20
+ *      are a 'United States Government Work', and
+ *      are released in the public domain
+ *
  *  File 'README.licenses' in the root directory of this distribution contains
  *  full conditions and disclaimers for each license.
  */
@@ -158,6 +162,9 @@ loadFromFile(void        *objects,
 bool
 readLine(char *&L, uint32 &Llen, uint32 &Lmax, FILE *F) {
 
+  if (F == NULL)
+    return(false);
+
   if ((L == NULL) || (Lmax == 0))
     allocateArray(L, Lmax = 4, resizeArray_clearNew);
 
@@ -203,6 +210,9 @@ readLine(char *&L, uint32 &Llen, uint32 &Lmax, FILE *F) {
 //  Reads a line of text from a file.  Trims off trailing whitespace, including newlines.
 bool
 AS_UTL_readLine(char *&L, uint32 &Llen, uint32 &Lmax, FILE *F) {
+
+  if (F == NULL)
+    return(false);
 
   if ((L == NULL) || (Lmax == 0))
     allocateArray(L, Lmax = 1024, resizeArray_clearNew);
@@ -308,7 +318,13 @@ AS_UTL_symlink(const char *pathToFile, const char *pathToLink) {
 
 //  Remove a file, or do nothing if the file doesn't exist.
 void
-AS_UTL_unlink(const char *filename) {
+AS_UTL_unlink(const char *prefix, char separator, char const *suffix) {
+  char   filename[FILENAME_MAX];
+
+  if (suffix)
+    snprintf(filename, FILENAME_MAX, "%s%c%s", prefix, separator, suffix);
+  else
+    strncpy(filename, prefix, FILENAME_MAX-1);
 
   if (fileExists(filename) == false)
     return;
@@ -335,7 +351,6 @@ AS_UTL_rename(const char *oldname, const char *newname) {
     fprintf(stderr, "AS_UTL_renane()--  Failed to rename file '%s' to '%s': %s\n",
             oldname, newname, strerror(errno)), exit(1);
 }
-
 
 
 

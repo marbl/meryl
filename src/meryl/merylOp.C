@@ -1,17 +1,26 @@
 
 /******************************************************************************
  *
- *  This file is part of 'sequence' and/or 'meryl', software programs for
- *  working with DNA sequence files and k-mers contained in them.
+ *  This file is part of canu, a software program that assembles whole-genome
+ *  sequencing reads into contigs.
+ *
+ *  This software is based on:
+ *    'Celera Assembler' (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' (http://kmer.sourceforge.net)
+ *  both originally distributed by Applera Corporation under the GNU General
+ *  Public License, version 2.
+ *
+ *  Canu branched from Celera Assembler at its revision 4587.
+ *  Canu branched from the kmer project at its revision 1994.
  *
  *  Modifications by:
  *
- *    Brian P. Walenz beginning on 2018-FEB-26
+ *    Brian P. Walenz beginning on 2018-JUL-21
  *      are a 'United States Government Work', and
  *      are released in the public domain
  *
- *  File 'README.license' in the root directory of this distribution contains
- *  full conditions and disclaimers.
+ *  File 'README.licenses' in the root directory of this distribution contains
+ *  full conditions and disclaimers for each license.
  */
 
 #include "meryl.H"
@@ -25,8 +34,12 @@ merylVerbosity  merylOperation::_verbosity    = sayStandard;
 
 
 merylOperation::merylOperation(merylOp op, uint32 ff, uint32 threads, uint64 memory) {
+
+  _isMultiSet    = false;  //  set in initialize().
+
   _operation     = op;
 
+  _mathConstant  = 0;
   _threshold     = UINT64_MAX;
   _fracDist      = DBL_MAX;
   _wordFreq      = DBL_MAX;
@@ -49,7 +62,7 @@ merylOperation::merylOperation(merylOp op, uint32 ff, uint32 threads, uint64 mem
   _actCount      = new uint64 [1024];
   _actIndex      = new uint32 [1024];
 
-  _count         = 0;
+  _value         = 0;
   _valid         = true;
 }
 
@@ -199,6 +212,21 @@ merylOperation::getOutputName(void) {
 }
 
 
+
+//  We're all done processing this operation.  Clean up what we can.
+//  The _output CANNOT be deleted until all operations are done with it.
+//  Yes, I should be pointer counting or something smart like that.
+void
+merylOperation::finalize(void) {
+
+  clearInputs();
+
+  delete [] _actCount;   _actCount = NULL;
+  delete [] _actIndex;   _actIndex = NULL;
+}
+
+
+
 void
 merylOperation::addPrinter(FILE *printer) {
 
@@ -258,7 +286,7 @@ toString(merylOp op) {
 
     case opCompare:              return("opCompare");              break;
 
-    case opNothing:              return("opNothing");              break; 
+    case opNothing:              return("opNothing");              break;
   }
 
   assert(0);

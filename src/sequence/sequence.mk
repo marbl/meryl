@@ -9,7 +9,14 @@ ifeq "$(strip ${TARGET_DIR})" ""
 endif
 
 TARGET   := sequence
-SOURCES  := sequence.C
+SOURCES  := sequence.C \
+            sequence-extract.C \
+            sequence-generate.C \
+            sequence-mutate.C \
+            sequence-sample.C \
+            sequence-shiftregister.C \
+            sequence-simulate.C \
+            sequence-summarize.C
 
 SRC_INCDIRS  := . .. ../utility
 
