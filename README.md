@@ -16,7 +16,7 @@ meryl dbs are no longer in `.mcdat` and `.mcidx` file format. Meryl db is now de
 git clone https://github.com/marbl/meryl.git
 cd meryl/src
 make -j 24
-export PATH=/path/to/canu/bin:$PATH
+export PATH=/path/to/meryl/bin:$PATH
 ```
 
 # Sequence
