@@ -11,12 +11,6 @@ fi
 # meryl_count=/path/to/meryl/scripts/meryl_count
 meryl_count=$tools/meryl/scripts/meryl_count
 
-codes=`dirname $BASH_SOURCE`
-echo $codes
-codes=`readlink -f $codes`
-echo $codes
-exit 0
-
 ls *_R1_001.fastq.gz > input.fofn
 LINES=`wc -l input.fofn | awk '{print $1}'`
 
