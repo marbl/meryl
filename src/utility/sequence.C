@@ -170,6 +170,8 @@ reverseComplement(char *seq, qvType *qlt, int len) {
     return;
   }
 
+  assert(len > 0);
+
   if (len == 0) {
     len = strlen(seq);
     S = seq + len - 1;
@@ -196,25 +198,30 @@ template void reverseComplement<uint8>(char *seq, uint8 *qlt, int len);   //  so
 
 
 uint32
-homopolyCompress(char *bases, char *compr) {
+homopolyCompress(char *bases, uint32 basesLen, char *compr, uint32 *ntoc) {
   uint32  cc = 0;  //  position of the start of the run
   uint32  rr = 1;  //  position of the scan head
   uint32  sl = 0;  //  length of the compressed sequence
 
-  //  Assume bases is never empty.
+  if (compr)                 //  Either the first base, or
+    compr[sl] = bases[cc];   //  the terminating NUL.
 
-  if (compr)
-    compr[sl] = bases[cc];
+  if (ntoc)                  //  Save the mapping from the first
+    ntoc[cc] = sl;           //  normal to first compressed base.
 
-  if (bases[0] == 0)
+  if (basesLen == 0)
     return(0);
 
-  sl += 1;
+  sl++;
 
-  while (bases[rr] != 0) {
-    //  In a run, move the scan head one position.
+  while (rr < basesLen) {
+
+    //  In a run, move the scan head one position, and set the
+    //  mapping to the last compressed base.
     if (bases[cc] == bases[rr]) {
-      rr += 1;
+      if (ntoc)
+        ntoc[rr] = sl - 1;
+      rr++;
     }
 
     //  Just ended a run.  Set the start of the (next) run
@@ -224,14 +231,22 @@ homopolyCompress(char *bases, char *compr) {
     else {
       if (compr)
         compr[sl] = bases[rr];
-      cc  = rr;
-      rr += 1;
-      sl += 1;
+      if (ntoc)
+        ntoc[rr] = sl;
+      cc = rr;
+      rr++;
+      sl++;
     }
   }
 
+  //  Terminate the compressed string.
   if (compr)
     compr[sl] = 0;
+
+  //  The 'space' after the end of the bases maps to the 'space'
+  //  after the compressed bases.
+  if (ntoc)
+    ntoc[rr]  = sl;
 
   return(sl);
 }
