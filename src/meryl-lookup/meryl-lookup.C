@@ -34,7 +34,8 @@
 #define OP_NONE       0
 #define OP_DUMP       1
 #define OP_EXISTENCE  2
-#define OP_SUBSET     3
+#define OP_INCLUDE    3
+#define OP_EXCLUDE    4
 
 
 
@@ -110,7 +111,7 @@ reportExistence(dnaSeqFile           *sf,
 }
 
 void
-subsetInput(dnaSeqFile           *sf,
+includeInput(dnaSeqFile           *sf,
             kmerCountExactLookup *kl) {
   uint32   nameMax = 0;
   char    *name    = NULL;
@@ -134,7 +135,13 @@ subsetInput(dnaSeqFile           *sf,
     }
 
     if (nKmerFound > 0) {
-       fprintf(stdout, ">%s %lu\n%s\n", name, nKmerFound, seq);
+       if (qlt[0] == 0) {	# is fasta
+          fprintf(stdout, ">%s %lu\n%s\n", name, nKmerFound, seq);
+       }
+       else	# is fastq
+       {
+          fprintf(stdout, "@%s %lu\n%s\n+\n%s\n", name, nKmerFound, seq, qlt);
+       }
     }
   }
 
@@ -143,6 +150,48 @@ subsetInput(dnaSeqFile           *sf,
   delete [] qlt;
 
 }
+
+void
+excludeInput(dnaSeqFile           *sf,
+            kmerCountExactLookup *kl) {
+  uint32   nameMax = 0;
+  char    *name    = NULL;
+  uint64   seqLen  = 0;
+  uint64   seqMax  = 0;
+  char    *seq     = NULL;
+  uint8   *qlt     = NULL;
+
+  while (sf->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen)) {
+    kmerIterator  kiter(seq, seqLen);
+
+    uint64   nKmer      = 0;
+    uint64   nKmerFound = 0;
+
+    while (kiter.nextMer()) {
+      nKmer++;
+
+      if ((kl->value(kiter.fmer()) > 0) ||
+          (kl->value(kiter.rmer()) > 0))
+        nKmerFound++;
+    }
+
+    if (nKmerFound == 0) {
+       if (qlt[0] == 0) {	# is fasta
+          fprintf(stdout, ">%s %lu\n%s\n", name, nKmerFound, seq);
+       }
+       else
+       {
+          fprintf(stdout, "@%s %lu\n%s\n+\n%s\n", name, nKmerFound, seq, qlt);
+       }
+    }
+  }
+
+  delete [] name;
+  delete [] seq;
+  delete [] qlt;
+
+}
+
 
 int
 main(int argc, char **argv) {
@@ -183,10 +232,13 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-existence") == 0) {
       reportType = OP_EXISTENCE;
 
-    } else if (strcmp(argv[arg], "-subset") == 0) {
-      reportType = OP_SUBSET;
+    } else if (strcmp(argv[arg], "-include") == 0) {
+      reportType = OP_INCLUDE;
 
-    } else {
+    } else if (strcmp(argv[arg], "-exclude") == 0) {
+      reportType = OP_EXCLUDE;
+
+    }else {
       char *s = new char [1024];
       snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
       err.push_back(s);
@@ -247,7 +299,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "\n");
     fprintf(stderr, "  -subset        Extract sequences containing kmers in <input.meryl>.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "     output:  sequence in fasta format with the number of overlapping kmers appended\n");
+    fprintf(stderr, "     output:  sequence given format (fasta or fastq) with the number of overlapping kmers appended\n");
     fprintf(stderr, "         seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "         mersInBoth - number of mers in both sequence and in the database\n");
     fprintf(stderr, "\n");
