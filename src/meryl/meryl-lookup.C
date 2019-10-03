@@ -114,7 +114,7 @@ void
 include( dnaSeqFile           *sf,
          dnaSeqFile           *sf2,
          kmerCountExactLookup *kl,
-         const char           *prefix) {
+         const char           *r2name) {
   uint32   nameMax  = 0;
   uint32   nameMax2 = 0;
   char    *name     = NULL;
@@ -134,9 +134,10 @@ include( dnaSeqFile           *sf,
   uint64   nKmerFound    = 0;
 
   // output file for R2
+  compressedFileWriter W(r2name);
   FILE   *r2_file = NULL;
   if (sf2 != NULL) {
-    r2_file = AS_UTL_openOutputFile(prefix, '.', "R2.include");
+    r2_file = *W;
   }
 
   while (sf->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen)) {
@@ -182,11 +183,6 @@ include( dnaSeqFile           *sf,
 
   fprintf(stderr, "\nIncluding %lu reads (or read pairs) out of %lu.\n", nReadsFound, nReads);
 
-  // close file handlers and release var
-  if (r2_file != NULL) {
-     AS_UTL_closeFile(r2_file);
-  }
-             
   delete [] name;
   delete [] seq;
   delete [] qlt;
@@ -200,7 +196,7 @@ void
 exclude(dnaSeqFile           *sf,
         dnaSeqFile           *sf2,
         kmerCountExactLookup *kl,
-        const char*           prefix) {
+        const char*           r2name) {
 
   uint32   nameMax = 0;
   uint32   nameMax2= 0;
@@ -220,10 +216,11 @@ exclude(dnaSeqFile           *sf,
   uint64   nKmerFound = 0;
 
   // output file for R2
+  compressedFileWriter W(r2name);
   FILE    *r2_file  = NULL;
 
   if (sf2 != NULL) {
-    r2_file    = AS_UTL_openOutputFile(prefix, '.', "R2.exclude");
+    r2_file    = *W;
   }
 
 
@@ -253,11 +250,13 @@ exclude(dnaSeqFile           *sf,
 
     if (nKmerFound == 0) {
        if (qlt[0] == 0) {	// is fasta
+          fprintf(stdout, ">%s\n%s\n", name, seq);
           if (sf2 != NULL) fprintf(r2_file, ">%s\n%s\n", name2, seq2);
        }
        else			// is fastq
        {
-          if (sf2 != NULL) fprintf(r2_file, "@%s\n%s\n+\n%s\n", name, seq2, qlt2);
+          fprintf(stdout, "@%s\n%s\n+\n%s\n", name, seq, qlt);
+          if (sf2 != NULL) fprintf(r2_file, "@%s\n%s\n+\n%s\n", name2, seq2, qlt2);
        }
        nReadsFound++;
     }
@@ -265,10 +264,6 @@ exclude(dnaSeqFile           *sf,
 
   fprintf(stderr, "\nIncluding %lu reads (or read pairs) out of %lu.\n", nReadsFound, nReads);
 
-  // close file handlers and release var
-  if (r2_file != NULL) {
-    AS_UTL_closeFile(r2_file);
-  }
   delete [] name;
   delete [] seq;
   delete [] qlt;
@@ -282,7 +277,7 @@ main(int argc, char **argv) {
   char   *inputSeqName = NULL;
   char   *inputSeqName2 = NULL;
   char   *inputDBname  = NULL;
-  char   *prefix       = NULL;
+  char   *r2name       = NULL;
   uint64  minV         = 0;
   uint64  maxV         = UINT64_MAX;
   uint32  threads      = omp_get_max_threads();
@@ -327,8 +322,8 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-exclude") == 0) {
       reportType = OP_EXCLUDE;
 
-    } else if (strcmp(argv[arg], "-prefix") == 0) {
-      prefix     = argv[++arg];
+    } else if (strcmp(argv[arg], "-r2") == 0) {
+      r2name     = argv[++arg];
 
     }else {
       char *s = new char [1024];
@@ -347,10 +342,10 @@ main(int argc, char **argv) {
     err.push_back("No report-type (-existence, etc) supplied.\n");
 
   if (err.size() > 0) {
-    fprintf(stderr, "usage: %s <report-type> -sequence <input.fasta> -mers <input.meryl> [-sequence2 <input.fasta> -prefix <r2.[in|ex]clude>]\n", argv[0]);
+    fprintf(stderr, "usage: %s <report-type> -sequence <input.fasta> -mers <input.meryl> [-sequence2 <input.fasta> -r2 <output.r2>]\n", argv[0]);
     fprintf(stderr, "  Query the kmers in meryl database <input.meryl> with the sequences\n");
     fprintf(stderr, "  in <input.fasta> (both FASTA and FASTQ supported, file can be compressed).\n");
-    fprintf(stderr, "  -sequence2 and -prefix is only used for -include and -exclude\n");
+    fprintf(stderr, "  -sequence2 and -r2 is only required for -include and -exclude\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  The meryl database can be filtered by value.  More advanced filtering\n");
     fprintf(stderr, "  requires a new database to be constructed using meryl.\n");
@@ -393,14 +388,16 @@ main(int argc, char **argv) {
     fprintf(stderr, "  -include       Extract sequences *containing* kmers in <input.meryl>.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "     output:  sequence given format (fasta or fastq) with the number of overlapping kmers appended\n");
-    fprintf(stderr, "              If pairs of sequences are given, R1 will be stdout and R2 be named as <prefix>.R2.include>\n");
+    fprintf(stderr, "              if pairs of sequences are given, R1 will be stdout and R2 be named as <output.r2>\n");
+    fprintf(stderr, "              <output.r2> will be automatically compressed if ends with .gz, .bz2, or xs\n");
     fprintf(stderr, "         seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "         mersInBoth - number of mers in both sequence and in the database\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  -exclude       Extract sequences *NOT containing* kmers in <input.meryl>.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "     output:  sequence given format (fasta or fastq) without reads containing kmers\n");
-    fprintf(stderr, "              If pairs of sequences are given, R1 will be stdout and R2 be named as <prefix>.R2.exclude>\n");
+    fprintf(stderr, "              if pairs of sequences are given, R1 will be stdout and R2 be named as <output.r2>\n");
+    fprintf(stderr, "              <output.r2> will be automatically compressed if ends with .gz, .bz2, or xs\n");
     fprintf(stderr, "         seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "\n");
 
@@ -452,11 +449,11 @@ main(int argc, char **argv) {
   }
 
   if (reportType == OP_INCLUDE) {
-    include(seqFile, seqFile2, kmerLookup, prefix);
+    include(seqFile, seqFile2, kmerLookup, r2name);
   }
 
   if (reportType == OP_EXCLUDE) {
-    exclude(seqFile, seqFile2, kmerLookup, prefix);
+    exclude(seqFile, seqFile2, kmerLookup, r2name);
   }
 
   //  Done!
