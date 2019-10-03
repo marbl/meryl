@@ -111,20 +111,39 @@ reportExistence(dnaSeqFile           *sf,
 }
 
 void
-includeInput(dnaSeqFile           *sf,
-            kmerCountExactLookup *kl) {
-  uint32   nameMax = 0;
-  char    *name    = NULL;
-  uint64   seqLen  = 0;
-  uint64   seqMax  = 0;
-  char    *seq     = NULL;
-  uint8   *qlt     = NULL;
+include( dnaSeqFile           *sf,
+         dnaSeqFile           *sf2,
+         kmerCountExactLookup *kl,
+         const char           *prefix) {
+  uint32   nameMax  = 0;
+  uint32   nameMax2 = 0;
+  char    *name     = NULL;
+  char    *name2    = NULL;
+  uint64   seqLen   = 0;
+  uint64   seqLen2  = 0;
+  uint64   seqMax   = 0;
+  uint64   seqMax2  = 0;
+  char    *seq      = NULL;
+  char    *seq2     = NULL;
+  uint8   *qlt      = NULL;
+  uint8   *qlt2     = NULL;
+
+  uint64   nReads        = 0;
+  uint64   nReadsFound   = 0;
+  uint64   nKmer         = 0;
+  uint64   nKmerFound    = 0;
+
+  // output file for R2
+  FILE   *r2_file = NULL;
+  if (sf2 != NULL) {
+    r2_file = AS_UTL_openOutputFile(prefix, '.', "R2.include");
+  }
 
   while (sf->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen)) {
     kmerIterator  kiter(seq, seqLen);
 
-    uint64   nKmer      = 0;
-    uint64   nKmerFound = 0;
+    nReads++;
+    nKmerFound = 0;
 
     while (kiter.nextMer()) {
       nKmer++;
@@ -132,71 +151,138 @@ includeInput(dnaSeqFile           *sf,
       if ((kl->value(kiter.fmer()) > 0) ||
           (kl->value(kiter.rmer()) > 0))
         nKmerFound++;
+    }
+
+    if (sf2 != NULL) {
+      sf2->loadSequence(name2, nameMax2, seq2, qlt2, seqMax2, seqLen2);
+      kmerIterator  kiter2(seq2, seqLen2);
+
+      while (kiter2.nextMer()) {
+        nKmer++;
+
+        if ((kl->value(kiter2.fmer()) > 0) ||
+            (kl->value(kiter2.rmer()) > 0))
+          nKmerFound++;
+      }
     }
 
     if (nKmerFound > 0) {
-       if (qlt[0] == 0) {	# is fasta
-          fprintf(stdout, ">%s %lu\n%s\n", name, nKmerFound, seq);
-       }
-       else	# is fastq
-       {
-          fprintf(stdout, "@%s %lu\n%s\n+\n%s\n", name, nKmerFound, seq, qlt);
-       }
+      if (qlt[0] == 0) {	// is fasta
+        fprintf(stdout , ">%s %lu\n%s\n", name , nKmerFound, seq);
+        if (sf2 != NULL) fprintf(r2_file, ">%s %lu\n%s\n", name2, nKmerFound, seq2);
+      }
+      else			// is fastq
+      {
+        fprintf(stdout , "@%s %lu\n%s\n+\n%s\n", name , nKmerFound, seq , qlt);
+        if (sf2 != NULL) fprintf(r2_file, "@%s %lu\n%s\n+\n%s\n", name2, nKmerFound, seq2, qlt2);
+      }
+      nReadsFound++;
     }
   }
 
+  fprintf(stderr, "\nIncluding %lu reads (or read pairs) out of %lu.\n", nReadsFound, nReads);
+
+  // close file handlers and release var
+  if (r2_file != NULL) {
+     AS_UTL_closeFile(r2_file);
+  }
+             
   delete [] name;
   delete [] seq;
   delete [] qlt;
 
+  delete [] name2;
+  delete [] seq2;
+  delete [] qlt2;
 }
 
 void
-excludeInput(dnaSeqFile           *sf,
-            kmerCountExactLookup *kl) {
+exclude(dnaSeqFile           *sf,
+        dnaSeqFile           *sf2,
+        kmerCountExactLookup *kl,
+        const char*           prefix) {
+
   uint32   nameMax = 0;
+  uint32   nameMax2= 0;
   char    *name    = NULL;
+  char    *name2   = NULL;
   uint64   seqLen  = 0;
+  uint64   seqLen2 = 0;
   uint64   seqMax  = 0;
+  uint64   seqMax2 = 0;
   char    *seq     = NULL;
+  char    *seq2    = NULL;
   uint8   *qlt     = NULL;
+  uint8   *qlt2    = NULL;
+
+  uint64   nReads = 0;
+  uint64   nReadsFound = 0;
+  uint64   nKmerFound = 0;
+
+  // output file for R2
+  FILE    *r2_file  = NULL;
+
+  if (sf2 != NULL) {
+    r2_file    = AS_UTL_openOutputFile(prefix, '.', "R2.exclude");
+  }
+
 
   while (sf->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen)) {
     kmerIterator  kiter(seq, seqLen);
-
-    uint64   nKmer      = 0;
-    uint64   nKmerFound = 0;
+    nReads++;
+    nKmerFound = 0;
 
     while (kiter.nextMer()) {
-      nKmer++;
-
       if ((kl->value(kiter.fmer()) > 0) ||
-          (kl->value(kiter.rmer()) > 0))
+          (kl->value(kiter.rmer()) > 0)) {
         nKmerFound++;
+      }
+    }
+
+    if (sf2 != NULL) {
+      sf2->loadSequence(name2, nameMax2, seq2, qlt2, seqMax2, seqLen2);
+      kmerIterator  kiter2(seq2, seqLen2);
+
+      while (kiter2.nextMer()) {
+        if ((kl->value(kiter2.fmer()) > 0) ||
+            (kl->value(kiter2.rmer()) > 0)) {
+          nKmerFound++;
+        }
+      }
     }
 
     if (nKmerFound == 0) {
-       if (qlt[0] == 0) {	# is fasta
-          fprintf(stdout, ">%s %lu\n%s\n", name, nKmerFound, seq);
+       if (qlt[0] == 0) {	// is fasta
+          if (sf2 != NULL) fprintf(r2_file, ">%s\n%s\n", name2, seq2);
        }
-       else
+       else			// is fastq
        {
-          fprintf(stdout, "@%s %lu\n%s\n+\n%s\n", name, nKmerFound, seq, qlt);
+          if (sf2 != NULL) fprintf(r2_file, "@%s\n%s\n+\n%s\n", name, seq2, qlt2);
        }
+       nReadsFound++;
     }
   }
 
+  fprintf(stderr, "\nIncluding %lu reads (or read pairs) out of %lu.\n", nReadsFound, nReads);
+
+  // close file handlers and release var
+  if (r2_file != NULL) {
+    AS_UTL_closeFile(r2_file);
+  }
   delete [] name;
   delete [] seq;
   delete [] qlt;
-
+  delete [] name2;
+  delete [] seq2;
+  delete [] qlt2;
 }
-
 
 int
 main(int argc, char **argv) {
   char   *inputSeqName = NULL;
+  char   *inputSeqName2 = NULL;
   char   *inputDBname  = NULL;
+  char   *prefix       = NULL;
   uint64  minV         = 0;
   uint64  maxV         = UINT64_MAX;
   uint32  threads      = omp_get_max_threads();
@@ -210,6 +296,9 @@ main(int argc, char **argv) {
   while (arg < argc) {
     if        (strcmp(argv[arg], "-sequence") == 0) {   //  INPUT READS and RANGE TO PROCESS
       inputSeqName = argv[++arg];
+
+    } else if (strcmp(argv[arg], "-sequence2") == 0) {
+      inputSeqName2 = argv[++arg];
 
     } else if (strcmp(argv[arg], "-mers") == 0) {
       inputDBname = argv[++arg];
@@ -238,6 +327,9 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-exclude") == 0) {
       reportType = OP_EXCLUDE;
 
+    } else if (strcmp(argv[arg], "-prefix") == 0) {
+      prefix     = argv[++arg];
+
     }else {
       char *s = new char [1024];
       snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
@@ -255,9 +347,10 @@ main(int argc, char **argv) {
     err.push_back("No report-type (-existence, etc) supplied.\n");
 
   if (err.size() > 0) {
-    fprintf(stderr, "usage: %s <report-type> -sequence <input.fasta> -mers <input.meryl>\n", argv[0]);
+    fprintf(stderr, "usage: %s <report-type> -sequence <input.fasta> -mers <input.meryl> [-sequence2 <input.fasta> -prefix <r2.[in|ex]clude>]\n", argv[0]);
     fprintf(stderr, "  Query the kmers in meryl database <input.meryl> with the sequences\n");
     fprintf(stderr, "  in <input.fasta> (both FASTA and FASTQ supported, file can be compressed).\n");
+    fprintf(stderr, "  -sequence2 and -prefix is only used for -include and -exclude\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  The meryl database can be filtered by value.  More advanced filtering\n");
     fprintf(stderr, "  requires a new database to be constructed using meryl.\n");
@@ -297,11 +390,18 @@ main(int argc, char **argv) {
     fprintf(stderr, "         rev-mer    - reverse mer sequence\n");
     fprintf(stderr, "         rev-val    - value of the reverse mer in the database\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "  -subset        Extract sequences containing kmers in <input.meryl>.\n");
+    fprintf(stderr, "  -include       Extract sequences *containing* kmers in <input.meryl>.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "     output:  sequence given format (fasta or fastq) with the number of overlapping kmers appended\n");
+    fprintf(stderr, "              If pairs of sequences are given, R1 will be stdout and R2 be named as <prefix>.R2.include>\n");
     fprintf(stderr, "         seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "         mersInBoth - number of mers in both sequence and in the database\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "  -exclude       Extract sequences *NOT containing* kmers in <input.meryl>.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "     output:  sequence given format (fasta or fastq) without reads containing kmers\n");
+    fprintf(stderr, "              If pairs of sequences are given, R1 will be stdout and R2 be named as <prefix>.R2.exclude>\n");
+    fprintf(stderr, "         seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "\n");
 
     for (uint32 ii=0; ii<err.size(); ii++)
@@ -333,6 +433,13 @@ main(int argc, char **argv) {
   fprintf(stderr, "-- Opening sequences in '%s'.\n", inputSeqName);
 
   dnaSeqFile            *seqFile    = new dnaSeqFile(inputSeqName);
+  dnaSeqFile            *seqFile2   = NULL;
+
+  // only keep seqFile2 when provided
+  if (inputSeqName2 != NULL) {
+    fprintf(stderr, "-- Opening sequences in '%s'.\n", inputSeqName2);
+    seqFile2   = new dnaSeqFile(inputSeqName2);
+  }
 
   //  Do something.
 
@@ -344,13 +451,19 @@ main(int argc, char **argv) {
     reportExistence(seqFile, kmerLookup);
   }
 
-  if (reportType == OP_SUBSET) {
-    subsetInput(seqFile, kmerLookup);
+  if (reportType == OP_INCLUDE) {
+    include(seqFile, seqFile2, kmerLookup, prefix);
+  }
+
+  if (reportType == OP_EXCLUDE) {
+    exclude(seqFile, seqFile2, kmerLookup, prefix);
   }
 
   //  Done!
+  fprintf(stderr, "Bye!\n");
 
   delete seqFile;
+  delete seqFile2;
   delete kmerLookup;
 
   exit(0);
