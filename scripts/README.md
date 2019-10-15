@@ -197,3 +197,36 @@ meryl histogram $name.k21.shrd.meryl | awk -v hap="shared" '{print hap"\t"$0}' >
 
 `_submit_meryl2_build_hapmers.sh` does the binning.
 For making blob-plots, use the temporary scripts uploaded to [here]( https://github.com/arangrhie/TrioBinning/blob/master/hap_kmer_plot.R).
+(Update will be followed)
+
+# 4. Include or exclude read pairs having specific kmers in one of the reads
+`meryl-lookup` has a utility to include / exclude reads (or read pairs) containing specific kmers.
+
+
+One use-case is to exclude all read pairs containing unwanted haplotype reads.
+In this case, 
+we can exclude i.e. all the paternal reads from Hi-C reads for aligning or scaffolding with maternal reads only.
+
+For single-end reads:
+```
+# Include all reads having kmers in $meryl
+meryl-lookup -include -mers $meryl -sequence $read | pigz -c > $out.fastq.gz
+
+# Exclude all reads having kmers in $meryl
+meryl-lookup -exclude -mers $meryl -sequence $read | pigz -c > $out.fastq.gz
+```
+
+For paired end reads:
+```
+# Include all reads having kmers in $meryl
+meryl-lookup -include -mers $meryl -sequence $read1 -sequence2 $read2 -r2 $out.R2.fastq.gz | pigz -c > $out.R1.fastq.gz
+
+# Exclude all reads having kmers in $meryl
+meryl-lookup -exclude -mers $meryl -sequence $read1 -sequence2 $read2 -r2 $out.R2.fastq.gz | pigz -c > $out.R1.fastq.gz
+```
+
+`exclude_reads.sh` is a wrapper script to make it easy to filter out reads in the above use-case.
+```
+./exclude_reads.sh haplotype-Paternal.filt.meryl R1.fastq.gz R2.fastq.gz mygenome.mat > mygenome.mat.log
+```
+will generate `mygenome.mat.R1.fastq.gz` and `mygenome.mat.R2.fastq.gz`.
