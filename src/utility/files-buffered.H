@@ -31,10 +31,22 @@
 
 class readBuffer {
 public:
-  readBuffer(const char *filename, uint64 bufferMax = 32 * 1024);
-  readBuffer(FILE *F, uint64 bufferMax = 32 * 1024);
+  readBuffer(const char *prefix, char separator, const char *suffix,
+             uint64      bufferMax = 32 * 1024);
+  readBuffer(const char *filename,
+             uint64      bufferMax = 32 * 1024);
+  readBuffer(FILE *F,
+             uint64      bufferMax = 32 * 1024);
   ~readBuffer();
 
+private:
+  void                 initialize(const char *filename,
+                                  uint64      bufferMax);
+public:
+  //  Returns true if the buffer is at the end.
+  //
+  //  Note that if the last read was successful, but we're now at the end of
+  //  file, this is true.
   bool                 eof(void) { return(_eof); };
 
   char                 peek(void);
@@ -46,7 +58,32 @@ public:
 
   bool                 peekIFFchunk(char *name, uint32 &dataLen);
 
-  void                 readIFFchunk(char *name, uint8 *&data, uint32 &dataLen, uint32 &dataMax);
+
+  //  The next four will read a specific chunk into a pre-allocated buffer.
+  template<typename OBJ>
+  bool                 readIFFarray(char const *name, OBJ *array, uint32 nObjects) {
+    return(readIFFchunk(name, array, sizeof(OBJ) * nObjects));
+  };
+
+  template<typename OBJ>
+  bool                 readIFFobject(char const *name, OBJ &object) {
+    return(readIFFchunk(name, &object, sizeof(OBJ)));
+  };
+
+  template<typename OBJ>
+  bool                 readIFFobject(char const *name, OBJ *object) {
+    return(readIFFchunk(name, object, sizeof(OBJ)));
+  };
+
+  bool                 readIFFchunk(char const *name,
+                                    void       *data,
+                                    uint32      dataLen);
+
+  //  Read a generic chunk into re-allocatable memory.
+  void                 readIFFchunk(char   *name,
+                                    uint8 *&data,
+                                    uint32 &dataLen,
+                                    uint32 &dataMax);
 
   void                 skipAhead(char stop, bool after=false);
   uint64               copyUntil(char stop, char *dest, uint64 destLen);
@@ -82,13 +119,24 @@ private:
 
 class writeBuffer {
 public:
-  writeBuffer(const char *filename, const char *filemode, uint64 bufferMax = 1024 * 1024);
+  writeBuffer(const char *prefix, char separator, const char *suffix,
+              const char *filemode,
+              uint64      bufferMax = 1024 * 1024);
+  writeBuffer(const char *filename,
+              const char *filemode,
+              uint64      bufferMax = 1024 * 1024);
   ~writeBuffer();
 
+private:
+  void                 initialize(const char *filename,
+                                  const char *filemode,
+                                  uint64      bufferMax);
+
+public:
   const char          *filename(void) { return(_filename); };
   uint64               tell(void)     { return(_filePos);  };
 
-  void                 write(void *data, uint64 length);
+  void                 write(void const *data, uint64 length);
 
   //  If deata length is zero, this chunk is the start of a recursive record.
   //  The chunk header is written (NAME<length>) but length is set to zero.
@@ -102,13 +150,30 @@ public:
   //
 private:
   void   appendIFFdata(void *data, uint32 dataLength);
+
 public:
+  template<typename OBJ>
+  void   writeIFFarray(char *name, OBJ *array, uint32 nObjects) {
+    writeIFFchunk(name, array, sizeof(OBJ) * nObjects);
+  };
+
+  template<typename OBJ>
+  void   writeIFFobject(char *name, OBJ &object) {
+    writeIFFchunk(name, &object, sizeof(OBJ));
+  };
+
+  template<typename OBJ>
+  void   writeIFFobject(char *name, OBJ *object) {
+    writeIFFchunk(name, object, sizeof(OBJ));
+  };
+
   void   writeIFFchunk(char *name, void *data=NULL, uint32 dataLength=0);
+
   void   closeIFFchunk(char *name=NULL);
 
 private:
   void                 open(void);
-  void                 writeToDisk(void *data, uint64 length);
+  void                 writeToDisk(void const *data, uint64 length);
   void                 flush(void);
 
   char                _filename[FILENAME_MAX+1];
