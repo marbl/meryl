@@ -4,11 +4,12 @@
 meryl_count=$tools/meryl/scripts/meryl_count
 
 if [ -z $1 ]; then
-    echo "Usage: ./_submit_meryl2_build.sh <k-size> <R1.fofn> <R2.fofn> <out_prefix> [extra]"
+    echo "Usage: ./_submit_meryl2_build.sh <k-size> <R1.fofn> <R2.fofn> <out_prefix> [mem=T]"
     echo -e "\t<k-size>: kmer size k"
     echo -e "\t<R1.fofn>: Read 1. The first 23 bases will get stripped off."
     echo -e "\t<R2.fofn>: Read 2. Will be processed as normal."
     echo -e "\t<out_prefix>: Final merged meryl db will be named as <out_prefix>.meryl"
+    echo -e "\t[mem=T]: Submit memory option on sbatch [DEFAULT=TRUE]. Set it to F to turn it off."
     exit -1
 fi
 
@@ -16,13 +17,17 @@ k=$1
 R1=$2
 R2=$3
 out_prefix=$4
-extra=$5
+mem_opt=$5
 
 mkdir -p logs
 
 # Split files >10GB
 cpus=20
-mem=4g
+if [[ $mem_opt -eq "F" ]]; then
+	mem=""
+else
+	mem="--mem=4g"
+fi
 name=$out_prefix.split
 partition=quick
 walltime=4:00:00
@@ -39,8 +44,8 @@ echo "R1 will be split to trim off the barcodes."
 split_arrs="1-$LEN"
 args="$R1"
 echo "
-sbatch -D $path -J $name --array=$split_arrs --partition=$partition --mem=$mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args"
-sbatch -D $path -J $name --array=$split_arrs --partition=$partition --mem=$mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args > split_jid
+sbatch -D $path -J $name --array=$split_arrs --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args"
+sbatch -D $path -J $name --array=$split_arrs --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args | awk '{print $NF}' > split_jid
 split_jid=`cat split_jid`
 wait_for="${wait_for}afterok:$split_jid,"
 
@@ -72,15 +77,19 @@ if [[ $split -eq 1 ]]; then
         split_arrs=${split_arrs%,}
 	args="$R2"
         echo "
-        sbatch -D $path -J $name --array=$split_arrs --partition=$partition --mem=$mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args"
-        sbatch -D $path -J $name --array=$split_arrs --partition=$partition --mem=$mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args >> split_jid
+        sbatch -D $path -J $name --array=$split_arrs --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args"
+        sbatch -D $path -J $name --array=$split_arrs --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args | awk '{print $NF}' >> split_jid
         split_jid=`cat split_jid | tail -n1`
         wait_for="${wait_for}afterok:$split_jid,"
 fi
 
 
 cpus=2
-mem=1g
+if [[ $mem_opt -eq "F" ]]; then
+        mem=""
+else
+        mem="--mem=1g"
+fi
 name=$out_prefix.concat
 script=$meryl_count/concat_splits.sh
 args="$k $R1 $out_prefix $R2"
@@ -91,6 +100,6 @@ log=logs/$name.%A.log
 wait_for="--dependency=${wait_for%,}"
 echo "$wait_for"
 echo "
-sbatch -D $path -J $name --partition=$partition --mem=$mem --cpus-per-task=$cpus --time=$walltime $wait_for --error=$log --output=$log $script $args"
-sbatch -D $path -J $name --partition=$partition --mem=$mem --cpus-per-task=$cpus --time=$walltime $wait_for --error=$log --output=$log $script $args
+sbatch -D $path -J $name --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime $wait_for --error=$log --output=$log $script $args"
+sbatch -D $path -J $name --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime $wait_for --error=$log --output=$log $script $args
 

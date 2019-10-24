@@ -4,30 +4,100 @@
 meryl_count=$tools/meryl/scripts/meryl_count
 
 if [ -z $1 ]; then
-    echo "Usage: ./_submit_meryl2_build.sh <k-size> <input.fofn> <out_prefix> [extra]"
+    echo "Usage: ./_submit_meryl2_build.sh <k-size> <input.fofn> <out_prefix> [mem=T]"
     echo -e "\t<k-size>: kmer size k"
     echo -e "\t<input.fofn>: ls *.fastq.gz > input.fofn. accepts fasta, fastq, gzipped or not."
     echo -e "\t<out_prefix>: Final merged meryl db will be named as <out_prefix>.meryl"
+    echo -e "\t[mem=T]: Submit memory option on sbatch [DEFAULT=TRUE]. Set it to F to turn it off."
     exit -1
 fi
 
 k=$1
 input_fofn=$2
 out_prefix=$3
-extra=$4
+mem_opt=$4
+
 
 LEN=`wc -l $input_fofn | awk '{print $1}'`
-offset=$((LEN/1000))
-leftovers=$((LEN%1000))
 
 mkdir -p logs
 
+# Split files when >12GB
+cpus=20
+if [[ $mem_opt -eq "F" ]]; then
+        mem=""
+else
+        mem="--mem=4g"
+fi
+name=$out_prefix.split
+script=$meryl_count/split.sh
+partition=quick
+walltime=4:00:00
+path=`pwd`
+log=logs/$name.%A_%a.log
+
+wait_for=""
+split=0
+
+split_arrs=""
+
+for i in $(seq 1 $LEN)
+do
+	fq=`sed -n ${i}p $input_fofn`
+	GB=`du -k $fq  | awk '{printf "%.0f", $1/1024/1024}'`
+	if [[ $GB -lt 12 ]]; then
+	    echo "$fq is $GB, less than 12GB. Skip splitting."
+	    echo $fq >> $input_fofn.$i
+	else
+	    echo "$fq is $GB, over 12GB. Will split and run meryl in parallel."
+	    echo "Split files will be in $input_fofn.$i"
+	    args="$input_fofn"
+	    split_arrs="$split_arrs$i,"
+	    wait_for="${wait_for}afterok:$split_jid,"
+	    split=1
+	    echo
+	fi
+done
+
+if [ $split -eq 1 ]; then
+	split_arrs=${split_arrs%,}
+	echo "
+	sbatch -D $path -J $name --array=$split_arrs --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args"
+        sbatch -D $path -J $name --array=$split_arrs --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime --error=$log --output=$log $script $args | awk '{print $NF}' > split_jid
+	split_jid=`cat split_jid`
+	wait_for="afterok:$split_jid"
+	cpus=2
+	if [[ $mem_opt -eq "F" ]]; then
+	        mem=""
+	else
+        	mem="--mem=1g"
+	fi
+	name=$out_prefix.concat
+	script=$meryl_count/concat_splits.sh
+	args="$k $input_fofn $out_prefix"
+	partition=quick
+	walltime=10:00
+	path=`pwd`
+	log=logs/$name.%A.log
+	wait_for="--dependency=${wait_for%,}"
+	echo "
+	sbatch -D $path -J $name --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime $wait_for --error=$log --output=$log $script $args"
+	sbatch -D $path -J $name --partition=$partition $mem --cpus-per-task=$cpus --time=$walltime $wait_for --error=$log --output=$log $script $args
+	exit 0
+else
+	rm $input_fofn.*
+	wait_for=""
+fi
+
+offset=$((LEN/1000))
+leftovers=$((LEN%1000))
+
 cpus=32 # Max: 64 per each .meryl/ file writer
-mem=110g
-name=meryl_count
+mem=40g
+name=$out_prefix.count
 script=$meryl_count/meryl2_count.sh
-partition=norm
-walltime=1-0
+partition=quick
+walltime=4:00:00
 path=`pwd`
 log=logs/$name.%A_%a.log
 
@@ -46,25 +116,13 @@ do
         arr_max=1000
     fi
     echo "\
-    sbatch -J $name --mem=$mem --partition=$partition --cpus-per-task=$cpus -D $path $extra --array=1-$arr_max --time=$walltime --error=$log --output=$log $script $args"
-    sbatch -J $name --mem=$mem --partition=$partition --cpus-per-task=$cpus -D $path $extra --array=1-$arr_max --time=$walltime --error=$log --output=$log $script $args >> meryl_count.jid
+    sbatch -J $name $mem --partition=$partition --cpus-per-task=$cpus -D $path --array=1-$arr_max --time=$walltime --error=$log --output=$log $script $args"
+    sbatch -J $name $mem --partition=$partition --cpus-per-task=$cpus -D $path --array=1-$arr_max --time=$walltime --error=$log --output=$log $script $args | awk '{print $NF}' >> meryl_count.jid
 done
 
 # Wait for these jobs
-WAIT="afterok:"
-
-job_nums=`wc -l meryl_count.jid | awk '{print $1}'`
-
-if [[ $job_nums -eq 1 ]]; then
-   jid=`cat meryl_count.jid`
-   WAIT=$WAIT$jid
-else
-
-for jid in $(cat meryl_count.jid)
-do
-    WAIT=$WAIT$jid","
-done
-fi
+WAIT="afterok:"`cat meryl_count.jid | tr '\n' ',afterok:'`
+WAIT=${WAIT%,}
 
 ## Collect .meryl list
 if [ -e  meryl_count.meryl.list ]; then
@@ -82,11 +140,18 @@ do
 done
 
 cpus=48 # Max: 64 per each .meryl/ file writer
-mem=72g
-name=meryl_union_sum
+if [[ $mem_opt -eq "F" ]]; then
+        mem=""
+else
+        mem="--mem=32g"
+fi
+walltime=4:00:00
+partition=norm
+name=$out_prefix.union_sum
 script=$meryl_count/meryl2_union_sum.sh
+log=logs/$name.%A.log
 args="$k meryl_count.meryl.list $out_prefix"
 echo "\
-sbatch -J $name --mem=$mem --partition=$partition --cpus-per-task=$cpus -D $path --dependency=$WAIT --time=$walltime --error=$log --output=$log $script $args"
-sbatch -J $name --mem=$mem --partition=$partition --cpus-per-task=$cpus -D $path --dependency=$WAIT --time=$walltime --error=$log --output=$log $script $args > meryl_union_sum.jid
+sbatch -J $name $mem --partition=$partition --cpus-per-task=$cpus -D $path --dependency=$WAIT --time=$walltime --error=$log --output=$log $script $args"
+sbatch -J $name $mem --partition=$partition --cpus-per-task=$cpus -D $path --dependency=$WAIT --time=$walltime --error=$log --output=$log $script $args | awk '{print $NF}' > meryl_union_sum.jid
 
