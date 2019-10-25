@@ -13,8 +13,8 @@ out=$5
 
 args="$readdb $k $asm1 $asm2 $out"
 if [ -z $out ]; then
-	out="meryl"
-	args="$readdb $k $asm1"
+	out="$asm2"
+	args="$readdb $k $asm1 $out"
 fi
 
 cpus=32
