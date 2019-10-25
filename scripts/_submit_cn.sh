@@ -1,7 +1,7 @@
 #! /bin/bash
 
 if [[ "$#" -lt 3 ]]; then
-	echo "Usage: ./_submit_cn.sh <read-db.meryl> <k> <asm1.fasta> [<asm2.fasta> <out>]"
+	echo "Usage: ./_submit_cn.sh <read-db.meryl> <k> <asm1.fasta> [asm2.fasta] <out>"
 	exit -1
 fi
 
@@ -17,12 +17,12 @@ if [ -z $out ]; then
 	args="$readdb $k $asm1"
 fi
 
-cpus=24
+cpus=32
 mem=48g
 name=$out.spectra-cn
 script="$tools/meryl/scripts/spectra-cn.sh"
 partition=quick
-walltime=3:00:00
+walltime=4:00:00
 path=`pwd`
 
 mkdir -p logs
