@@ -29,7 +29,11 @@ fi
 
 #  Note: Provide memory in Gb unit. SLURM provides $SLURM_MEM_PER_NODE in Mb.
 #            Give extra 4Gb to avoid 'Bus Error' form running out of memory.
-mem=$(((SLURM_MEM_PER_NODE/1024)-4))
+if [[ -z $SLURM_MEM_PER_NODE ]]; then
+	mem=16
+else
+	mem=$(((SLURM_MEM_PER_NODE/1024)-4))
+fi
 line_num=$(((offset * 1000) + $line_num))
 
 # Read in the input path
@@ -44,9 +48,9 @@ output=$name.$k.$line_num.meryl
 if [ ! -d $output ]; then
     # Run meryl count: Collect k-mer frequencies
     echo "
-    meryl k=$k threads=$SLURM_CPUS_PER_TASK memory=$mem count $input output $output
+    meryl k=$k memory=$mem count $input output $output
     "
-    meryl k=$k threads=$SLURM_CPUS_PER_TASK memory=$mem count $input output $output
+    meryl k=$k memory=$mem count $input output $output
 else
     echo "$output dir already exist. Nothing to do with $name."
 fi
