@@ -30,7 +30,7 @@ fi
 #  Note: Provide memory in Gb unit. SLURM provides $SLURM_MEM_PER_NODE in Mb.
 #            Give extra 4Gb to avoid 'Bus Error' form running out of memory.
 if [[ -z $SLURM_MEM_PER_NODE ]]; then
-	mem=16
+	mem=32
 else
 	mem=$(((SLURM_MEM_PER_NODE/1024)-4))
 fi
