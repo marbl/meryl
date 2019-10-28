@@ -47,7 +47,7 @@ fi
 module load R					#
 #################################################
 
-asm1=`echo $asm2_fa | sed 's/.fasta$//g' | sed 's/.fa$//g' | sed 's/.fasta.gz$//g' | sed 's/.fa.gz$//g'`
+asm1=`echo $asm1_fa | sed 's/.fasta$//g' | sed 's/.fa$//g' | sed 's/.fasta.gz$//g' | sed 's/.fa.gz$//g'`
 
 echo "Generate spectra-cn.hist per assemblies"
 for asm_fa in $asm1_fa $asm2_fa	# will generate only for asm1_fa if asm2_fa is empty
@@ -101,7 +101,7 @@ do
         echo -e "$asm\t$ASM_ONLY\t$TOTAL\t$QV\t$ERROR" >> $name.qv
 done
 
-if [ -z $asm2_fa ]; then
+if [[ "$asm2_fa" = "" ]]; then
 	echo "No asm2_fa given. Done."
 
 	hist=$name.spectra-asm.hist
@@ -126,15 +126,13 @@ if [ -z $asm2_fa ]; then
 
 	exit 0
 fi
-
+asm2=`echo $asm2_fa | sed 's/.fasta$//g' | sed 's/.fa$//g' | sed 's/.fasta.gz$//g' | sed 's/.fa.gz$//g'`
 rm -r read.k$k.$asm2.0.meryl
 
 echo
 echo "Generate spectra-cn.hist for combined $asm1_fa and $asm2_fa"
 echo "\"Is my diploid assembly having k-mers in expected copy numbers?\""
 hist=$name.spectra-cn.hist
-
-asm2=`echo $asm1_fa | sed 's/.fasta$//g' | sed 's/.fa$//g' | sed 's/.fasta.gz$//g' | sed 's/.fa.gz$//g'`
 
 echo "
 Union-sum: ${asm1} + ${asm2} + shared kmer counts (asm)"
