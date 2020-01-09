@@ -23,7 +23,7 @@ mkdir -p logs
 
 # Split files >10GB
 cpus=20
-if [[ $mem_opt -eq "F" ]]; then
+if [[ "$mem_opt" = "F" ]]; then
 	mem=""
 else
 	mem="--mem=4g"
@@ -85,7 +85,7 @@ fi
 
 
 cpus=2
-if [[ $mem_opt -eq "F" ]]; then
+if [[ "$mem_opt" = "F" ]]; then
         mem=""
 else
         mem="--mem=1g"

@@ -24,7 +24,7 @@ mkdir -p logs
 
 # Split files when >12GB
 cpus=20
-if [[ $mem_opt -eq "F" ]]; then
+if [[ "$mem_opt" = "F" ]]; then
         mem=""
 else
         mem="--mem=4g"
@@ -67,7 +67,7 @@ if [ $split -eq 1 ]; then
 	split_jid=`cat split_jid`
 	wait_for="afterok:$split_jid"
 	cpus=2
-	if [[ $mem_opt -eq "F" ]]; then
+	if [[ "$mem_opt" = "F" ]]; then
 	        mem=""
 	else
         	mem="--mem=1g"
@@ -93,7 +93,11 @@ offset=$((LEN/1000))
 leftovers=$((LEN%1000))
 
 cpus=32 # Max: 64 per each .meryl/ file writer
-mem=40g
+if [[ "$mem_opt" = "F" ]]; then
+	mem=""
+else
+	mem="--mem=40g"
+fi
 name=$out_prefix.count
 script=$meryl_count/meryl2_count.sh
 partition=quick
@@ -140,7 +144,7 @@ do
 done
 
 cpus=48 # Max: 64 per each .meryl/ file writer
-if [[ $mem_opt -eq "F" ]]; then
+if [[ "$mem_opt" = "F" ]]; then
         mem=""
 else
         mem="--mem=32g"
