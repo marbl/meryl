@@ -20,7 +20,7 @@ fi
 cpus=32
 mem=48g
 name=$out.spectra-cn
-script="$tools/meryl/scripts/spectra-cn.sh"
+script="$tools/meryl/scripts/eval/spectra-cn.sh"
 partition=quick
 walltime=4:00:00
 path=`pwd`
