@@ -44,6 +44,7 @@ dumpExistence(dnaSeqFile           *sf,
               kmerCountExactLookup *kl) {
   uint32   nameMax = 0;
   char    *name    = NULL;
+  uint     seqId   = 0;
   uint64   seqLen  = 0;
   uint64   seqMax  = 0;
   char    *seq     = NULL;
@@ -62,13 +63,15 @@ dumpExistence(dnaSeqFile           *sf,
       fExists = kl->exists(kiter.fmer(), fValue);
       rExists = kl->exists(kiter.rmer(), rValue);
 
-      fprintf(stdout, "%s\t%lu\t%c\t%s\t%lu\t%s\t%lu\n",
+      fprintf(stdout, "%s\t%lu\t%lu\t%c\t%s\t%lu\t%s\t%lu\n",
               name,
+              seqId,
               kiter.position(),
               (fExists || rExists) ? 'T' : 'F',
               kiter.fmer().toString(fString), fValue,
               kiter.rmer().toString(rString), rValue);
     }
+    seqId++;
   }
 
   delete [] name;
@@ -376,8 +379,9 @@ main(int argc, char **argv) {
     fprintf(stderr, "                 the input database.  If the kmer does not exist in the database\n");
     fprintf(stderr, "                 its value will be reported as zero.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "     output:  seqName <tab> seqPos <tab> exists <tab> fwd-mer <tab> fwd-val <tab> rev-mer <tab> rev-val\n");
+    fprintf(stderr, "     output:  seqName <tab> seqId <tab> seqPos <tab> exists <tab> fwd-mer <tab> fwd-val <tab> rev-mer <tab> rev-val\n");
     fprintf(stderr, "         seqName    - name of the sequence this kmer is from\n");
+    fprintf(stderr, "         seqId      - numeric version of the seqName (0-based)\n");
     fprintf(stderr, "         seqPos     - start position (0-based) of the kmer in the sequence\n");
     fprintf(stderr, "         exists     - 'T' if the kmer exists in the database, 'F' if it does not\n");
     fprintf(stderr, "         fwd-mer    - forward mer sequence\n");
