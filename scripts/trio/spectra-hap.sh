@@ -94,6 +94,7 @@ do
 	meryl intersect output read.$read_hap.gt$i.meryl $read_hap.$asm.meryl [ greater-than $i ${asm}.meryl ]
 	meryl histogram read.$read_hap.gt$i.meryl | awk -v cn=">$i" '{print cn"\t"$0}' >> $asm.$read_hap.$cn_hist
 	rm -r read.$read_hap.gt$i.meryl
+	rm -r $read_hap.$asm.meryl
 
         echo "
         $scripts/plot/plot_spectra_cn.R -f $asm.$read_hap.$cn_hist -o $name.$asm.$read_hap"
@@ -102,4 +103,5 @@ do
     done
 
 done
+
 
