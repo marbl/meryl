@@ -69,13 +69,14 @@ sbatch -J $name --mem=$mem --partition=$partition --cpus-per-task=$cpus -D $path
 
 #### Get phase blocks
 cpus=12
-mem=24g
+mem=72g
 extra=""
 
 script="$tools/meryl/scripts/trio/phase_block.sh"
 # ./phase_block.sh <asm.fasta> <mat.meryl> <pat.meryl> <out>
 
-if [ -z $asm2 ] ; then
+
+if [[ "$asm2" == "" ]] ; then
 	# Only one assembly given.
 	args="$asm1 $hap1 $hap2 $out"
         name=$out.phase-block
@@ -89,7 +90,7 @@ echo "\
 sbatch -J $name --mem=$mem --partition=$partition --cpus-per-task=$cpus -D $path $extra --time=$walltime --error=$log --output=$log $script $args"
 sbatch -J $name --mem=$mem --partition=$partition --cpus-per-task=$cpus -D $path $extra --time=$walltime --error=$log --output=$log $script $args > block1.jid
 
-if [ -z $asm2 ] ; then
+if [[ "$asm2" == "" ]] ; then
 	exit 0
 fi
 
