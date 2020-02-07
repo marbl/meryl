@@ -24,13 +24,7 @@ export PATH=/path/to/meryl/bin:$PATH
 This is 'sequence', a utility for working with sequence files.
 
 
-# Scripts
+# Evaluate assemblies with k-mers and more
 
-Here, bash scripts are provided to give a guideline for the following use-cases:
+See [Merqury](https://github.com/marbl/merqury).
 
-1.	[Build k-mer dbs in batches](https://github.com/marbl/meryl/tree/master/scripts#1-build-k-mer-dbs)
-2.	[Copy-number comparison (spectra-cn and spectra-hap)](https://github.com/marbl/meryl/tree/master/scripts#2-copy-number-comparison-spectra-cn)
-3.	[Haplotype specific mers for trio binning and making blob-plots](https://github.com/marbl/meryl/tree/master/scripts#3-haplotype-specific-mers-for-trio-binning-and-making-blob-plots)
-4.  [Include or exclude read pairs having specific kmers in one of the reads](https://github.com/marbl/meryl/blob/master/scripts/README.md#4-include-or-exclude-read-pairs-having-specific-kmers-in-one-of-the-reads)
-
-See [scripts](https://github.com/marbl/meryl/tree/master/scripts) for more details.
