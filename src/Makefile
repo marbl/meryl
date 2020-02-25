@@ -640,7 +640,7 @@ INCDIRS := $(addprefix -I,$(call CANONICAL_PATH,${INCDIRS}))
 # Define the "all" target (which simply builds all user-defined targets) as the
 # default goal.
 .PHONY: all
-all: UPDATE_VERSION MAKE_DIRS \
+all: INIT_SUBMODULES UPDATE_VERSION MAKE_DIRS \
      $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
 	@echo ""
 	@echo "Success!"
@@ -670,6 +670,11 @@ $(foreach TGT,${ALL_TGTS},\
 # Include generated rules that define additional (header) dependencies.
 $(foreach TGT,${ALL_TGTS},\
   $(eval -include ${${TGT}_DEPS}))
+
+#  A fake target, to pull in submodules.
+.PHONY: INIT_SUBMODULES
+INIT_SUBMODULES: 
+	@git submodule update --init
 
 #  A fake target, to regenerate the canu_version.H file on every build.
 .PHONY: UPDATE_VERSION
