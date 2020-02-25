@@ -10,7 +10,7 @@ ifeq "$(strip ${PREFIX})" ""
   ifeq "$(strip ${DESTDIR})" ""
     PREFIX     := $(realpath ..)
   else
-    PREFIX     := /canu
+    PREFIX     := /meryl
   endif
 endif
 
@@ -22,7 +22,7 @@ ifeq "$(strip ${TARGET_DIR})" ""
   TARGET_DIR   := $(DESTDIR)$(PREFIX)/$(OSTYPE)-$(MACHINETYPE)
 endif
 
-TARGET       := libcanu.a
+TARGET       := libmeryl.a
 
 SOURCES      := AS_global.C \
                 \
@@ -57,61 +57,7 @@ SOURCES      := AS_global.C \
                 utility/mt19937ar.C \
                 utility/objectStore.C \
                 utility/speedCounter.C \
-                utility/sweatShop.C \
-                \
-                correction/computeGlobalScore.C \
-                correction/falconConsensus.C \
-                correction/falconConsensus-alignTag.C \
-                \
-                stores/sqCache.C \
-                stores/sqLibrary.C \
-                stores/sqReadData.C \
-                stores/sqReadDataWriter.C \
-                stores/sqStore.C \
-                stores/sqStoreBlob.C \
-                stores/sqStoreConstructor.C \
-                stores/sqStoreInfo.C \
-                \
-                stores/ovOverlap.C \
-                stores/ovStore.C \
-                stores/ovStoreWriter.C \
-                stores/ovStoreFilter.C \
-                stores/ovStoreFile.C \
-                stores/ovStoreHistogram.C \
-                \
-                stores/tgStore.C \
-                stores/tgTig.C \
-                stores/tgTigSizeAnalysis.C \
-                stores/tgTigMultiAlignDisplay.C \
-                \
-                stores/libsnappy/snappy-sinksource.cc \
-                stores/libsnappy/snappy-stubs-internal.cc \
-                stores/libsnappy/snappy.cc \
-                \
-                overlapInCore/overlapReadCache.C \
-                \
-                overlapInCore/liboverlap/Binomial_Bound.C \
-                overlapInCore/liboverlap/Display_Alignment.C \
-                overlapInCore/liboverlap/prefixEditDistance.C \
-                overlapInCore/liboverlap/prefixEditDistance-allocateMoreSpace.C \
-                overlapInCore/liboverlap/prefixEditDistance-extend.C \
-                overlapInCore/liboverlap/prefixEditDistance-forward.C \
-                overlapInCore/liboverlap/prefixEditDistance-reverse.C \
-                \
-                utgcns/libNDalign/NDalign.C \
-                \
-                utgcns/libNDalign/Binomial_Bound.C \
-                utgcns/libNDalign/NDalgorithm.C \
-                utgcns/libNDalign/NDalgorithm-allocateMoreSpace.C \
-                utgcns/libNDalign/NDalgorithm-extend.C \
-                utgcns/libNDalign/NDalgorithm-forward.C \
-                utgcns/libNDalign/NDalgorithm-reverse.C \
-                \
-                utgcns/libpbutgcns/AlnGraphBoost.C  \
-                \
-                gfa/gfa.C \
-                gfa/bed.C
-
+                utility/sweatShop.C
 
 ifeq (${BUILDSTACKTRACE}, 1)
 SOURCES      += utility/libbacktrace/atomic.c \
@@ -129,93 +75,11 @@ SOURCES      += utility/libbacktrace/atomic.c \
                 utility/libbacktrace/unknown.c
 endif
 
-
-
 SRC_INCDIRS  := . \
-                utility \
-                stores \
-                stores/libsnappy \
-                alignment \
-                utgcns/libNDalign \
-                utgcns/libcns \
-                utgcns/libpbutgcns \
-                utgcns/libNDFalcon \
-                utgcns/libboost \
-                overlapInCore \
-                overlapInCore/liboverlap
+                meryl \
+                utility
 
-SUBMAKEFILES := stores/dumpBlob.mk \
-                stores/ovStoreBuild.mk \
-                stores/ovStoreConfig.mk \
-                stores/ovStoreBucketizer.mk \
-                stores/ovStoreSorter.mk \
-                stores/ovStoreIndexer.mk \
-                stores/ovStoreDump.mk \
-                stores/ovStoreStats.mk \
-                stores/sqStoreCreate.mk \
-                stores/sqStoreDumpFASTQ.mk \
-                stores/sqStoreDumpMetaData.mk \
-                stores/tgStoreCompress.mk \
-                stores/tgStoreDump.mk \
-                stores/tgStoreLoad.mk \
-                stores/tgStoreFilter.mk \
-                stores/tgTigDisplay.mk \
-                stores/loadCorrectedReads.mk \
-                stores/loadTrimmedReads.mk \
-                stores/loadErates.mk \
-                \
-                meryl/meryl.mk \
+SUBMAKEFILES := meryl/meryl.mk \
                 meryl/meryl-import.mk \
                 meryl/meryl-lookup.mk \
-                \
-                sequence/sequence.mk \
-                \
-                overlapInCore/overlapInCore.mk \
-                overlapInCore/overlapInCorePartition.mk \
-                overlapInCore/overlapConvert.mk \
-                overlapInCore/overlapImport.mk \
-                overlapInCore/overlapPair.mk \
-                overlapInCore/edalign.mk \
-                \
-                overlapInCore/liboverlap/prefixEditDistance-matchLimitGenerate.mk \
-                \
-                mhap/mhapConvert.mk \
-                \
-                minimap/mmapConvert.mk \
-                \
-                wtdbg/wtdbgConvert.mk \
-                \
-                correction/filterCorrectionOverlaps.mk \
-                correction/generateCorrectionLayouts.mk \
-                correction/filterCorrectionLayouts.mk \
-                correction/falconsense.mk \
-                \
-                correction/errorEstimate.mk \
-                \
-                haplotyping/splitHaplotype.mk \
-                \
-                overlapBasedTrimming/trimReads.mk \
-                overlapBasedTrimming/splitReads.mk \
-                overlapBasedTrimming/mergeRanges.mk \
-                \
-                overlapAlign/overlapAlign.mk \
-                \
-                overlapErrorAdjustment/findErrors.mk \
-                overlapErrorAdjustment/findErrors-Dump.mk \
-                overlapErrorAdjustment/correctOverlaps.mk \
-                \
-                bogart/bogart.mk \
-                \
-                bogus/bogus.mk \
-                \
-                utgcns/utgcns.mk \
-                \
-                gfa/alignGFA.mk
-
-ifeq ($(BUILDTESTS), 1)
-SUBMAKEFILES += utility/bitsTest.mk \
-                utility/filesTest.mk \
-                utility/intervalListTest.mk \
-                utility/loggingTest.mk \
-                utility/stddevTest.mk
-endif
+                sequence/sequence.mk

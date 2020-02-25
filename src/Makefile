@@ -363,31 +363,6 @@ ifeq (${OSTYPE}, SunOS)
   endif
 endif
 
-#  Some filesystems cannot use < or > in file names, but for reasons unknown
-#  (or, at least, reasons we're not going to admit to), files in the overlap
-#  store are named ####<###>.  Enabling POSIX_FILE_NAMES Will change the
-#  names to ####.###.
-#
-#  Be aware this will break object store compatibility.
-#
-ifeq ($(POSIX_FILE_NAMES), 1)
-  CXXFLAGS += -DPOSIX_FILE_NAMES
-
-else
-  #  Try to create non-<posix> file names.  It's tempting to use 'wildcard' instead
-  #  of the 'ls', but it doesn't work.
-  $(shell touch "non-<posix>-name" > /dev/null 2>&1)
-
-  ifeq (non-<posix>-name, $(shell ls "non-<posix>-name" 2> /dev/null))
-    #$(info Extended POSIX filenames allowed.)
-  else
-    #$(info POSIX filenames required.)
-    CXXFLAGS += -DPOSIX_FILE_NAMES
-  endif
-
-  $(shell rm -f "non-<posix>-name")
-endif
-
 #  Set compiler and flags based on discovered hardware
 #
 #  By default, debug symbols are included in all builds (even optimized).
@@ -666,41 +641,10 @@ INCDIRS := $(addprefix -I,$(call CANONICAL_PATH,${INCDIRS}))
 # default goal.
 .PHONY: all
 all: UPDATE_VERSION MAKE_DIRS \
-     $(addprefix ${TARGET_DIR}/,${ALL_TGTS}) \
-     ${TARGET_DIR}/bin/canu \
-     ${TARGET_DIR}/bin/canu-time \
-     ${TARGET_DIR}/bin/canu.defaults \
-     ${TARGET_DIR}/share/java/classes/mhap-2.1.3.jar \
-     ${TARGET_DIR}/share/sequence/ultra-long-nanopore \
-     ${TARGET_DIR}/share/sequence/pacbio \
-     ${TARGET_DIR}/share/sequence/pacbio-hifi\
-     ${TARGET_DIR}/lib/site_perl/canu/Consensus.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/CorrectReads.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/HaplotypeReads.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Configure.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Defaults.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Execution.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/SequenceStore.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Grid.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Grid_Cloud.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Grid_DNANexus.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Grid_LSF.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Grid_PBSTorque.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Grid_SGE.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Grid_Slurm.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Meryl.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Output.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/OverlapBasedTrimming.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/OverlapErrorAdjustment.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/OverlapInCore.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/OverlapMhap.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/OverlapMMap.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/OverlapStore.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Report.pm \
-     ${TARGET_DIR}/lib/site_perl/canu/Unitig.pm
+     $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
 	@echo ""
 	@echo "Success!"
-	@echo "canu installed in ${TARGET_DIR}/bin/canu"
+	@echo "meryl installed in ${TARGET_DIR}/bin/meryl"
 
 # Add a new target rule for each user-defined target.
 $(foreach TGT,${ALL_TGTS},\
@@ -730,118 +674,14 @@ $(foreach TGT,${ALL_TGTS},\
 #  A fake target, to regenerate the canu_version.H file on every build.
 .PHONY: UPDATE_VERSION
 UPDATE_VERSION:
-	@./canu_version_update.pl
+	@../scripts/version_update.pl
 
 AS_global.C: UPDATE_VERSION
 
 #  A fake target, to make the directory for the canu perl modules.
 .PHONY: MAKE_DIRS
 MAKE_DIRS:
-	@if [ ! -e ${TARGET_DIR}/lib/site_perl/canu ] ; then mkdir -p ${TARGET_DIR}/lib/site_perl/canu ; fi
-	@if [ ! -e ${TARGET_DIR}/share/java/classes ] ; then mkdir -p ${TARGET_DIR}/share/java/classes ; fi
-	@if [ ! -e ${TARGET_DIR}/share/sequence ]     ; then mkdir -p ${TARGET_DIR}/share/sequence     ; fi
 	@if [ ! -e ${TARGET_DIR}/bin ]                ; then mkdir -p ${TARGET_DIR}/bin                ; fi
-
-${TARGET_DIR}/bin/canu: pipelines/canu.pl
-	cp -pf pipelines/canu.pl ${TARGET_DIR}/bin/canu
-	chmod +x ${TARGET_DIR}/bin/canu
-
-${TARGET_DIR}/bin/canu-time: pipelines/canu-time.pl
-	cp -pf pipelines/canu-time.pl ${TARGET_DIR}/bin/canu-time
-	chmod +x ${TARGET_DIR}/bin/canu-time
-
-${TARGET_DIR}/bin/canu.defaults:
-	echo > ${TARGET_DIR}/bin/canu.defaults  "# Add site specific options (for setting up Grid or limiting memory/threads) here."
-	chmod -x ${TARGET_DIR}/bin/canu.defaults
-
-${TARGET_DIR}/share/java/classes/mhap-2.1.3.jar: mhap/mhap-2.1.3.jar
-	cp -pf mhap/mhap-2.1.3.jar ${TARGET_DIR}/share/java/classes/mhap-2.1.3.jar
-
-
-${TARGET_DIR}/share/sequence/ultra-long-nanopore: sequence/share/ultra-long-nanopore
-	cp -pf sequence/share/ultra-long-nanopore ${TARGET_DIR}/share/sequence/ultra-long-nanopore
-
-${TARGET_DIR}/share/sequence/pacbio: sequence/share/pacbio
-	cp -pf sequence/share/pacbio ${TARGET_DIR}/share/sequence/pacbio
-
-${TARGET_DIR}/share/sequence/pacbio-hifi: sequence/share/pacbio-hifi
-	cp -pf sequence/share/pacbio-hifi ${TARGET_DIR}/share/sequence/pacbio-hifi
-
-
-${TARGET_DIR}/lib/site_perl/canu/Consensus.pm: pipelines/canu/Consensus.pm
-	cp -pf pipelines/canu/Consensus.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/CorrectReads.pm: pipelines/canu/CorrectReads.pm
-	cp -pf pipelines/canu/CorrectReads.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/HaplotypeReads.pm: pipelines/canu/HaplotypeReads.pm
-	cp -pf pipelines/canu/HaplotypeReads.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Configure.pm: pipelines/canu/Configure.pm
-	cp -pf pipelines/canu/Configure.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Defaults.pm: pipelines/canu/Defaults.pm
-	cp -pf pipelines/canu/Defaults.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/ErrorEstimate.pm: pipelines/canu/ErrorEstimate.pm
-	cp -pf pipelines/canu/ErrorEstimate.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Execution.pm: pipelines/canu/Execution.pm
-	cp -pf pipelines/canu/Execution.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/SequenceStore.pm: pipelines/canu/SequenceStore.pm
-	cp -pf pipelines/canu/SequenceStore.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Grid.pm: pipelines/canu/Grid.pm
-	cp -pf pipelines/canu/Grid.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Grid_Cloud.pm: pipelines/canu/Grid_Cloud.pm
-	cp -pf pipelines/canu/Grid_Cloud.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Grid_DNANexus.pm: pipelines/canu/Grid_DNANexus.pm
-	cp -pf pipelines/canu/Grid_DNANexus.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Grid_LSF.pm: pipelines/canu/Grid_LSF.pm
-	cp -pf pipelines/canu/Grid_LSF.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Grid_PBSTorque.pm: pipelines/canu/Grid_PBSTorque.pm
-	cp -pf pipelines/canu/Grid_PBSTorque.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Grid_SGE.pm: pipelines/canu/Grid_SGE.pm
-	cp -pf pipelines/canu/Grid_SGE.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Grid_Slurm.pm: pipelines/canu/Grid_Slurm.pm
-	cp -pf pipelines/canu/Grid_Slurm.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Meryl.pm: pipelines/canu/Meryl.pm
-	cp -pf pipelines/canu/Meryl.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Output.pm: pipelines/canu/Output.pm
-	cp -pf pipelines/canu/Output.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/OverlapBasedTrimming.pm: pipelines/canu/OverlapBasedTrimming.pm
-	cp -pf pipelines/canu/OverlapBasedTrimming.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/OverlapErrorAdjustment.pm: pipelines/canu/OverlapErrorAdjustment.pm
-	cp -pf pipelines/canu/OverlapErrorAdjustment.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/OverlapInCore.pm: pipelines/canu/OverlapInCore.pm
-	cp -pf pipelines/canu/OverlapInCore.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/OverlapMhap.pm: pipelines/canu/OverlapMhap.pm
-	cp -pf pipelines/canu/OverlapMhap.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/OverlapMMap.pm: pipelines/canu/OverlapMMap.pm
-	cp -pf pipelines/canu/OverlapMMap.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/OverlapStore.pm: pipelines/canu/OverlapStore.pm
-	cp -pf pipelines/canu/OverlapStore.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Report.pm: pipelines/canu/Report.pm
-	cp -pf pipelines/canu/Report.pm ${TARGET_DIR}/lib/site_perl/canu/
-
-${TARGET_DIR}/lib/site_perl/canu/Unitig.pm: pipelines/canu/Unitig.pm
-	cp -pf pipelines/canu/Unitig.pm ${TARGET_DIR}/lib/site_perl/canu/
 
 #  Makefile processed.  Report that we're starting the build.
 
@@ -851,5 +691,3 @@ ifneq ($(origin CXXFLAGSUSER), undefined)
 $(info Using user-supplied CXXFLAGS '${CXXFLAGSUSER}'.)
 endif
 $(info )
-
-#${info Using LD_RUN_PATH '${LD_RUN_PATH}'}
