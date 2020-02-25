@@ -44,7 +44,7 @@ my $minor    = "0";             #  Bump before release.
 my $branch   = "master";
 my $version  = "v$major.$minor";
 
-my $commits  = "0";
+my $commits  = undef;
 my $hash1    = undef;          #  This from 'git describe'
 my $hash2    = undef;          #  This from 'git rev-list'
 my $revCount = 0;
@@ -150,7 +150,7 @@ elsif ($cwd =~ m/$modName-master\/src/) {
 
 #  Report what we found.  This is really for the gmake output.
 
-if ($commits > 0) {
+if (defined($commits)) {
     print STDERR "Building $label $version +$commits changes (r$revCount $hash1) ($dirty)\n";
     print STDERR "\n";
 } else {
@@ -170,7 +170,7 @@ print F "#define ${MODNAME}_VERSION_REVISION  \"$revCount\"\n";
 print F "#define ${MODNAME}_VERSION_HASH      \"$hash1\"\n";
 print F "\n";
 
-if      ($commits > 0) {
+if      (defined($commits)) {
     print F "#define ${MODNAME}_VERSION           \"$modName $label $version +$commits changes (r$revCount $hash1)\\n\"\n";
 } elsif (defined($hash1)) {
     print F "#define ${MODNAME}_VERSION           \"$modName snapshot ($hash1)\\n\"\n";
