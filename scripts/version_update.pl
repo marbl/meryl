@@ -44,6 +44,8 @@ my $minor    = "0";             #  Bump before release.
 my $branch   = "master";
 my $version  = "v$major.$minor";
 
+my @submodules;
+
 my $commits  = undef;
 my $hash1    = undef;          #  This from 'git describe'
 my $hash2    = undef;          #  This from 'git rev-list'
@@ -132,6 +134,16 @@ if (-d "../.git") {
         $label   = "branch";
         $version = $branch;
     }
+
+
+    #  Get information on any submodules here.
+    open(F, "git submodule status |");
+    while (<F>) {
+        if (m/^(.*)\s+(.*)\s+\((.*)\)$/) {
+            push @submodules, "$2 $3 $1";
+        }
+    }
+    close(F);
 }
 
 
@@ -152,6 +164,9 @@ elsif ($cwd =~ m/$modName-master\/src/) {
 
 if (defined($commits)) {
     print STDERR "Building $label $version +$commits changes (r$revCount $hash1) ($dirty)\n";
+    foreach my $s (@submodules) {
+        print STDERR "         $s\n";
+    }
     print STDERR "\n";
 } else {
     print STDERR "Building $label $version\n";
