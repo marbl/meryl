@@ -27,6 +27,12 @@
 #       instances of "$" within them need to be escaped with a second "$" to
 #       accomodate the double expansion that occurs when eval is invoked.
 
+#  Before doing ANYTHING, initialize submodules.
+ifneq ($(shell test -e utility/src/Makefile && echo found), found)
+  $(info $(shell git submodule update --init))
+  $(info $(space))
+endif
+
 # ADD_CLEAN_RULE - Parameterized "function" that adds a new rule and phony
 #   target for cleaning the specified target (removing its build-generated
 #   files).
@@ -640,7 +646,7 @@ INCDIRS := $(addprefix -I,$(call CANONICAL_PATH,${INCDIRS}))
 # Define the "all" target (which simply builds all user-defined targets) as the
 # default goal.
 .PHONY: all
-all: INIT_SUBMODULES UPDATE_VERSION MAKE_DIRS \
+all: UPDATE_VERSION MAKE_DIRS \
      $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
 	@echo ""
 	@echo "Success!"
@@ -670,11 +676,6 @@ $(foreach TGT,${ALL_TGTS},\
 # Include generated rules that define additional (header) dependencies.
 $(foreach TGT,${ALL_TGTS},\
   $(eval -include ${${TGT}_DEPS}))
-
-#  A fake target, to pull in submodules.
-.PHONY: INIT_SUBMODULES
-INIT_SUBMODULES: 
-	@git submodule update --init
 
 #  A fake target, to regenerate the canu_version.H file on every build.
 .PHONY: UPDATE_VERSION
