@@ -20,12 +20,14 @@ SOURCES  := meryl.C \
 
 SRC_INCDIRS  := . ../utility/src/utility
 
-#  If we're part of Canu, build with canu support.
-#  Otherwise, don't.
+#  If we're part of Canu, build with canu support and use Canu's copy of
+#  meryl-utility.  Otherwise, don't.
 
 ifneq ($(wildcard stores/sqStore.H), )
 
 SRC_CXXFLAGS := -DCANU
+
+SRC_INCDIRS  := . ../../../utility/src/utility ../../../stores
 
 TGT_LDFLAGS := -L${TARGET_DIR}/lib
 TGT_LDLIBS  := -lcanu
