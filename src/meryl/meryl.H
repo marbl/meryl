@@ -46,7 +46,7 @@
 #ifndef MERYL_H
 #define MERYL_H
 
-#include "AS_global.H"
+#include "runtime.H"
 
 #include "merylInput.H"
 #include "merylOp.H"

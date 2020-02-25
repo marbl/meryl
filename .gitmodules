@@ -1,0 +1,3 @@
+[submodule "src/utility"]
+	path = src/utility
+	url = git@github.com:marbl/meryl-utility

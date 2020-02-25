@@ -10,9 +10,9 @@ endif
 
 TARGET   := meryl-import
 SOURCES  := meryl-import.C \
-            merylCountArray.C
+            ../meryl/merylCountArray.C
 
-SRC_INCDIRS  := . .. ../utility ../stores
+SRC_INCDIRS  := . ../utility/src/utility ../meryl
 
 #  If we're part of Canu, build with canu support.
 #  Otherwise, don't.

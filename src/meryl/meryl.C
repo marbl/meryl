@@ -44,6 +44,8 @@
  */
 
 #include "meryl.H"
+
+#include "runtime.H"
 #include "strings.H"
 #include "system.H"
 

@@ -23,6 +23,8 @@
  *  full conditions and disclaimers for each license.
  */
 
+#include "runtime.H"
+
 #include "kmers.H"
 #include "sequence.H"
 #include "strings.H"
