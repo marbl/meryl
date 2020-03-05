@@ -53,7 +53,7 @@
 
 uint64
 findMaxInputSizeForMemorySize(uint32 merSize, uint64 memSize) {
-  uint64  mcaSize = sizeof(merylCountArray<uint32>);
+  uint64  mcaSize = sizeof(merylCountArray);
   uint64  ptrSize = sizeof(uint64 *);
   uint64  segSize = SEGMENT_SIZE * 1024;
 
@@ -195,7 +195,7 @@ findBestPrefixSize(uint64  nKmerEstimate,
     if (wp + countNumberOfBits64(segsPerPrefix) + countNumberOfBits64(SEGMENT_SIZE) + 10 >= 64)
       break;   //  Otherwise, dataMemory overflows.
 
-    uint64  structMemory     = ((sizeof(merylCountArray<uint32>) * nPrefix) +          //  Basic structs
+    uint64  structMemory     = ((sizeof(merylCountArray) * nPrefix) +                  //  Basic structs
                                 (sizeof(uint64 *)        * nPrefix * segsPerPrefix));  //  Pointers to segments
     uint64  dataMemoryMin    = nPrefix *                 SEGMENT_SIZE * 1024;          //  Minimum memory needed for this size.
     uint64  dataMemory       = nPrefix * segsPerPrefix * SEGMENT_SIZE * 1024;          //  Expected memory for full batch.
@@ -227,7 +227,7 @@ findBestValues(uint64  nKmerEstimate,
                uint32 &wPrefix_,
                uint64 &nPrefix_,
                uint32 &wData_,
-               uint64 &wDataMask_) {
+               kmdata &wDataMask_) {
   uint32  merSize = kmerTiny::merSize();
 
   fprintf(stderr, "\n");
@@ -248,7 +248,7 @@ findBestValues(uint64  nKmerEstimate,
     if (wp + countNumberOfBits64(segsPerPrefix) + countNumberOfBits64(SEGMENT_SIZE) + 10 >= 64)
       break;   //  Otherwise, dataMemory overflows.
 
-    uint64  structMemory     = ((sizeof(merylCountArray<uint32>) * nPrefix) +          //  Basic structs
+    uint64  structMemory     = ((sizeof(merylCountArray) * nPrefix) +                  //  Basic structs
                                 (sizeof(uint64 *)        * nPrefix * segsPerPrefix));  //  Pointers to segments
     uint64  dataMemoryMin    = nPrefix *                 SEGMENT_SIZE * 1024;          //  Minimum memory needed for this size.
     uint64  dataMemory       = nPrefix * segsPerPrefix * SEGMENT_SIZE * 1024;          //  Expected memory for full batch.
@@ -267,10 +267,13 @@ findBestValues(uint64  nKmerEstimate,
     if (wp == bestPrefix) {
       fprintf(stderr, "  Best Value!\n");
 
-      wPrefix_   = wp;
-      nPrefix_   = nPrefix;
-      wData_     = 2 * merSize - wp;
-      wDataMask_ = uint64MASK(wData_);
+      wPrefix_     = wp;
+      nPrefix_     = nPrefix;
+      wData_       = 2 * merSize - wp;
+
+      wDataMask_   = 0;                              //  Build a mask by setting all bits
+      wDataMask_   = ~wDataMask_;                    //  to one, then shifting in the
+      wDataMask_ >>= 8 * sizeof(kmdata) - wData_;    //  correct number of zeros.
 
     } else {
       fprintf(stderr, "\n");
@@ -353,7 +356,7 @@ merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maxim
                                   uint32  &wPrefix_,           //  Output: Number of bits in the prefix (== bucket address)
                                   uint64  &nPrefix_,           //  Output: Number of prefixes there are (== number of buckets)
                                   uint32  &wData_,             //  Output: Number of bits in kmer data
-                                  uint64  &wDataMask_) {       //  Output: A mask to return just the data of the mer
+                                  kmdata  &wDataMask_) {       //  Output: A mask to return just the data of the mer
 
   //
   //  Check kmer size, presence of output, and guess how many bases are in the inputs.
@@ -492,7 +495,7 @@ void
 merylOperation::count(uint32  wPrefix,
                       uint64  nPrefix,
                       uint32  wData,
-                      uint64  wDataMask) {
+                      kmdata  wDataMask) {
 
   //configureCounting(_maxMemory, useSimple, wPrefix, nPrefix, wData, wDataMask);
 
@@ -512,7 +515,7 @@ merylOperation::count(uint32  wPrefix,
 
   _output->initialize(wPrefix);
 
-  kmerCountBlockWriter  *_writer = _output->getBlockWriter();
+  merylBlockWriter  *_writer = _output->getBlockWriter();
 
   //  Allocate buckets.  The buckets don't allocate space for mers until they're added,
   //  and allocate space for these mers in blocks of 8192 * 64 bits.
@@ -520,7 +523,7 @@ merylOperation::count(uint32  wPrefix,
   //  Need someway of balancing the number of prefixes we have and the size of each
   //  initial allocation.
 
-  merylCountArray<uint32>  *data = new merylCountArray<uint32> [nPrefix];
+  merylCountArray  *data = new merylCountArray [nPrefix];
 
   //  Load bases, count!
 
@@ -560,22 +563,22 @@ merylOperation::count(uint32  wPrefix,
 
       while (kiter.nextMer()) {
         bool    useF = (_operation == opCountForward);
-        uint64  pp   = 0;
-        uint64  mm   = 0;
+        kmdata  pp   = 0;
+        kmdata  mm   = 0;
 
         if (_operation == opCount)
           useF = (kiter.fmer() < kiter.rmer());
 
         if (useF == true) {
-          pp = (uint64)kiter.fmer() >> wData;
-          mm = (uint64)kiter.fmer()  & wDataMask;
-          //fprintf(stderr, "F %s %s %u pp %lu mm %lu\n", kiter.fmer().toString(fstr), kiter.rmer().toString(rstr), kiter.fmer().merSize(), pp, mm);
+          pp = (kmdata)kiter.fmer() >> wData;
+          mm = (kmdata)kiter.fmer()  & wDataMask;
+          //fprintf(stderr, "useF F=%s R=%s ms=%u pp %lu mm %lu\n", kiter.fmer().toString(fstr), kiter.rmer().toString(rstr), kiter.fmer().merSize(), pp, mm);
         }
 
         else {
-          pp = (uint64)kiter.rmer() >> wData;
-          mm = (uint64)kiter.rmer()  & wDataMask;
-          //fprintf(stderr, "R %s %s %u pp %lu mm %lu\n", kiter.fmer().toString(fstr), kiter.rmer().toString(rstr), kiter.rmer().merSize(), pp, mm);
+          pp = (kmdata)kiter.rmer() >> wData;
+          mm = (kmdata)kiter.rmer()  & wDataMask;
+          //fprintf(stderr, "useR F=%s R=%s ms=%u pp %lu mm %lu\n", kiter.fmer().toString(fstr), kiter.rmer().toString(rstr), kiter.rmer().merSize(), pp, mm);
         }
 
         assert(pp < nPrefix);

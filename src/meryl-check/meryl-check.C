@@ -85,10 +85,10 @@ main(int argc, char **argv) {
   //  Open a database, load the kmers and values into 'check'.
 
   fprintf(stderr, "Open meryl database '%s'.\n", inputDBname);
-  kmerCountFileReader   *merylDB    = new kmerCountFileReader(inputDBname);
+  merylFileReader   *merylDB    = new merylFileReader(inputDBname);
 
   fprintf(stderr, "Convert to lookup table.\n");
-  //kmerCountExactLookup  *kmerLookup = new kmerCountExactLookup(merylDB, minV, maxV);
+  //merylExactLookup  *kmerLookup = new merylExactLookup(merylDB, minV, maxV);
 
   fprintf(stderr, "Create mapping to value.\n");
   uint64                 nKmers     = 0;

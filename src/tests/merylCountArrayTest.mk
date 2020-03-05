@@ -8,10 +8,11 @@ ifeq "$(strip ${TARGET_DIR})" ""
   TARGET_DIR   := ../$(OSTYPE)-$(MACHINETYPE)
 endif
 
-TARGET   := meryl-check
-SOURCES  := meryl-check.C \
+TARGET   := merylCountArrayTest
+SOURCES  := merylCountArrayTest.C \
+            ../meryl/merylCountArray.C
 
-SRC_INCDIRS  := . ../utility/src/utility
+SRC_INCDIRS  := . ../utility/src/utility ../meryl
 
 TGT_LDFLAGS := -L${TARGET_DIR}/lib
 TGT_LDLIBS  := -lmeryl

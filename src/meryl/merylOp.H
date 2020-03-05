@@ -104,17 +104,17 @@ private:
                             uint32  &wPrefix_,           //  Output: Number of bits in the prefix (== bucket address)
                             uint64  &nPrefix_,           //  Output: Number of prefixes there are (== number of buckets)
                             uint32  &wData_,             //  Output: Number of bits in kmer data
-                            uint64  &wDataMask_);        //  Output: A mask to return just the data of the mer);
+                            kmdata  &wDataMask_);        //  Output: A mask to return just the data of the mer);
 
 public:
   void    addInput(merylOperation *operation);
-  void    addInput(kmerCountFileReader *reader);
+  void    addInput(merylFileReader *reader);
   void    addInput(dnaSeqFile *sequence);
 #ifdef CANU
   void    addInput(sqStore *store, uint32 segment, uint32 segmentMax);
 #endif
 
-  void    addOutput(kmerCountFileWriter *writer);
+  void    addOutput(merylFileWriter *writer);
   char   *getOutputName(void);
 
   void    finalize(void);
@@ -166,7 +166,7 @@ public:
   bool    isMultiSet(void)         { return(_isMultiSet); };
 
   kmer   &theFMer(void)            { return(_kmer);       };
-  uint64  theValue(void)           { return(_value);      };
+  kmvalu  theValue(void)           { return(_value);      };
 
 public:
   void    doCounting(void);
@@ -190,7 +190,7 @@ public:
   void    count(uint32  wPrefix,
                 uint64  nPrefix,
                 uint32  wData,
-                uint64  wDataMask);
+                kmdata  wDataMask);
 
   void    reportHistogram(void);
   void    reportStatistics(void);
@@ -231,20 +231,22 @@ private:
   uint32                         _maxThreads;
   uint64                         _maxMemory;
 
-  kmerCountStatistics           *_stats;
+  merylHistogram                *_stats;
 
-  kmerCountFileWriter           *_output;    //  This is the main output object, but for streaming
-  kmerCountStreamWriter         *_writer;    //  operations, _writer is used.
+  merylFileWriter               *_output;    //  This is the main output object, but for streaming
+  merylStreamWriter             *_writer;    //  operations, _writer is used.
   FILE                          *_printer;
+
+  char                           _kmerString[65];
 
   uint32                         _fileNumber;
 
   uint32                         _actLen;
-  uint64                        *_actCount;
+  kmvalu                        *_actCount;
   uint32                        *_actIndex;
 
   kmer                           _kmer;
-  uint64                         _value;
+  kmvalu                         _value;
   bool                           _valid;
 
   static bool                    _onlyConfig;

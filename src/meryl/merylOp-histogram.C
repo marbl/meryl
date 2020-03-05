@@ -32,7 +32,7 @@ merylOperation::reportHistogram(void) {
 
   //  Tell the stream to load and return the histogram.
 
-  kmerCountStatistics *stats = _inputs[0]->_stream->stats();
+  merylHistogram *stats = _inputs[0]->_stream->stats();
 
   //  Now just dump it.
 
@@ -58,7 +58,7 @@ merylOperation::reportStatistics(void) {
 
   //  Tell the stream to load and return the histogram.
 
-  kmerCountStatistics *stats = _inputs[0]->_stream->stats();
+  merylHistogram *stats = _inputs[0]->_stream->stats();
 
   //  Now just dump it.
 

@@ -85,7 +85,7 @@ merylOperation::initializeThreshold(void) {
   for (uint32 ii=0; ii<_inputs.size(); ii++)
     _inputs[ii]->_stream->loadStatistics();
 
-  kmerCountStatistics  *stats = _inputs[0]->_stream->stats();
+  merylHistogram  *stats = _inputs[0]->_stream->stats();
 
 
 #warning "need to decide whic direction we're going?"
@@ -179,7 +179,7 @@ merylOperation::doCounting(void) {
   uint32  wPrefix   = 0;
   uint64  nPrefix   = 0;
   uint32  wData     = 0;
-  uint64  wDataMask = 0;
+  kmdata  wDataMask = 0;
 
   configureCounting(_maxMemory,
                     doSimple,
@@ -235,7 +235,7 @@ merylOperation::convertToPassThrough(char *inputName, uint32 threadFile) {
       (_onlyConfig  == true))
     return;
 
-  addInput(new kmerCountFileReader(inputName, threadFile));
+  addInput(new merylFileReader(inputName, threadFile));
 }
 
 
@@ -431,7 +431,7 @@ merylOperation::nextMer(void) {
       char  kmerString[256];
 
       for (uint32 ii=0; ii<_inputs.size(); ii++)
-        fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count " F_U64 " %s\n",
+        fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count %u %s\n",
                 _inputs[ii]->_name,
                 _inputs[ii]->_kmer.toString(kmerString),
                 _inputs[ii]->_value,
@@ -513,7 +513,7 @@ merylOperation::nextMer(void) {
 
     case opIncrease:
       if (UINT64_MAX - _actCount[0] < _mathConstant)
-        _value = UINT64_MAX;    //  OVERFLOW!
+        _value = ~((kmvalu)0);  //  OVERFLOW!
       else
         _value = _actCount[0] + _mathConstant;
       break;
@@ -527,7 +527,7 @@ merylOperation::nextMer(void) {
 
     case opMultiply:
       if (UINT64_MAX / _actCount[0] < _mathConstant)
-        _value = UINT64_MAX;    //  OVERFLOW!
+        _value = ~((kmvalu)0);   //  OVERFLOW!
       else
         _value = _actCount[0] * _mathConstant;
       break;
@@ -594,15 +594,15 @@ merylOperation::nextMer(void) {
 
     case opCompare:
       if       (_actLen == 1) {
-        char  str[33];
+        char  str[65];
 
         fprintf(stdout, "kmer %s only in input %u\n",
                 _kmer.toString(str), _actIndex[0]);
       }
       else if ((_actLen == 2) && (_actCount[0] != _actCount[1])) {
-        char  str[33];
+        char  str[65];
 
-        fprintf(stdout, "kmer %s has value %lu in input 1 != value %lu in input 2\n",
+        fprintf(stdout, "kmer %s has value %u in input 1 != value %u in input 2\n",
                 _kmer.toString(str), _actCount[0], _actCount[1]);
       }
       else {
@@ -627,7 +627,7 @@ merylOperation::nextMer(void) {
 
   if (_verbosity >= sayDetails) {
     char  kmerString[256];
-    fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation %s with kmer %s count " F_U64 "%s\n",
+    fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation %s with kmer %s count %u%s\n",
             toString(_operation), _kmer.toString(kmerString), _value, ((_output != NULL) && (_value != 0)) ? " OUTPUT" : "");
     fprintf(stderr, "\n");
   }
@@ -654,7 +654,7 @@ merylOperation::nextMer(void) {
       flags[1] = 'P';
     }
 
-    fprintf(_printer, "%s\t" F_U64 "\n", _kmer.toString(kmerString), _value);
+    fprintf(_printer, "%s\t%u\n", _kmer.toString(kmerString), _value);
   }
 
   //  Now just return and let the client query us to get the kmer and value.

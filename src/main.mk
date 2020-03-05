@@ -40,13 +40,16 @@ SOURCES      := utility/src/utility/edlib.C \
                 \
                 utility/src/utility/sequence.C \
                 \
-                utility/src/utility/kmers.C \
+                utility/src/utility/types.C \
+                \
+                utility/src/utility/kmers-exact.C \
+                utility/src/utility/kmers-files.C \
+                utility/src/utility/kmers-histogram.C \
                 utility/src/utility/kmers-reader.C \
-                utility/src/utility/kmers-writer.C \
                 utility/src/utility/kmers-writer-block.C \
                 utility/src/utility/kmers-writer-stream.C \
-                utility/src/utility/kmers-statistics.C \
-                utility/src/utility/kmers-exact.C \
+                utility/src/utility/kmers-writer.C \
+                utility/src/utility/kmers.C \
                 \
                 utility/src/utility/bits.C \
                 \
@@ -83,3 +86,7 @@ SUBMAKEFILES := meryl/meryl.mk \
                 meryl-import/meryl-import.mk \
                 meryl-lookup/meryl-lookup.mk \
                 meryl-check/meryl-check.mk
+
+ifeq ($(BUILDTESTS), 1)
+SUBMAKEFILES += tests/merylCountArrayTest.mk
+endif
