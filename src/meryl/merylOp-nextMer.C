@@ -175,11 +175,12 @@ merylOperation::doCounting(void) {
   for (uint32 ii=0; ii<_inputs.size(); ii++)
     _inputs[ii]->initialize();
 
-  bool    doSimple  = false;
-  uint32  wPrefix   = 0;
-  uint64  nPrefix   = 0;
-  uint32  wData     = 0;
-  kmdata  wDataMask = 0;
+  bool    doSimple   = false;
+  bool    doThreaded = true;
+  uint32  wPrefix    = 0;
+  uint64  nPrefix    = 0;
+  uint32  wData      = 0;
+  kmdata  wDataMask  = 0;
 
   configureCounting(_maxMemory,
                     doSimple,
@@ -199,10 +200,20 @@ merylOperation::doCounting(void) {
 
   omp_set_num_threads(_maxThreads);
 
-  if (doSimple)
+  if (doSimple) {
+    fprintf(stderr, "Start counting with SIMPLE method.\n");
     countSimple();
-  else
+  }
+
+  else if (doThreaded) {
+    fprintf(stderr, "Start counting with THREADED method.\n");
+    countThreads(wPrefix, nPrefix, wData, wDataMask);
+  }
+
+  else {
+    fprintf(stderr, "Start counting with SEQUENTIAL method.\n");
     count(wPrefix, nPrefix, wData, wDataMask);
+  }
 
   clearInputs();
 

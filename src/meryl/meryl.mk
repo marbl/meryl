@@ -14,6 +14,7 @@ SOURCES  := meryl.C \
             merylInput.C \
             merylOp-count.C \
             merylOp-countSimple.C \
+            merylOp-countThreads.C \
             merylOp-histogram.C \
             merylOp-nextMer.C \
             merylOp.C
