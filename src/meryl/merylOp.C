@@ -221,7 +221,7 @@ merylOperation::finalize(void) {
 
 
 void
-merylOperation::addPrinter(FILE *printer) {
+merylOperation::addPrinter(FILE *printer, bool ACGTorder) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding printer to %s from operation '%s'\n",
@@ -234,7 +234,8 @@ merylOperation::addPrinter(FILE *printer) {
   if (_operation == opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
 
-  _printer = printer;
+  _printer        = printer;
+  _printACGTorder = ACGTorder;
 }
 
 

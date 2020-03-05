@@ -138,14 +138,14 @@ public:
         _stacks[ff].top()->addOutput(writer);
   };
 
-  void    addPrinter(char *printerName) {
+  void    addPrinter(char *printerName, bool ACGTorder) {
     char  T[FILENAME_MAX+1] = { 0 };
     char  N[FILENAME_MAX+1] = { 0 };
 
     if ((printerName == NULL) ||
         (strcmp(printerName, "-") == 0)) {
       for (uint32 ff=0; ff<_nFiles; ff++)
-        _stacks[ff].top()->addPrinter(stdout);
+        _stacks[ff].top()->addPrinter(stdout, ACGTorder);
       return;
     }
 
@@ -167,7 +167,7 @@ public:
       else
         snprintf(N, FILENAME_MAX, "%s%0*d%s", pre, len, ff, suf);
 
-      _stacks[ff].top()->addPrinter(AS_UTL_openOutputFile(N));
+      _stacks[ff].top()->addPrinter(AS_UTL_openOutputFile(N), ACGTorder);
    }
   };
 
@@ -243,6 +243,8 @@ main(int argc, char **argv) {
 
   char                     *writerName     = NULL;
   char                     *printerName    = NULL;
+
+  bool                      printACGTorder = false;
 
   merylFileReader          *reader         = NULL;
   dnaSeqFile               *sequence       = NULL;
@@ -535,7 +537,12 @@ main(int argc, char **argv) {
     //  Handle printer names.
 
     else if (0 == strcmp(optString, "print")) {           //  Flag the next arg as the output name for printing
-      printerArg = arg + 1;                               //  if we see 'print'.
+      printerArg     = arg + 1;                           //  if we see 'print'.
+      printACGTorder = false;
+    }
+    else if (0 == strcmp(optString, "printACGT")) {       //  Flag the next arg as the output name for printing
+      printerArg     = arg + 1;                           //  if we see 'print'.
+      printACGTorder = true;
     }
 
     else if ((arg == printerArg) &&                       //  If this is the printer name, and not a meryl database, make
@@ -607,7 +614,7 @@ main(int argc, char **argv) {
 
     if ((printerName != NULL) &&
         (opStack.size() > 0)) {
-      opStack.addPrinter(printerName);
+      opStack.addPrinter(printerName, printACGTorder);
       delete [] printerName;
       printerName = NULL;
     }
