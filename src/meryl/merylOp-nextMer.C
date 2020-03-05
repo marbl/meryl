@@ -189,15 +189,6 @@ merylOperation::doCounting(void) {
                     wData,
                     wDataMask);
 
-  //if (_operation == opCountSimple)
-  //  doSimple = true;
-
-  if (_kmer.merSize() <= 16)
-    doSimple = true;
-
-  if (_maxMemory < (uint64)10 * 1024 * 1024 * 1024)
-    doSimple = false;
-
   omp_set_num_threads(_maxThreads);
 
   if (doSimple) {
