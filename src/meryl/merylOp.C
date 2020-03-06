@@ -164,10 +164,10 @@ merylOperation::addInput(dnaSeqFile *sequence) {
 
 
 
-#ifdef CANU
 void
 merylOperation::addInput(sqStore *store, uint32 segment, uint32 segmentMax) {
 
+#ifdef CANU
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from sqStore '%s' to operation '%s'\n",
             store->sqStore_path(), toString(_operation));
@@ -177,8 +177,9 @@ merylOperation::addInput(sqStore *store, uint32 segment, uint32 segmentMax) {
 
   if (isCounting() == false)
     fprintf(stderr, "ERROR: operation '%s' cannot use sqStore as inputs.\n", toString(_operation)), exit(1);
-}
+#else
 #endif
+}
 
 
 

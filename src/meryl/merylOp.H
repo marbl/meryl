@@ -93,9 +93,7 @@ private:
   void    checkInputs(const char *name);
 
   uint64  guesstimateNumberOfkmersInInput_dnaSeqFile(dnaSeqFile *sequence);
-#ifdef CANU
   uint64  guesstimateNumberOfkmersInInput_sqStore(sqStore *store, uint32 bgnID, uint32 endID);
-#endif
   uint64  guesstimateNumberOfkmersInInput(void);
 
   //  Returns true
@@ -110,9 +108,7 @@ public:
   void    addInput(merylOperation *operation);
   void    addInput(merylFileReader *reader);
   void    addInput(dnaSeqFile *sequence);
-#ifdef CANU
   void    addInput(sqStore *store, uint32 segment, uint32 segmentMax);
-#endif
 
   void    addOutput(merylFileWriter *writer);
   char   *getOutputName(void);

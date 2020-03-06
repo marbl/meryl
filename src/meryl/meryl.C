@@ -118,11 +118,9 @@ public:
     _stacks[0].top()->addInput(sequence);
   };
 
-#ifdef CANU
   void    addInput(sqStore *store, uint32 segment, uint32 segmentMax) {
     _stacks[0].top()->addInput(store, segment, segmentMax);
   };
-#endif
 
   //  Counting operations only need the output associated with the first
   //  file, and associating with other files just makes life difficult and/or
@@ -253,9 +251,7 @@ main(int argc, char **argv) {
 
   merylFileReader          *reader         = NULL;
   dnaSeqFile               *sequence       = NULL;
-#ifdef CANU
   sqStore                  *store          = NULL;
-#endif
 
   uint32                    terminating    = 0;
 
@@ -456,15 +452,16 @@ main(int argc, char **argv) {
       continue;
     }
 
-    //  Segment of input, for counting from seqStore.
-#ifdef CANU
+    //  Segment of input, for counting from seqStore.  Useless otherwise.
     else if ((optStringLen > 8) &&
              (strncmp(optString, "segment=", 8) == 0) &&
              (isNumber(optString + 8, '/') == true)) {
       decodeRange(optString + 8, segment, segmentMax);
+#ifndef CANU
+      fprintf(stderr, "WARNING: option '%s' ignored, available only with Canu support.\n", optString);
+#endif
       continue;
     }
-#endif
 
     else if (strncmp(optString, "-V", 2) == 0) {      //  Anything that starts with -V
       for (uint32 vv=1; vv<strlen(optString); vv++)   //  increases verbosity by the
@@ -574,18 +571,22 @@ main(int argc, char **argv) {
       sequence = new dnaSeqFile(inoutName);
     }
 
-#ifdef CANU
     else if ((opStack.size() > 0) &&                      //  If a counting command exists, add a Canu seqStore.
              (opStack.isCounting()   == true) &&
              (fileExists(sqInfName)  == true) &&
              (fileExists(sqRdsName)  == true)) {
+#ifdef CANU
       store = new sqStore(inoutName);
-    }
+#else
+      char *s = new char [1024];
+      snprintf(s, 1024, "Detected seqStore input '%s', but no Canu support available.", inoutName);
+      err.push_back(s);
 #endif
+    }
 
     else {
       char *s = new char [1024];
-      snprintf(s, 1024, "Don't know what to do with '%s'.", optString);
+      snprintf(s, 1024, "Can't interpret '%s': not a meryl command, option, or recognized input file.", optString);
       err.push_back(s);
     }
 
@@ -643,7 +644,6 @@ main(int argc, char **argv) {
       sequence = NULL;
     }
 
-#ifdef CANU
     if ((store != NULL) &&
         (opStack.size() > 0)) {
       opStack.addInput(store, segment, segmentMax);
@@ -651,7 +651,6 @@ main(int argc, char **argv) {
       segment    = 1;
       segmentMax = 1;
     }
-#endif
 
     //  Finally, if we've been told to terminate the command, do so.
 
