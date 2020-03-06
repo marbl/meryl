@@ -114,8 +114,8 @@ public:
   //  dnaSeqFile and sqStore inputs are only used by counting, and that
   //  doesn't use the threaded merylOperation scheme here.
   //
-  void    addInput(dnaSeqFile *sequence) {
-    _stacks[0].top()->addInput(sequence);
+  void    addInput(dnaSeqFile *sequence, bool doCompression) {
+    _stacks[0].top()->addInput(sequence, doCompression);
   };
 
   void    addInput(sqStore *store, uint32 segment, uint32 segmentMax) {
@@ -247,6 +247,7 @@ main(int argc, char **argv) {
   char                     *writerName     = NULL;
   char                     *printerName    = NULL;
 
+  bool                      doCompression  = false;
   bool                      printACGTorder = false;
 
   merylFileReader          *reader         = NULL;
@@ -502,6 +503,8 @@ main(int argc, char **argv) {
     else if (0 == strcmp(optString, "count-forward"))          opName = opCountForward;
     else if (0 == strcmp(optString, "count-reverse"))          opName = opCountReverse;
 
+    else if (0 == strcmp(optString, "compress"))               doCompression = true;
+
     else if (0 == strcmp(optString, "less-than"))              opName = opLessThan;
     else if (0 == strcmp(optString, "greater-than"))           opName = opGreaterThan;
     else if (0 == strcmp(optString, "at-least"))               opName = opAtLeast;
@@ -640,7 +643,7 @@ main(int argc, char **argv) {
 
     if ((sequence != NULL) &&
         (opStack.size() > 0)) {
-      opStack.addInput(sequence);
+      opStack.addInput(sequence, doCompression);
       sequence = NULL;
     }
 

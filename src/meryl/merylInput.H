@@ -37,7 +37,7 @@ class merylInput {
 public:
   merylInput(merylOperation *o);
   merylInput(const char *n, merylFileReader *s, uint32 fileNum=UINT32_MAX);
-  merylInput(const char *n, dnaSeqFile *f);
+  merylInput(const char *n, dnaSeqFile *f, bool doCompression);
   merylInput(const char *n, sqStore *s, uint32 segment, uint32 segmentMax);
   ~merylInput();
 
@@ -94,6 +94,11 @@ public:
   sqRead                   *_read;
   uint32                    _readID;
   uint32                    _readPos;
+
+  //  For homopoly compression, a flag, and the last base read.
+
+  bool                      _homopolyCompress;
+  char                      _lastByte;
 };
 
 #endif  //  MERYLINPUT_H

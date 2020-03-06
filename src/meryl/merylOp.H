@@ -107,7 +107,7 @@ private:
 public:
   void    addInput(merylOperation *operation);
   void    addInput(merylFileReader *reader);
-  void    addInput(dnaSeqFile *sequence);
+  void    addInput(dnaSeqFile *sequence, bool doCompression);
   void    addInput(sqStore *store, uint32 segment, uint32 segmentMax);
 
   void    addOutput(merylFileWriter *writer);

@@ -38,6 +38,9 @@ merylInput::merylInput(merylOperation *o) {
   _readID           = 0;
   _readPos          = UINT32_MAX;
 
+  _homopolyCompress = false;
+  _lastByte         = 0;
+
   memset(_name, 0, FILENAME_MAX+1);
   strncpy(_name, toString(_operation->getOperation()), FILENAME_MAX);
 }
@@ -65,6 +68,9 @@ merylInput::merylInput(const char *n, merylFileReader *s, uint32 threadFile) {
   _readID           = 0;
   _readPos          = UINT32_MAX;
 
+  _homopolyCompress = false;
+  _lastByte         = 0;
+
   memset(_name, 0, FILENAME_MAX+1);
   strncpy(_name, n, FILENAME_MAX);
 }
@@ -89,6 +95,9 @@ merylInput::merylInput(const char *n, dnaSeqFile *f, bool doCompression) {
   _readID           = 0;
   _readPos          = UINT32_MAX;
 
+  _homopolyCompress = doCompression;
+  _lastByte         = 0;
+
   memset(_name, 0, FILENAME_MAX+1);
   strncpy(_name, n, FILENAME_MAX);
 }
@@ -110,6 +119,9 @@ merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segment
 
   _sqBgn            = 0;
   _sqEnd            = 0;
+
+  _homopolyCompress = false;
+  _lastByte         = 0;
 }
 
 #else
@@ -128,6 +140,8 @@ merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segment
   _sqBgn            = 1;                                   //  C-style, not the usual
   _sqEnd            = _store->sqStore_lastReadID() + 1;   //  sqStore semantics!
 
+  _homopolyCompress = false;
+  _lastByte         = 0;
 
   if (segmentMax > 1) {
     uint64  nBases = 0;
@@ -305,6 +319,16 @@ merylInput::loadBases(char    *seq,
   if (_operation)   gotBases = false;
   if (_sequence)    gotBases = _sequence->loadBases(seq, maxLength, seqLength, endOfSequence);
   if (_store)       gotBases = loadBasesFromCanu(seq, maxLength, seqLength, endOfSequence);
+
+  //  Homopoly compress if there are bases.
+  if ((gotBases) && (_homopolyCompress))
+    seqLength = homopolyCompress(seq, seqLength, seq, NULL, _lastByte);
+
+  //  Save the last byte of the buffer.
+  if ((seqLength > 0) && (endOfSequence == false))
+    _lastByte = seq[seqLength - 1];
+  else
+    _lastByte = 0;
 
   return(gotBases);
 }

@@ -149,13 +149,13 @@ merylOperation::addInput(merylFileReader *reader) {
 
 
 void
-merylOperation::addInput(dnaSeqFile *sequence) {
+merylOperation::addInput(dnaSeqFile *sequence, bool doCompression) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
             sequence->filename(), toString(_operation));
 
-  _inputs.push_back(new merylInput(sequence->filename(), sequence));
+  _inputs.push_back(new merylInput(sequence->filename(), sequence, doCompression));
   _actIndex[_actLen++] = _inputs.size() - 1;
 
   if (isCounting() == false)
