@@ -648,10 +648,13 @@ merylOperation::nextMer(void) {
     if (_printACGTorder == true)
       pk.recanonicalizeACGTorder();
 
-    fputs(pk.toString(_kmerString), _printer);
-    fputc('\t', _printer);
-    fputs(toDec(_value), _printer);
-    fputc('\n', _printer);
+#pragma omp critical (printLock)
+    {
+      fputs(pk.toString(_kmerString), _printer);
+      fputc('\t', _printer);
+      fputs(toDec(_value), _printer);
+      fputc('\n', _printer);
+    }
   }
 
   //  Now just return and let the client query us to get the kmer and value.
