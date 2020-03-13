@@ -143,6 +143,11 @@ findExpectedSimpleSize(uint64  nKmerEstimate,
   fprintf(stderr, "-----------\n");
   fprintf(stderr, "\n");
 
+  if (2 * kmerTiny::merSize() - 2 * countSuffixLength > 42) {    //  21-mers need 8 TB memory for simple mode.
+    fprintf(stderr, "  Not possible.\n");                        //  Just give up and say we can't do bigger.
+    return;                                                      //  Of note, 31-mers (possibly 30) overflow
+  }                                                              //  lowMem.
+
   if (countSuffixLength == 0)
     fprintf(stderr, "  %u-mers\n", kmerTiny::merSize());
   else
