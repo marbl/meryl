@@ -371,7 +371,7 @@ merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maxim
   if (kmerTiny::merSize() == 0)
     fprintf(stderr, "ERROR: Kmer size not supplied with modifier k=<kmer-size>.\n"), exit(1);
 
-  if ((_output == NULL) && (_onlyConfig == false))
+  if ((_outputO == NULL) && (_onlyConfig == false))
     fprintf(stderr, "ERROR: No output specified for count operation.\n"), exit(1);
 
   if (_expNumKmers == 0)
@@ -523,9 +523,9 @@ merylOperation::count(uint32  wPrefix,
   //           kmer -- [ wPrefix (18) = prefixSize               | wData (36) ]
   //           file -- [ numFileBits  | prefixSize - numFileBits ]
 
-  _output->initialize(wPrefix);
+  _outputO->initialize(wPrefix);
 
-  merylBlockWriter  *_writer = _output->getBlockWriter();
+  merylBlockWriter  *_writer = _outputP->getBlockWriter();
 
   //  Allocate buckets.  The buckets don't allocate space for mers until they're added,
   //  and allocate space for these mers in blocks of 8192 * 64 bits.
@@ -616,15 +616,15 @@ merylOperation::count(uint32  wPrefix,
 
       if (memUsed > _maxMemory) {
         fprintf(stderr, "Memory full.  Writing results to '%s', using " F_S32 " threads.\n",
-                _output->filename(), omp_get_max_threads());
+                _outputO->filename(), omp_get_max_threads());
         fprintf(stderr, "\n");
 
 #pragma omp parallel for schedule(dynamic, 1)
-        for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
+        for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
           //fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
-          //        omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
+          //        omp_get_thread_num(), ff, _outputO->firstPrefixInFile(ff), _outputO->lastPrefixInFile(ff));
 
-          for (uint64 pp=_output->firstPrefixInFile(ff); pp <= _output->lastPrefixInFile(ff); pp++) {
+          for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
             data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
             data[pp].dumpCountedKmers(_writer);   //  Write that list to disk.
             data[pp].removeCountedKmers();        //  And remove the in-core data.
@@ -659,17 +659,17 @@ merylOperation::count(uint32  wPrefix,
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _output->filename(), omp_get_max_threads());
+          _outputO->filename(), omp_get_max_threads());
 
   //for (uint64 pp=0; pp<nPrefix; pp++)
-  //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _output->fileNumber(pp));
+  //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _outputO->fileNumber(pp));
 
 #pragma omp parallel for schedule(dynamic, 1)
-  for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
+  for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
     //fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
-    //        omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
+    //        omp_get_thread_num(), ff, _outputO->firstPrefixInFile(ff), _outputO->lastPrefixInFile(ff));
 
-    for (uint64 pp=_output->firstPrefixInFile(ff); pp <= _output->lastPrefixInFile(ff); pp++) {
+    for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
       data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
       data[pp].dumpCountedKmers(_writer);   //  Write that list to disk.
       data[pp].removeCountedKmers();        //  And remove the in-core data.

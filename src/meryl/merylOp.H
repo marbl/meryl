@@ -85,7 +85,11 @@ typedef uint16 lowBits_t;
 
 class merylOperation {
 public:
-  merylOperation(merylOp op=opNothing, uint32 ff=UINT32_MAX, uint32 threads=1, uint64 memory=0);
+  merylOperation();
+  merylOperation(merylOperation *op,
+                 uint32 fileNum,
+                 uint32 nInputs,
+                 uint32 threads, uint64 memory);
   ~merylOperation();
 
 private:
@@ -105,18 +109,17 @@ private:
                             kmdata  &wDataMask_);        //  Output: A mask to return just the data of the mer);
 
 public:
-  void    addInput(merylOperation *operation);
-  void    addInput(merylFileReader *reader);
-  void    addInput(dnaSeqFile *sequence, bool doCompression);
-  void    addInput(sqStore *store, uint32 segment, uint32 segmentMax);
+  void    addInputFromOp  (merylOperation *operation);
+  void    addInputFromDB  (char *dbName);
+  void    addInputFromCanu(char *stName, uint32 segment, uint32 segmentMax);
+  void    addInputFromSeq (char *sqName, bool doCompression);
 
-  void    addOutput(merylFileWriter *writer);
-  char   *getOutputName(void);
+  void    addOutput(char *wrName);
+  void    addPrinter(char *prName, bool ACGTorder);
+
+
 
   void    finalize(void);
-
-  void    addPrinter(FILE *printer, bool ACGTorder);
-  char   *getPrinterName(void);
 
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
@@ -176,11 +179,10 @@ public:
 
 public:
   void    doCounting(void);
-  void    convertToPassThrough(char *inputName, uint32 threadFile);
 
 public:
   void    initializeThreshold(void);
-  bool    initialize(void);
+  bool    initialize(bool isMasterTree=false);
 
 private:
   void    nextMer_findSmallestNormal(void);
@@ -227,47 +229,51 @@ private:
   void    findSumCount(void);
 
   vector<merylInput *>           _inputs;
-  bool                           _isMultiSet;
+  bool                           _isMultiSet = false;
 
-  merylOp                        _operation;
+  merylOp                        _operation = opNothing;
 
-  uint64                         _mathConstant;
-  uint64                         _threshold;
-  double                         _fracDist;
-  double                         _wordFreq;
+  uint64                         _mathConstant = 0;
+  uint64                         _threshold    = UINT64_MAX;
+  double                         _fracDist     = DBL_MAX;
+  double                         _wordFreq     = DBL_MAX;
 
-  char                           _countSuffixString[65];
-  uint32                         _countSuffixLength;
+  char                           _countSuffixString[65] = {0};
+  uint32                         _countSuffixLength     =  0;
   kmer                           _countSuffix;
 
-  uint64                         _expNumKmers;
+  uint64                         _expNumKmers = 0;
 
-  uint32                         _maxThreads;
-  uint64                         _maxMemory;
+  uint32                         _maxThreads = 0;
+  uint64                         _maxMemory  = 0;
 
-  merylHistogram                *_stats;
+  merylHistogram                *_stats = nullptr;
 
-  merylFileWriter               *_output;    //  This is the main output object, but for streaming
-  merylStreamWriter             *_writer;    //  operations, _writer is used.
-  FILE                          *_printer;
+  merylFileWriter               *_outputO = nullptr;    //  Main output object (this pointer owns the object)
+  merylFileWriter               *_outputP = nullptr;    //  Main output object
+  merylStreamWriter             *_writer  = nullptr;    //  Per-thread output
 
-  bool                           _printACGTorder;
+  FILE                          *_printer        = nullptr;
+  char                          *_printerName    = nullptr;
+  bool                           _printACGTorder = false;
 
-  char                           _kmerString[65];
+  char                           _kmerString[65] = {0};
 
-  uint32                         _fileNumber;
+  uint32                         _fileNumber = UINT32_MAX;
 
-  uint32                         _actLen;
-  kmvalu                        *_actCount;
-  uint32                        *_actIndex;
+  uint32                         _actLen   = 0;
+  kmvalu                        *_actCount = nullptr;
+  uint32                        *_actIndex = nullptr;
 
   kmer                           _kmer;
-  kmvalu                         _value;
-  bool                           _valid;
+  kmvalu                         _value = 0;
+  bool                           _valid = true;
 
   static bool                    _onlyConfig;
   static bool                    _showProgress;
   static merylVerbosity          _verbosity;
+
+  friend class merylCommandBuilder;
 };
 
 

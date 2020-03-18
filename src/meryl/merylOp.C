@@ -26,42 +26,77 @@ bool            merylOperation::_showProgress = false;
 merylVerbosity  merylOperation::_verbosity    = sayStandard;
 
 
-merylOperation::merylOperation(merylOp op, uint32 ff, uint32 threads, uint64 memory) {
 
-  _isMultiSet    = false;  //  set in initialize().
+merylOperation::merylOperation(void) {
+}
 
-  _operation     = op;
 
-  _mathConstant  = 0;
-  _threshold     = UINT64_MAX;
-  _fracDist      = DBL_MAX;
-  _wordFreq      = DBL_MAX;
 
-  memset(_countSuffixString, 0, sizeof(char) * 65);
-  _countSuffixLength = 0;
-  //_countSuffix.clear();   //  No clear?
+FILE *
+openPerThreadOutput(FILE *prFile, char *prName, uint32 fileNum) {
+  char  T[FILENAME_MAX+1] = { 0 };
+  char  N[FILENAME_MAX+1] = { 0 };
 
-  _expNumKmers   = 0;
+  if (prFile != nullptr)   //  If we have a file already, it's stdout.
+    return(prFile);
 
+  if (prName == nullptr)   //  If no name, no print requested.
+    return(nullptr);
+
+  strncpy(T, prName, FILENAME_MAX);
+
+  char   *pre = T;
+  char   *suf = strchr(T, '#');
+  uint32  len = 0;
+
+  while ((suf) && (*suf == '#')) {
+    *suf = 0;
+    len++;
+    suf++;
+  }
+
+  if (len == 0)
+    snprintf(N, FILENAME_MAX, "%s.%02d", prName, fileNum);
+  else
+    snprintf(N, FILENAME_MAX, "%s%0*d%s", pre, len, fileNum, suf);
+
+  return(AS_UTL_openOutputFile(N));
+}
+
+
+merylOperation::merylOperation(merylOperation *op,
+                               uint32 fileNum,
+                               uint32 nInputs,
+                               uint32 threads, uint64 memory) {
+
+  //  Set our operation and basic parameters.
+  _operation     = op->_operation;
+
+  _mathConstant  = op->_mathConstant;
+  _threshold     = op->_threshold;
+  _fracDist      = op->_fracDist;
+  _wordFreq      = op->_wordFreq;
+
+  //  Limit resource usage.
   _maxThreads    = threads;
   _maxMemory     = memory;
 
-  _stats         = NULL;
+  //  Remember which piece we're processing.
+  _fileNumber    = fileNum;
 
-  _output        = NULL;
-  _writer        = NULL;
+  //  Allocate space for the input buffers.
+  _actCount      = new kmvalu [nInputs];
+  _actIndex      = new uint32 [nInputs];
 
-  _printer       = NULL;
+  //  Set pointers to the database output object.
+  _outputO = nullptr;
+  _outputP = op->_outputO;
+  _writer  = nullptr;
 
-  _fileNumber    = ff;
-
-  _actLen        = 0;
-  _actCount      = new kmvalu [1024];
-  _actIndex      = new uint32 [1024];
-
-  _value         = 0;
-  _valid         = true;
+  //  Open per-thread printing output.
+  _printer = openPerThreadOutput(op->_printer, op->_printerName, _fileNumber);
 }
+
 
 
 merylOperation::~merylOperation() {
@@ -70,13 +105,14 @@ merylOperation::~merylOperation() {
 
   delete    _stats;
 
-  assert(_writer == NULL);
+  delete    _outputO;
 
-  if (_fileNumber == 0)   //  The output is shared among all operations for this set of files.
-    delete  _output;      //  Only one operation can delete it.
+  assert(_writer == NULL);
 
   if (_printer != stdout)
     AS_UTL_closeFile(_printer);
+
+  delete [] _printerName;
 
   delete [] _actCount;
   delete [] _actIndex;
@@ -115,14 +151,16 @@ merylOperation::checkInputs(const char *name) {
 
 
 void
-merylOperation::addInput(merylOperation *operation) {
+merylOperation::addInputFromOp(merylOperation *operation) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from operation '%s' to operation '%s'\n",
             toString(operation->_operation), toString(_operation));
 
   _inputs.push_back(new merylInput(operation));
-  _actIndex[_actLen++] = _inputs.size() - 1;
+
+  if (_actIndex)
+    _actIndex[_actLen++] = _inputs.size() - 1;
 
   if (operation->_operation == opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't be used as an input: it doesn't supply kmers.\n", toString(operation->_operation)), exit(1);
@@ -135,28 +173,36 @@ merylOperation::addInput(merylOperation *operation) {
 
 
 void
-merylOperation::addInput(merylFileReader *reader) {
+merylOperation::addInputFromDB(char *dbName) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
-            reader->filename(), toString(_operation));
+            dbName, toString(_operation));
 
-  _inputs.push_back(new merylInput(reader->filename(), reader));
-  _actIndex[_actLen++] = _inputs.size() - 1;
+  merylFileReader *db = new merylFileReader(dbName);
 
-  checkInputs(reader->filename());
+  _inputs.push_back(new merylInput(db->filename(), db, _fileNumber));
+
+  if (_actIndex)
+    _actIndex[_actLen++] = _inputs.size() - 1;
+
+  checkInputs(db->filename());
 }
 
 
 void
-merylOperation::addInput(dnaSeqFile *sequence, bool doCompression) {
+merylOperation::addInputFromSeq(char *sqName, bool doCompression) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
-            sequence->filename(), toString(_operation));
+            sqName, toString(_operation));
 
-  _inputs.push_back(new merylInput(sequence->filename(), sequence, doCompression));
-  _actIndex[_actLen++] = _inputs.size() - 1;
+  dnaSeqFile *sq = new dnaSeqFile(sqName);
+
+  _inputs.push_back(new merylInput(sq->filename(), sq, doCompression));
+
+  if (_actIndex)
+    _actIndex[_actLen++] = _inputs.size() - 1;
 
   if (isCounting() == false)
     fprintf(stderr, "ERROR: operation '%s' cannot use sequence files as inputs.\n", toString(_operation)), exit(1);
@@ -165,15 +211,19 @@ merylOperation::addInput(dnaSeqFile *sequence, bool doCompression) {
 
 
 void
-merylOperation::addInput(sqStore *store, uint32 segment, uint32 segmentMax) {
+merylOperation::addInputFromCanu(char *sqName, uint32 segment, uint32 segmentMax) {
 
 #ifdef CANU
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from sqStore '%s' to operation '%s'\n",
-            store->sqStore_path(), toString(_operation));
+            sqName, toString(_operation));
+
+  sqStore *store = new sqStore(sqName);
 
   _inputs.push_back(new merylInput(store->sqStore_path(), store, segment, segmentMax));
-  _actIndex[_actLen++] = _inputs.size() - 1;
+
+  if (_actIndex)
+    _actIndex[_actLen++] = _inputs.size() - 1;
 
   if (isCounting() == false)
     fprintf(stderr, "ERROR: operation '%s' cannot use sqStore as inputs.\n", toString(_operation)), exit(1);
@@ -184,30 +234,50 @@ merylOperation::addInput(sqStore *store, uint32 segment, uint32 segmentMax) {
 
 
 void
-merylOperation::addOutput(merylFileWriter *writer) {
+merylOperation::addOutput(char *wrName) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding output to file '%s' from operation '%s'\n",
-            writer->filename(), toString(_operation));
+            wrName, toString(_operation));
 
-  if (_output)
+  if (_outputO)
     fprintf(stderr, "ERROR: already have an output set!\n"), exit(1);
 
   if (_operation == opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
 
-  _output = writer;
+  _outputO = new merylFileWriter(wrName);
 }
 
 
 
-char *
-merylOperation::getOutputName(void) {
-  if (_output)
-    return(_output->filename());
-  else
-    return(NULL);
+void
+merylOperation::addPrinter(char *prName, bool ACGTorder) {
+
+  if (_verbosity >= sayConstruction)
+    fprintf(stderr, "Adding printer to %s from operation '%s'\n",
+            (prName == nullptr) ? "(stdout)" : prName,
+            toString(_operation));
+
+  if (_printerName)
+    fprintf(stderr, "ERROR: already have a printer set!\n"), exit(1);
+
+  if (_operation == opHistogram)
+    fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
+
+  //  For stdout, prFile is defined.  For files, it is nullptr.
+
+  if (prName == nullptr) {
+    _printer        = stdout;
+    _printerName    = duplicateString("(stdout)");
+    _printACGTorder = ACGTorder;
+  } else {
+    _printer        = nullptr;
+    _printerName    = duplicateString(prName);
+    _printACGTorder = ACGTorder;
+  }
 }
+
 
 
 
@@ -218,30 +288,10 @@ void
 merylOperation::finalize(void) {
 
   clearInputs();
-
-  delete [] _actCount;   _actCount = NULL;
-  delete [] _actIndex;   _actIndex = NULL;
 }
 
 
 
-void
-merylOperation::addPrinter(FILE *printer, bool ACGTorder) {
-
-  if (_verbosity >= sayConstruction)
-    fprintf(stderr, "Adding printer to %s from operation '%s'\n",
-            (printer == stdout) ? "(stdout)" : "(a file)",
-            toString(_operation));
-
-  if (_printer)
-    fprintf(stderr, "ERROR: already have a printer set!\n"), exit(1);
-
-  if (_operation == opHistogram)
-    fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
-
-  _printer        = printer;
-  _printACGTorder = ACGTorder;
-}
 
 
 

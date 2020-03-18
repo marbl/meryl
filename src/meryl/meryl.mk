@@ -10,6 +10,7 @@ endif
 
 TARGET   := meryl
 SOURCES  := meryl.C \
+            merylCommandBuilder.C \
             merylCountArray.C \
             merylInput.C \
             merylOp-count.C \

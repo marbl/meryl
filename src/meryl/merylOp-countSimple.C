@@ -177,13 +177,13 @@ merylOperation::countSimple(void) {
   uint64                 sMask      = ((uint64)1 << wSuffix) - 1;
   uint64                 cSuffix    = ((kmdata)_countSuffix);
 
-  _output->initialize(wPrefix);
+  _outputO->initialize(wPrefix);
 
-  merylBlockWriter  *_writer = _output->getBlockWriter();
+  merylBlockWriter  *_writer = _outputO->getBlockWriter();
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _output->filename(), omp_get_max_threads());
+          _outputO->filename(), omp_get_max_threads());
   fprintf(stderr, "             [ file ][  prefix ][  suffix ][ count-suffix ]\n");
   fprintf(stderr, "   widths    [    6 ][ %7u ][ %7u ][ %12u ]\n", wPrefix - 6, wSuffix, 2 * _countSuffixLength);
   fprintf(stderr, "   number    [   64 ][ %7lu ][ %7lu ][ %12s ]\n", nPrefix / 64, nSuffix, _countSuffixString);
@@ -191,9 +191,9 @@ merylOperation::countSimple(void) {
 
 
 #pragma omp parallel for
-  for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
-    uint64  bStart = (_output->firstPrefixInFile(ff));
-    uint64  bEnd   = (_output->lastPrefixInFile(ff));
+  for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
+    uint64  bStart = (_outputO->firstPrefixInFile(ff));
+    uint64  bEnd   = (_outputO->lastPrefixInFile(ff));
 
     kmdata  *sBlock  = new kmdata [nSuffix];   //  Suffixes  -- kk and sMask should properly be kmdata too.
     kmvalu  *cBlock  = new kmvalu [nSuffix];   //  Counts       but we're guaranteed to have small mers here.
@@ -208,7 +208,7 @@ merylOperation::countSimple(void) {
       uint64  nKmers = 0;
 
 #if 1
-      fprintf(stderr, "thread %2d wokring on block 0x%08lx<0x%08lx<0x%08lx %8lu kmers between 0x%016lx and 0x%016lx\n",
+      fprintf(stderr, "thread %2d working on block 0x%08lx<0x%08lx<0x%08lx %8lu kmers between 0x%016lx and 0x%016lx\n",
               omp_get_thread_num(),
               bStart, bp, bEnd,
               nSuffix,

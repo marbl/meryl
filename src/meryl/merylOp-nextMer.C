@@ -123,7 +123,7 @@ merylOperation::initializeThreshold(void) {
 
 
 bool
-merylOperation::initialize(void) {
+merylOperation::initialize(bool isMasterTree) {
   bool  proceed = true;
 
   //  Initialize all the inputs this operation might have.
@@ -136,19 +136,27 @@ merylOperation::initialize(void) {
   for (uint32 ii=0; ii<_inputs.size(); ii++)
     _isMultiSet |= _inputs[ii]->isMultiSet();
 
-  //  Set up the output for the specific kmer database file we're processing.
-  //  Note that if this _was_ a counting operation, nextMer_doCounting() just
-  //  above will have already created an output for the count, written the
-  //  data, and removed the _output pointer.
+  //  If this is a counting operation. STOP NOW!  The output cannot be
+  //  initialized until after we figure out the correct prefix size (not 0 as
+  //  below).
 
-  if (_output) {
-    _output->initialize(0, isMultiSet());
-    _writer = _output->getStreamWriter(_fileNumber);
-  }
+  if (isCounting() == true)
+    return(true);
+
+  //  Initialize outputs.
+  //    If the master tree, initialize the merylFileWriter.
+  //    If a thread tree, create a merylStreamWriter.
+
+  if (_outputO)
+    _outputO->initialize(0, isMultiSet());
+
+  if (_outputP)
+    _writer = _outputP->getStreamWriter(_fileNumber);
 
   //  The threshold operations need to decide on a threshold based on the histogram.
 
-  initializeThreshold();
+  if (isMasterTree)
+    initializeThreshold();
 
   //  If configuring, or if the operation is pass-through with no output,
   //  don't stream the mers.  This only matters for the root node; the return
@@ -171,10 +179,7 @@ merylOperation::initialize(void) {
 //
 void
 merylOperation::doCounting(void) {
-
-  for (uint32 ii=0; ii<_inputs.size(); ii++)
-    _inputs[ii]->initialize();
-
+  char    name[FILENAME_MAX + 1] = { 0 };
   bool    doSimple   = false;
   bool    doThreaded = true;
   uint32  wPrefix    = 0;
@@ -206,38 +211,28 @@ merylOperation::doCounting(void) {
     count(wPrefix, nPrefix, wData, wDataMask);
   }
 
+  //  Fiddle with the operation.
+  //   - remove the output; it's already been written.
+  //   - remove all the inputs
+  //   - convert the operation to a simple 'pass through'
+  //   - add the counted output as an input
+
+  if (_outputO)
+    strncpy(name, _outputO->filename(), FILENAME_MAX);   //  know which input to open later.
+
+  delete _outputO;
+  _outputO = NULL;
+
   clearInputs();
-
-  delete _output;   //  Operation has written output, so get rid of it.
-  _output = NULL;   //  Only streaming operations have _writer.
-}
-
-
-
-//  Convert the presumed counting operation into a pass-through operation.
-//  The merylOpStack (meryl.C) will assign inputs/outputs only to the
-//  first file, and that is handled in doCounting() above.
-//
-//  All we need to do here is reset the operation and add an input to the
-//  freshly constructed meryl database.
-//
-//  If there is no inputName, we're just attempting to configure for Canu.
-//
-void
-merylOperation::convertToPassThrough(char *inputName, uint32 threadFile) {
-
-  if (_verbosity >= sayConstruction)
-    fprintf(stderr, "merylOp::nextMer()-- CONVERTING '%s' to '%s'.\n",
-            toString(opCount), toString(opPassThrough));
 
   _operation = opPassThrough;
 
-  if ((inputName    == NULL) ||
-      (inputName[0] == 0) ||
-      (_onlyConfig  == true))
+  if ((name        == NULL) ||      //  If there is no name, we've
+      (name[0]     == 0) ||         //  been asked to only configure.
+      (_onlyConfig == true))
     return;
 
-  addInput(new merylFileReader(inputName, threadFile));
+  addInputFromDB(name);
 }
 
 
@@ -630,19 +625,19 @@ merylOperation::nextMer(void) {
   if (_verbosity >= sayDetails) {
     char  kmerString[256];
     fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation %s with kmer %s count %u%s\n",
-            toString(_operation), _kmer.toString(kmerString), _value, ((_output != NULL) && (_value != 0)) ? " OUTPUT" : "");
+            toString(_operation), _kmer.toString(kmerString), _value, ((_outputP != NULL) && (_value != 0)) ? " OUTPUT" : "");
     fprintf(stderr, "\n");
   }
 
   //  If flagged for output, output!
 
-  if (_output != NULL) {
+  if (_writer != nullptr) {
     _writer->addMer(_kmer, _value);
   }
 
   //  If flagged for printing, print!
 
-  if (_printer != NULL) {
+  if (_printer != nullptr) {
     kmer  pk = _kmer;
 
     if (_printACGTorder == true)

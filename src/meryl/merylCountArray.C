@@ -142,6 +142,8 @@ void
 merylCountArray::initializeForTesting(uint32 width, uint32 nwords) {
   _sWidth       = width;
 
+  assert(_sWidth > 0);
+
   _prefix       = 0;
   _suffix       = NULL;
   _counts       = NULL;

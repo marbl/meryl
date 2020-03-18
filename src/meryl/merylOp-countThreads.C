@@ -379,11 +379,11 @@ merylOperation::countThreads(uint32  wPrefix,
   //           kmer -- [ wPrefix (18) = prefixSize               | wData (36) ]
   //           file -- [ numFileBits  | prefixSize - numFileBits ]
 
-  _output->initialize(wPrefix);
+  _outputO->initialize(wPrefix);
 
   //  Initialize the counter.
 
-  mcGlobalData  *g = new mcGlobalData(_inputs, _operation, nPrefix, wData, wDataMask, _maxMemory, _output);
+  mcGlobalData  *g = new mcGlobalData(_inputs, _operation, nPrefix, wData, wDataMask, _maxMemory, _outputO);
 
   //  Set up a sweatShop and run it.
 
@@ -403,17 +403,17 @@ merylOperation::countThreads(uint32  wPrefix,
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _output->filename(), omp_get_max_threads());
+          _outputO->filename(), omp_get_max_threads());
 
   //for (uint64 pp=0; pp<nPrefix; pp++)
-  //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _output->fileNumber(pp));
+  //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _outputO->fileNumber(pp));
 
 #pragma omp parallel for schedule(dynamic, 1)
-  for (uint32 ff=0; ff<_output->numberOfFiles(); ff++) {
+  for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
     //fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
-    //        omp_get_thread_num(), ff, _output->firstPrefixInFile(ff), _output->lastPrefixInFile(ff));
+    //        omp_get_thread_num(), ff, _outputO->firstPrefixInFile(ff), _outputO->lastPrefixInFile(ff));
 
-    for (uint64 pp=_output->firstPrefixInFile(ff); pp <= _output->lastPrefixInFile(ff); pp++) {
+    for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
       g->_data[pp].countKmers();                   //  Convert the list of kmers into a list of (kmer, count).
       g->_data[pp].dumpCountedKmers(g->_writer);   //  Write that list to disk.
       g->_data[pp].removeCountedKmers();           //  And remove the in-core data.
