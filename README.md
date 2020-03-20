@@ -12,11 +12,23 @@ meryl dbs are no longer in `.mcdat` and `.mcidx` file format. Meryl db is now de
 * gcc 4.8 or higher
 
 ### Installation
+
+Release version: download a stable [release](https://github.com/marbl/meryl/releases/tag/v1.0) version
+```shell
+# Example for Linux-amd64
+wget https://github.com/marbl/meryl/releases/download/v1.0/meryl-1.0.Linux-amd64.tar.xz
+tar -xJf meryl-1.0.Linux-amd64.tar.xz
+export PATH=/path/to/meryl-1.0/Linux-amd64/bin:$PATH
 ```
+
+Experimental tip (use git 2.25.1 or higher):
+```shell
 git clone https://github.com/marbl/meryl.git
+
+# build
 cd meryl/src
 make -j 24
-export PATH=/path/to/meryl/bin:$PATH
+export PATH=/path/to/meryl/*/bin:$PATH
 ```
 
 # Sequence
