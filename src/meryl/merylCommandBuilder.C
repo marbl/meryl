@@ -568,6 +568,15 @@ merylCommandBuilder::printTree(merylOperation *op, uint32 indent) {
 
   fprintf(stderr, "%*s%-s\n", indent, "", toString(op->getOperation()));
 
+  if (op->_mathConstant > 0)
+    fprintf(stderr, "%*sconstant=%lu\n", indent+2, "", op->_mathConstant);
+  if (op->_threshold != UINT64_MAX)
+    fprintf(stderr, "%*sthreshold=%lu\n", indent+2, "", op->_threshold);
+  if (op->_fracDist != DBL_MAX)
+    fprintf(stderr, "%*sfraction-distinct=%f\n", indent+2, "", op->_fracDist);
+  if (op->_wordFreq != DBL_MAX)
+    fprintf(stderr, "%*sword-frequenct=%f\n", indent+2, "", op->_wordFreq);
+
   for (uint32 ii=0; ii<op->_inputs.size(); ii++) {
     merylInput  *in = op->_inputs[ii];
 
