@@ -306,13 +306,13 @@ main(int argc, char **argv) {
     if (root->getOperation() == opPassThrough)
       continue;
 
+    root->initialize(true);
+
     fprintf(stderr, "\n");
     fprintf(stderr, "PROCESSING TREE #%u\n", rr);
     B->printTree(root, 2);
 
-    root->initialize();
-
-    //#pragma omp parallel for schedule(dynamic, 1)
+#pragma omp parallel for schedule(dynamic, 1)
     for (uint32 ff=0; ff<64; ff++) {
       merylOperation *op = B->getRoot(rr, ff);
 
