@@ -87,9 +87,6 @@ merylOperation::initializeThreshold(void) {
 
   merylHistogram  *stats = _inputs[0]->_stream->stats();
 
-
-#warning "need to decide whic direction we're going?"
-
   if (_fracDist < DBL_MAX) {
     uint64  nKmers       = 0;
     uint64  nKmersTarget = _fracDist * stats->numDistinct();
@@ -102,16 +99,10 @@ merylOperation::initializeThreshold(void) {
         break;
       }
     }
-
-    fprintf(stderr, "For fraction-distinct %f, found threshold %lu\n", _fracDist, _threshold);
   }
-
-#warning "rounding issues in word-frequency!"
 
   if (_wordFreq < DBL_MAX) {
     _threshold = _wordFreq * stats->numTotal();
-
-    fprintf(stderr, "For word-frequency %f, found threshold %lu\n", _wordFreq, _threshold);
   }
 
   //  Cleanup.
