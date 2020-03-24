@@ -41,7 +41,7 @@ public:
   merylInput(const char *n, sqStore *s, uint32 segment, uint32 segmentMax);
   ~merylInput();
 
-  char  *inputType(void) {
+  char const *inputType(void) {
     if (_operation)   return("meryl-operation");
     if (_stream)      return("meryl-database");
     if (_sequence)    return("sequence-file");
