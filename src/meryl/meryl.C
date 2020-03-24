@@ -215,13 +215,19 @@ main(int argc, char **argv) {
     }
   }
 
-  //  If there is an operation (debug operations and -h have no operations)
-  //  keep calling nextMer() on that top operation until there are no more mers.
-  //
-  //  op->initialize() returns false if we're only configuring, or if the top
-  //  operation on the stack is a counting operation.
+  //  Initialize all the root nodes.  This initializes constants and,
+  //  importantly, opens outputs.
+
+  for (uint32 rr=0; rr<B->numRoots(); rr++)
+    B->getRoot(rr)->initialize(true);
+
+  //  Initialize nodes for all the threads.  All the root nodes need to be
+  //  initialized before we spawn, so we get thresholds set correctly.
 
   B->spawnThreads();
+
+  //  Process each file, in parallel.  Just keep getting the next mer and let
+  //  each op do their work.
 
   for (uint32 rr=0; rr<B->numRoots(); rr++) {
     merylOperation *root = B->getRoot(rr);
@@ -229,10 +235,8 @@ main(int argc, char **argv) {
     if (root->getOperation() == opPassThrough)
       continue;
 
-    root->initialize(true);
-
     fprintf(stderr, "\n");
-    fprintf(stderr, "PROCESSING TREE #%u\n", rr);
+    fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, omp_get_max_threads(), omp_get_max_threads() == 1 ? "" : "s");
     B->printTree(root, 2);
 
 #pragma omp parallel for schedule(dynamic, 1)
