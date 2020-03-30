@@ -29,7 +29,7 @@
 
 #  Before doing ANYTHING, initialize submodules.
 ifeq ($(wildcard utility/src/Makefile), )
-  $(info $(shell git submodule update --init))
+  $(info $(shell git submodule update --init utility))
   $(info $(space))
 endif
 
@@ -58,7 +58,7 @@ endef
 #   USE WITH EVAL
 #
 define ADD_OBJECT_RULE
-${1}/%.o: ${2}
+${1}/%.o: ${2} utility/src/utility/version.H
 	${3}
 endef
 
@@ -406,9 +406,13 @@ ifeq ($(origin CXXFLAGS), undefined)
   #     gcc7:  -Wno-format-truncation  - sprintf() into possibly smaller buffer
   #            -Wno-parentheses
   CXXFLAGS += -Wall -Wextra -Wformat
-  CXXFLAGS += -Wno-write-strings -Wno-char-subscripts -Wno-sign-compare
-  CXXFLAGS += -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable
+  CXXFLAGS += -Wno-char-subscripts
+  CXXFLAGS += -Wno-sign-compare
+  CXXFLAGS += -Wno-unused-function
+  CXXFLAGS += -Wno-unused-parameter
+  CXXFLAGS += -Wno-unused-variable
   CXXFLAGS += -Wno-deprecated-declarations
+  CXXFLAGS += -Wno-format-truncation
   CXXFLAGS += -std=c++11
 else
   CXXFLAGSUSER := ${CXXFLAGS}
@@ -646,8 +650,7 @@ INCDIRS := $(addprefix -I,$(call CANONICAL_PATH,${INCDIRS}))
 # Define the "all" target (which simply builds all user-defined targets) as the
 # default goal.
 .PHONY: all
-all: UPDATE_VERSION MAKE_DIRS \
-     $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
+all: $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
 	@echo ""
 	@echo "Success!"
 	@echo "meryl installed in ${TARGET_DIR}/bin/meryl"
@@ -677,19 +680,14 @@ $(foreach TGT,${ALL_TGTS},\
 $(foreach TGT,${ALL_TGTS},\
   $(eval -include ${${TGT}_DEPS}))
 
-#  A fake target, to regenerate the canu_version.H file on every build.
-.PHONY: UPDATE_VERSION
-UPDATE_VERSION:
-	@../scripts/version_update.pl meryl utility/src/utility/version.H
+#  Makefile processed.  Regenerate the version number file, make some
+#  directories, and report that we're starting the build.
 
-#  A fake target, to make the directory for the canu perl modules.
-.PHONY: MAKE_DIRS
-MAKE_DIRS:
-	@if [ ! -e ${TARGET_DIR}/bin ]                ; then mkdir -p ${TARGET_DIR}/bin                ; fi
+$(shell ../scripts/version_update.pl meryl utility/src/utility/version.H)
 
-#  Makefile processed.  Report that we're starting the build.
+$(shell mkdir -p ${TARGET_DIR}/bin)
 
-$(info Building for '${OSTYPE}' '${OSVERSION}' as '${MACHINETYPE}' into '${DESTDIR}${PREFIX}/$(OSTYPE)-$(MACHINETYPE)/{bin,obj}'.)
+$(info For '${OSTYPE}' '${OSVERSION}' as '${MACHINETYPE}' into '${DESTDIR}${PREFIX}/$(OSTYPE)-$(MACHINETYPE)/{bin,obj}'.)
 $(info Using '$(shell which ${CXX})' version '${GXX_VV}'.)
 ifneq ($(origin CXXFLAGSUSER), undefined)
 $(info Using user-supplied CXXFLAGS '${CXXFLAGSUSER}'.)
