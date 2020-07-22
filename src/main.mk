@@ -1,29 +1,4 @@
-
-#  If 'make' isn't run from the root directory, we need to set these to
-#  point to the upper level build directory.
-
-ifeq "$(strip ${DESTDIR})" ""
-  DESTDIR      :=
-endif
-
-ifeq "$(strip ${PREFIX})" ""
-  ifeq "$(strip ${DESTDIR})" ""
-    PREFIX     := $(realpath ..)
-  else
-    PREFIX     := /meryl
-  endif
-endif
-
-ifeq "$(strip ${BUILD_DIR})" ""
-  BUILD_DIR    := $(DESTDIR)$(PREFIX)/$(OSTYPE)-$(MACHINETYPE)/obj
-endif
-
-ifeq "$(strip ${TARGET_DIR})" ""
-  TARGET_DIR   := $(DESTDIR)$(PREFIX)/$(OSTYPE)-$(MACHINETYPE)
-endif
-
 TARGET       := libmeryl.a
-
 SOURCES      := utility/src/utility/edlib.C \
                 \
                 utility/src/utility/files.C \
