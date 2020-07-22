@@ -350,8 +350,9 @@ DIR_STACK :=
 INCDIRS :=
 TGT_STACK :=
 
-# Discover our OS and architecture.  These are used to set the BUILD_DIR and TARGET_DIR to
-# something more useful than 'build' and '.'.
+# Discover our OS and architecture.  These were previously used to set
+# BUILD_DIR and TARGET_DIR to allow multi-platform builds.  DESTDIR will do
+# that for us too.
 
 OSTYPE      := $(shell echo `uname`)
 OSVERSION   := $(shell echo `uname -r`)
@@ -376,6 +377,18 @@ ifeq (${OSTYPE}, SunOS)
   endif
 endif
 
+#  Set paths for building and installing.  If DESTDIR doesn't exist, use the
+#  directory just above us.
+
+ifeq "$(strip ${DESTDIR})" ""
+  BUILD_DIR    := $(realpath ..)/build/obj
+  TARGET_DIR   := $(realpath ..)/build
+else
+  BUILD_DIR    := $(DESTDIR)/canu/build/obj
+  TARGET_DIR   := $(DESTDIR)/canu/build
+endif
+
+#
 #  Set compiler and flags based on discovered hardware
 #
 #  By default, debug symbols are included in all builds (even optimized).
@@ -391,7 +404,6 @@ endif
 #
 #  BUILDJEMALLOC will enable jemalloc library support.
 #
-
 
 ifeq ($(origin CXXFLAGS), undefined)
   ifeq ($(BUILDOPTIMIZED), 1)
@@ -693,11 +705,11 @@ $(foreach TGT,${ALL_TGTS},\
 #  Makefile processed.  Regenerate the version number file, make some
 #  directories, and report that we're starting the build.
 
-$(shell ../scripts/version_update.pl meryl utility/src/utility/version.H)
+$(eval $(shell ../scripts/version_update.pl meryl utility/src/utility/version.H))
 
 $(shell mkdir -p ${TARGET_DIR}/bin)
 
-$(info For '${OSTYPE}' '${OSVERSION}' as '${MACHINETYPE}' into '${DESTDIR}${PREFIX}/$(OSTYPE)-$(MACHINETYPE)/{bin,obj}'.)
+$(info For '${OSTYPE}' '${OSVERSION}' as '${MACHINETYPE}' into '${TARGET_DIR}/{bin,obj}'.)
 $(info Using '$(shell which ${CXX})' version '${GXX_VV}'.)
 ifneq ($(origin CXXFLAGSUSER), undefined)
 $(info Using user-supplied CXXFLAGS '${CXXFLAGSUSER}'.)
