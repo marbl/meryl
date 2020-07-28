@@ -446,9 +446,9 @@ merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maxim
 //  rigorous went into the multipliers, just looked at a few sets of lambda reads.
 uint64
 merylOperation::guesstimateNumberOfkmersInInput_dnaSeqFile(dnaSeqFile *sequence) {
-  uint64  numMers = 0;
-  char   *name    = sequence->filename();
-  uint32  len     = strlen(name);
+  uint64       numMers = 0;
+  char const  *name    = sequence->filename();
+  uint32       len     = strlen(name);
 
   if ((name[0] == '-') && (len == 1))
     return(0);
