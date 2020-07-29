@@ -1,3 +1,4 @@
+MODULE       :=    meryl
 TARGET       := libmeryl.a
 SOURCES      := utility/src/utility/edlib.C \
                 \
