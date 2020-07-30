@@ -350,6 +350,7 @@ merylCommandBuilder::processOperation(void) {
   else if (0 == strcmp(_optString, "decrease"))               non = opDecrease;
   else if (0 == strcmp(_optString, "multiply"))               non = opMultiply;
   else if (0 == strcmp(_optString, "divide"))                 non = opDivide;
+  else if (0 == strcmp(_optString, "divide-round"))           non = opDivideRound;
   else if (0 == strcmp(_optString, "modulo"))                 non = opModulo;
 
   else if (0 == strcmp(_optString, "union"))                  non = opUnion;
@@ -362,6 +363,8 @@ merylCommandBuilder::processOperation(void) {
   else if (0 == strcmp(_optString, "intersect-max"))          non = opIntersectMax;
   else if (0 == strcmp(_optString, "intersect-sum"))          non = opIntersectSum;
 
+  else if (0 == strcmp(_optString, "subtract"))               non = opSubtract;
+  
   else if (0 == strcmp(_optString, "difference"))             non = opDifference;
   else if (0 == strcmp(_optString, "symmetric-difference"))   non = opSymmetricDifference;
 

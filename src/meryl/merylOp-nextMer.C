@@ -17,7 +17,7 @@
  */
 
 #include "meryl.H"
-
+#include <cmath>
 
 
 void
@@ -47,6 +47,19 @@ merylOperation::findSumCount(void) {
     _value += _actCount[ii];
 }
 
+
+void
+merylOperation::subtractCount(void) {
+  _value = _actCount[0];
+  for (uint32 ii=1; ii<_actLen; ii++) {
+    if ( _value > _actCount[ii] )
+      _value -= _actCount[ii];
+    else {
+      _value = 0;
+      return;
+    }
+  }
+}
 
 
 void
@@ -527,6 +540,17 @@ merylOperation::nextMer(void) {
         _value = _actCount[0] / _mathConstant;
       break;
 
+    case opDivideRound:
+      if (_mathConstant == 0)
+        _value = 0;             //  DIVIDE BY ZERO!
+      else {
+        if (_actCount[0] < _mathConstant)
+          _value = 1;
+        else
+          _value = round (_actCount[0] / (double) _mathConstant);
+      }
+      break;
+
     case opModulo:
       if (_mathConstant == 0)
         _value = 0;             //  DIVIDE BY ZERO!
@@ -568,6 +592,13 @@ merylOperation::nextMer(void) {
     case opIntersectSum:                    //  Intersect, sum all counts
       if (_actLen == _inputs.size())
         findSumCount();
+      break;
+
+    case opSubtract:
+      if ((_actLen == 1) && (_actIndex[0] == 0))
+        _value = _actCount[0];
+      else if (_actLen == _inputs.size())
+        subtractCount();
       break;
 
     case opDifference:
