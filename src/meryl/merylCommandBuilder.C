@@ -155,7 +155,7 @@ merylCommandBuilder::initialize(char *opt) {
 
   //  Save a few copies of the command line word.
 
-  strncpy(_inoutName, _optString, FILENAME_MAX);
+  strncpy(_inoutName, _optString, FILENAME_MAX + 1);
 
   snprintf(_indexName, FILENAME_MAX, "%s/merylIndex", _optString);
   snprintf(_sqInfName, FILENAME_MAX, "%s/info",       _optString);
