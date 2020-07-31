@@ -212,8 +212,8 @@ main(int argc, char **argv) {
 
     //  And use it.
 
-    uint64  pp = (useF == true) ? ((uint64)kmerF >> wData)     : ((uint64)kmerR >> wData);
-    uint64  mm = (useF == true) ? ((uint64)kmerF  & wDataMask) : ((uint64)kmerR  & wDataMask);
+    kmdata  pp = (useF == true) ? ((kmdata)kmerF >> wData)     : ((kmdata)kmerR >> wData);
+    kmdata  mm = (useF == true) ? ((kmdata)kmerF  & wDataMask) : ((kmdata)kmerR  & wDataMask);
 
     assert(pp < nPrefix);
 
