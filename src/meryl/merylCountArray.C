@@ -763,7 +763,7 @@ merylCountArray::get(uint64 kk) {
 
   //  If the bits are entirely in one word, be done.
 
-  if ((wordBgn >= 0) && (wordEnd <= 64)) {
+  if (wordEnd <= 64) {
     bits = (_segments[seg][word] >> (64 - wordEnd)) & uint64MASK(_sWidth);
 
     return(bits);

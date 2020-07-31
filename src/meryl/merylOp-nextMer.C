@@ -222,7 +222,7 @@ merylOperation::doCounting(void) {
   //   - add the counted output as an input
 
   if (_outputO)
-    strncpy(name, _outputO->filename(), FILENAME_MAX);   //  know which input to open later.
+    strncpy(name, _outputO->filename(), FILENAME_MAX + 1);   //  know which input to open later.
 
   delete _outputO;
   _outputO = NULL;
@@ -539,7 +539,6 @@ merylOperation::nextMer(void) {
       else
         _value = _actCount[0] / _mathConstant;
       break;
-
     case opDivideRound:
       if (_mathConstant == 0)
         _value = 0;             //  DIVIDE BY ZERO!

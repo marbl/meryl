@@ -106,8 +106,8 @@ merylOperation::countSimple(void) {
 
         for (uint32 hib=0; hib < 64; hib++) {
           if (highBits[hib].isAllocated() == false) {
-            fprintf(stderr, "Increasing to %u-bit storage (for kmer 0x%016lx).\n",
-                    lowBitsSize + hib + 1, kidx);
+            fprintf(stderr, "Increasing to %u-bit storage (for kmer 0x%s).\n",
+                    lowBitsSize + hib + 1, toHex(kidx));
             highBits[hib].allocate(nEntries);
           }
 

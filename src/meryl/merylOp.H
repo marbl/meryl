@@ -157,14 +157,17 @@ public:
     return(isCounting() == false);
   };
 
-  bool    needsParameter(void) {
+  bool    needsThreshold(void) {
     return((_operation == opLessThan)     ||
            (_operation == opGreaterThan)  ||
            (_operation == opAtLeast)      ||
            (_operation == opAtMost)       ||
            (_operation == opEqualTo)      ||
-           (_operation == opNotEqualTo)   ||
-           (_operation == opIncrease)     ||
+           (_operation == opNotEqualTo));
+  };
+
+  bool    needsConstant(void) {
+    return((_operation == opIncrease)     ||
            (_operation == opDecrease)     ||
            (_operation == opMultiply)     ||
            (_operation == opDivide)       ||
