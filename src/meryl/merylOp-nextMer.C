@@ -597,7 +597,7 @@ merylOperation::nextMer(void) {
     case opSubtract:
       if ((_actLen == 1) && (_actIndex[0] == 0))
         _value = _actCount[0];
-      else if (_actLen == _inputs.size())
+      else if (_actLen > 1)
         subtractCount();
       break;
 
