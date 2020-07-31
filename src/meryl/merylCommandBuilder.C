@@ -221,11 +221,22 @@ merylCommandBuilder::processOptions(void) {
     return(true);
   }
 
-  //  If the string is entirely a number, treat it as a threshold.  This is
-  //  used for things like "greater-than 45".
+  //  If the string is entirely a number, treat it as either a threshold or a
+  //  constant, depending on the operation.  This is used for things like
+  //  "greater-than 45" and "divide 2".
+  //
+  //  If there is no operation, or it doesn't want a number, we fall trhough
+  //  and return 'false' when key/val is checked below.
 
-  if (isNumber(_optString, 0)) {
+  bool  isNum = isNumber(_optString, 0);
+
+  if ((_opStack.top()->needsThreshold() == true) && (isNum == true)) {
     _opStack.top()->setThreshold(strtouint64(_optString));
+    return(true);
+  }
+
+  if ((_opStack.top()->needsConstant() == true) && (isNum == true)) {
+    _opStack.top()->setConstant(strtouint64(_optString));
     return(true);
   }
 
