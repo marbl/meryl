@@ -38,12 +38,12 @@ main(int argc, char **argv) {
   bool    useF         = false;
 
   uint32  threads      = 1;
-  uint64  memory       = 8;
+  //uint64  memory     = 8;
 
   argc = AS_configure(argc, argv);
 
-  vector<char *>  err;
-  int             arg = 1;
+  vector<char const *>  err;
+  int                   arg = 1;
   while (arg < argc) {
     if        (strcmp(argv[arg], "-kmers") == 0) {
       inputName = argv[++arg];
@@ -72,7 +72,7 @@ main(int argc, char **argv) {
       threads = strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-memory") == 0) {   //  Not implemented.  If implemented, merylCountArray::initializeValues()
-      memory = strtouint64(argv[++arg]);              //  needs to return a memory size, etc, etc.
+      //memory = strtouint64(argv[++arg]);            //  needs to return a memory size, etc, etc.
 
     } else {
       char *s = new char [1024];

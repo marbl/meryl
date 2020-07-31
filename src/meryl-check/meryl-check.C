@@ -29,14 +29,14 @@ int
 main(int argc, char **argv) {
   char   *inputSeqName = NULL;
   char   *inputDBname  = NULL;
-  uint64  minV         = 0;
-  uint64  maxV         = UINT64_MAX;
-  uint32  threads      = 1;
+  //uint64  minV         = 0;
+  //uint64  maxV         = UINT64_MAX;
+  //uint32  threads      = 1;
 
   argc = AS_configure(argc, argv);
 
-  vector<char *>  err;
-  int             arg = 1;
+  vector<char const *>  err;
+  int                   arg = 1;
   while (arg < argc) {
     if        (strcmp(argv[arg], "-sequence") == 0) {   //  INPUT READS and RANGE TO PROCESS
       inputSeqName = argv[++arg];
@@ -44,14 +44,14 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-mers") == 0) {
       inputDBname = argv[++arg];
 
-    } else if (strcmp(argv[arg], "-min") == 0) {
-      minV = strtouint64(argv[++arg]);
+    //} else if (strcmp(argv[arg], "-min") == 0) {
+    //  minV = strtouint64(argv[++arg]);
 
-    } else if (strcmp(argv[arg], "-max") == 0) {
-      maxV = strtouint64(argv[++arg]);
+    //} else if (strcmp(argv[arg], "-max") == 0) {
+    //  maxV = strtouint64(argv[++arg]);
 
-    } else if (strcmp(argv[arg], "-threads") == 0) {
-      threads = strtouint32(argv[++arg]);
+    //} else if (strcmp(argv[arg], "-threads") == 0) {
+    //  threads = strtouint32(argv[++arg]);
 
     } else {
       char *s = new char [1024];
