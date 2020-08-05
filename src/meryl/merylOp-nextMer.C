@@ -594,10 +594,12 @@ merylOperation::nextMer(void) {
       break;
 
     case opSubtract:
-      if ((_actLen == 1) && (_actIndex[0] == 0))
-        _value = _actCount[0];
-      else if (_actLen > 1)
-        subtractCount();
+      if (_actIndex[0] == 0) {
+        if (_actLen == 1)
+          _value = _actCount[0];
+        else if (_actLen > 1)
+          subtractCount();
+      }
       break;
 
     case opDifference:
