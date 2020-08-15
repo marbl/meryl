@@ -58,6 +58,7 @@ SRC_INCDIRS  := . \
                 utility
 
 SUBMAKEFILES := meryl/meryl.mk \
+                meryl-analyze/meryl-analyze.mk \
                 meryl-simple/meryl-simple.mk \
                 meryl-import/meryl-import.mk \
                 meryl-lookup/meryl-lookup.mk \
