@@ -23,6 +23,117 @@
 #include "bits.H"
 
 
+//     T - type of the histogram counters
+//     V - type of the thing we're counting (must be integral)
+template<typename T, typename V>
+class denseHistogram {
+public:
+  denseHistogram(V minValue, V maxValue) {
+    _minValue = minValue;
+    _maxValue = maxValue;
+
+    _smallestV = _maxValue;
+    _largestV  = _minValue;
+
+    _histoLen = 0;
+    _histoMax = maxValue - minValue + 1;
+    _histo    = new T [_histoMax];
+  };
+
+  ~denseHistogram() {
+  };
+
+  uint32     minValue(void)    { return(_smallestV); };
+  uint32     maxValue(void)    { return(_largestV);  };
+
+  void       insert(V value) {
+    if ((_minValue <= value) &&
+        (value     <= _maxValue)) {
+      _smallestV = min(_smallestV, value);
+      _largestV  = max(_largestV,  value);
+
+      _histo[value - _minValue]++;
+    }
+  };
+
+  T          report(V value) {
+    if ((_minValue <= value) &&
+        (value     <= _maxValue))
+      return(_histo[value - _minValue]);
+    else
+      return(0);
+  };
+
+private:
+  V         _minValue;      //  Minimum value we'll accept into the histogram
+  V         _maxValue;
+
+  V         _smallestV;    //  Minimum value we have seen in the input data
+  V         _largestV;
+
+  uint32    _histoLen;      //  Allocated histogram.  It doesn't grow.
+  uint32    _histoMax;
+  T        *_histo;
+};
+
+
+  
+template<typename T, typename V>
+class sparseHistogram {
+public:
+  sparseHistogram() {
+  };
+  sparseHistogram(V minValue, V maxValue) {
+    initialize(minValue, maxValue);
+  };
+
+  ~sparseHistogram() {
+  };
+
+  void       initialize(V minValue, V maxValue) {
+    _minValue = minValue;
+    _maxValue = maxValue;
+
+    _smallestV = _maxValue;
+    _largestV  = _minValue;
+  };
+
+  uint32     minValue(void)    { return(_smallestV); };
+  uint32     maxValue(void)    { return(_largestV);  };
+
+  void       insert(V value) {
+    if ((_minValue <= value) &&
+        (value     <= _maxValue)) {
+      _smallestV = min(_smallestV, value);
+      _largestV  = max(_largestV,  value);
+
+      _histo[value]++;
+    }
+  };
+
+  T          report(V value) {
+    if ((_minValue <= value) &&
+        (value     <= _maxValue) &&
+        (_histo.count(value) > 0))
+      return(_histo[value]);
+    else
+      return(0);
+  };
+
+private:
+  V         _minValue;      //  Minimum value we'll accept into the histogram
+  V         _maxValue;
+
+  V         _smallestV;     //  Minimum value we have seen in the input data
+  V         _largestV;
+
+  map<V,T>  _histo;         //  Histogram data.
+};
+
+
+
+
+
 
 
 int
@@ -69,16 +180,14 @@ main(int argc, char **argv) {
 
   char               fstr[65];
 
-  uint32             maxCount = 16 * 1024 * 1024;
-  uint64            *AGhist[65];
-  uint64            *TChist[65];
+  uint32             maxCount = UINT32_MAX;
+
+  sparseHistogram<uint64,uint32>    AGhist[65];
+  sparseHistogram<uint64,uint32>    TChist[65];  
 
   for (uint32 ii=0; ii<65; ii++) {
-    AGhist[ii] = new uint64 [maxCount];
-    TChist[ii] = new uint64 [maxCount];
-
-    memset(AGhist[ii], 0, sizeof(uint64) * maxCount);
-    memset(TChist[ii], 0, sizeof(uint64) * maxCount);
+    AGhist[ii].initialize(0llu, UINT32_MAX);
+    TChist[ii].initialize(0llu, UINT32_MAX);
   }
 
 
@@ -132,14 +241,14 @@ main(int argc, char **argv) {
               fscore, rscore);
 
     if (fscore < maxCount) {
-      AGhist[fscore][value]++;
+      AGhist[fscore].insert(value);
     }
 
     if (rscore < maxCount) {
-      TChist[rscore][value]++;
+      TChist[rscore].insert(value);
     }
 
-    if ((++nKmers % 100000) == 0)
+    if ((++nKmers % 10000000) == 0)
       fprintf(stderr, "Loaded %li kmers.\n", nKmers);
   }
 
@@ -148,38 +257,40 @@ main(int argc, char **argv) {
 
 
   for (uint32 ll=0; ll<65; ll++) {
-    char    outName[FILENAME_MAX+1];
+    if (AGhist[ll].minValue() <= AGhist[ll].maxValue()) {
+      char    outName[FILENAME_MAX+1];
 
-    sprintf(outName, "hist-runlen=%02u-ag", ll);
+      sprintf(outName, "hist-runlen=%02u-ag", ll);
 
-    FILE *F = AS_UTL_openOutputFile(outName);
+      FILE *F = AS_UTL_openOutputFile(outName);
 
-    for (uint32 cc=0; cc<maxCount; cc++) {
-      if (AGhist[ll][cc] > 0)
-        fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, AGhist[ll][cc]);
+      for (uint32 cc=AGhist[ll].minValue(); cc<=AGhist[ll].maxValue(); cc++) {
+        if (AGhist[ll].report(cc) > 0)
+          fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, AGhist[ll].report(cc));
+      }
+
+      fclose(F);
     }
-
-    fclose(F);
   }
-
 
 
 
   for (uint32 ll=0; ll<65; ll++) {
-    char    outName[FILENAME_MAX+1];
+    if (TChist[ll].minValue() <= TChist[ll].maxValue()) {
+      char    outName[FILENAME_MAX+1];
 
-    sprintf(outName, "hist-runlen=%02u-tc", ll);
+      sprintf(outName, "hist-runlen=%02u-tc", ll);
 
-    FILE *F = AS_UTL_openOutputFile(outName);
+      FILE *F = AS_UTL_openOutputFile(outName);
 
-    for (uint32 cc=0; cc<maxCount; cc++) {
-      if (TChist[ll][cc] > 0)
-        fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, TChist[ll][cc]);
+      for (uint32 cc=TChist[ll].minValue(); cc<=TChist[ll].maxValue(); cc++) {
+        if (TChist[ll].report(cc) > 0)
+          fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, TChist[ll].report(cc));
+      }
+
+      fclose(F);
     }
-
-    fclose(F);
   }
-
 
 
 
