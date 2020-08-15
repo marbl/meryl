@@ -22,6 +22,9 @@
 #include "sequence.H"
 #include "bits.H"
 
+#define OP_NONE   0
+#define OP_GA     1
+#define OP_GC     2
 
 //     T - type of the histogram counters
 //     V - type of the thing we're counting (must be integral)
@@ -131,60 +134,94 @@ private:
 };
 
 
+void
+printHist(char* outName, sparseHistogram<uint64,uint32> hist[]) {
+  FILE *F = AS_UTL_openOutputFile(outName);
 
+  for (uint32 ll=0; ll<=kmer::merSize(); ll++) {
+    if (hist[ll].minValue() <= hist[ll].maxValue()) {
+      for (uint32 cc=hist[ll].minValue(); cc<=hist[ll].maxValue(); cc++) {
+        if (hist[ll].report(cc) > 0)
+          fprintf(F, "%u\t%u\t%lu\n", ll, cc, hist[ll].report(cc));
+      }
+    }
+  }
+  fclose(F);
+}
 
+void
+histGC(merylFileReader* merylDB,
+       char*            outPrefix,
+       bool             verbose ) {
 
+  uint64             nKmers  = 0;
+  char               fstr[65];
+  uint32             maxCount = UINT32_MAX;
 
+  sparseHistogram<uint64,uint32>    GCHist[65];
 
-int
-main(int argc, char **argv) {
-  char   *inputDBname = NULL;
-  bool    verbose     = false;
+  for (uint32 ii=0; ii<=kmer::merSize(); ii++) {
+    GCHist[ii].initialize(0llu, UINT32_MAX);
+  }
 
-  argc = AS_configure(argc, argv);
+  while (merylDB->nextMer() == true) {
+    uint32  value = merylDB->theValue();
+    kmer    fmer  = merylDB->theFMer();
+    kmdata  fbits = fmer;
 
-  vector<char const *>  err;
-  int                   arg = 1;
-  while (arg < argc) {
-    if (strcmp(argv[arg], "-mers") == 0) {
-      inputDBname = argv[++arg];
+    uint32  score = 0, g = 0, c = 0;
 
-    } else {
-      char *s = new char [1024];
-      snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
-      err.push_back(s);
+    for (uint32 ii=0; ii<kmer::merSize(); ii++) {
+      kmdata fbase = fbits & 0x03;
+
+      switch (fbase) {
+        case 0x01:  //  C
+          c++;
+          break;
+        case 0x03:  //  G
+          g++;
+          break;
+      }
+
+      fbits >>= 2;
     }
 
-    arg++;
+    score = c + g;
+
+    if (verbose)
+      fprintf(stderr, "%s  %8u  AG= %2u TC= %2u\n",
+              fmer.toString(fstr), value,
+              c, g);
+
+    if (score < maxCount) {
+      GCHist[score].insert(value);
+    }
+
+    if ((++nKmers % 100000000) == 0)
+      fprintf(stderr, "Processed %li kmers.\n", nKmers);
   }
+  fprintf(stderr, "Processed %li kmers in total.\n\n", nKmers);
 
-  if (inputDBname == NULL)
-    err.push_back("No query meryl database (-mers) supplied.\n");
+  fprintf(stderr, "Output histogram\n");
 
-  if (err.size() > 0) {
-    fprintf(stderr, "usage: %s ...\n", argv[0]);
-    fprintf(stderr, "\n");
+  char    outName[FILENAME_MAX+1];
+  sprintf(outName, "%s.GC.hist", outPrefix);
+  printHist(outName, GCHist);
 
-    for (uint32 ii=0; ii<err.size(); ii++)
-      if (err[ii])
-        fputs(err[ii], stderr);
+}
 
-    exit(1);
-  }
+void
+histGA(merylFileReader* merylDB,
+       char*            outPrefix,
+       bool             verbose ) {
 
-
-
-  fprintf(stderr, "Open meryl database '%s'.\n", inputDBname);
-  merylFileReader   *merylDB = new merylFileReader(inputDBname);
   uint64             nKmers  = 0;
-
   char               fstr[65];
-
   uint32             maxCount = UINT32_MAX;
 
   sparseHistogram<uint64,uint32>    CombinedHist[65];
   sparseHistogram<uint64,uint32>    AGhist[65];
-  sparseHistogram<uint64,uint32>    TChist[65];  
+  sparseHistogram<uint64,uint32>    TChist[65];
 
   for (uint32 ii=0; ii<=kmer::merSize(); ii++) {
     CombinedHist[ii].initialize(0llu, UINT32_MAX);
@@ -260,55 +297,86 @@ main(int argc, char **argv) {
       fprintf(stderr, "Processed %li kmers.\n", nKmers);
   }
   fprintf(stderr, "Processed %li kmers in total.\n\n", nKmers);
-  fprintf(stderr, "Clean up..\n\n");
-
-  delete merylDB;
-
 
   fprintf(stderr, "Output histogram\n");
 
   char    outName[FILENAME_MAX+1];
-  sprintf(outName, "%s.AG_CT.hist", inputDBname);
-  FILE *F = AS_UTL_openOutputFile(outName);
+  sprintf(outName, "%s.GA_TC.hist", outPrefix);
+  printHist(outName, CombinedHist);
 
-  for (uint32 ll=0; ll<=kmer::merSize(); ll++) {
-    if (CombinedHist[ll].minValue() <= CombinedHist[ll].maxValue()) {
-      for (uint32 cc=CombinedHist[ll].minValue(); cc<=CombinedHist[ll].maxValue(); cc++) {
-        if (CombinedHist[ll].report(cc) > 0)
-          fprintf(F, "%u\t%u\t%lu\n", ll, cc, CombinedHist[ll].report(cc));
-      }
+  sprintf(outName, "%s.GA.hist", outPrefix);
+  printHist(outName, AGhist);
+
+  sprintf(outName, "%s.TC.hist", outPrefix);
+  printHist(outName, TChist);
+
+}
+
+
+
+
+
+int
+main(int argc, char **argv) {
+  char   *inputDBname = NULL;
+  char   *outPrefix   = NULL;
+  bool    verbose     = false;
+  uint32  reportType  = OP_NONE;
+
+  argc = AS_configure(argc, argv);
+
+  vector<char const *>  err;
+  int                   arg = 1;
+  while (arg < argc) {
+    if (strcmp(argv[arg], "-mers") == 0) {
+      inputDBname = argv[++arg];
+
+    } else if (strcmp(argv[arg], "-prefix") == 0) {
+      outPrefix = argv[++arg];
+
+    } else if (strcmp(argv[arg], "-ga") == 0) {
+      reportType = OP_GA;
+
+    } else if (strcmp(argv[arg], "-gc") == 0) {
+      reportType = OP_GC;
+
+    } else {
+      char *s = new char [1024];
+      snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
+      err.push_back(s);
     }
-  }
-  fclose(F);
 
-
-  sprintf(outName, "%s.AG.hist", inputDBname);
-  F = AS_UTL_openOutputFile(outName);
-
-  for (uint32 ll=0; ll<=kmer::merSize(); ll++) {
-    if (AGhist[ll].minValue() <= AGhist[ll].maxValue()) {
-      for (uint32 cc=AGhist[ll].minValue(); cc<=AGhist[ll].maxValue(); cc++) {
-        if (AGhist[ll].report(cc) > 0)
-          fprintf(F, "%u\t%u\t%lu\n", ll, cc, AGhist[ll].report(cc));
-      }
-    }
+    arg++;
   }
 
-  fclose(F);
+  if (inputDBname == NULL)
+    err.push_back("No query meryl database (-mers) supplied.\n");
 
-  sprintf(outName, "%s.CT.hist", inputDBname);
-  F = AS_UTL_openOutputFile(outName);
-  for (uint32 ll=0; ll<=kmer::merSize(); ll++) {
-    if (TChist[ll].minValue() <= TChist[ll].maxValue()) {
-      for (uint32 cc=TChist[ll].minValue(); cc<=TChist[ll].maxValue(); cc++) {
-        if (TChist[ll].report(cc) > 0)
-          fprintf(F, "%u\t%u\t%lu\n", ll, cc, TChist[ll].report(cc));
-      }
-    }
+  if (err.size() > 0) {
+    fprintf(stderr, "usage: %s -mers <meryldb> -prefix <prefix> (-ga | -gc) \n", argv[0]);
+    fprintf(stderr, "\n");
+
+    for (uint32 ii=0; ii<err.size(); ii++)
+      if (err[ii])
+        fputs(err[ii], stderr);
+
+    exit(1);
   }
-  fclose(F);
 
+  fprintf(stderr, "Open meryl database '%s'.\n", inputDBname);
+  merylFileReader   *merylDB = new merylFileReader(inputDBname);
 
+  if (reportType == OP_GA)
+    histGA(merylDB, outPrefix, verbose);
+
+  if (reportType == OP_GC)
+    histGC(merylDB, outPrefix, verbose);
+
+  fprintf(stderr, "Clean up..\n\n");
+
+  delete merylDB;
+
+  fprintf(stderr, "Bye!\n");
 
   exit(0);
 }
