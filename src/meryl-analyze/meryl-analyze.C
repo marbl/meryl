@@ -275,7 +275,7 @@ main(int argc, char **argv) {
     if (CombinedHist[ll].minValue() <= CombinedHist[ll].maxValue()) {
       for (uint32 cc=CombinedHist[ll].minValue(); cc<=CombinedHist[ll].maxValue(); cc++) {
         if (CombinedHist[ll].report(cc) > 0)
-          fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, CombinedHist[ll].report(cc));
+          fprintf(F, "%u\t%u\t%lu\n", ll, cc, CombinedHist[ll].report(cc));
       }
     }
   }
@@ -289,7 +289,7 @@ main(int argc, char **argv) {
     if (AGhist[ll].minValue() <= AGhist[ll].maxValue()) {
       for (uint32 cc=AGhist[ll].minValue(); cc<=AGhist[ll].maxValue(); cc++) {
         if (AGhist[ll].report(cc) > 0)
-          fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, AGhist[ll].report(cc));
+          fprintf(F, "%u\t%u\t%lu\n", ll, cc, AGhist[ll].report(cc));
       }
     }
   }
@@ -302,7 +302,7 @@ main(int argc, char **argv) {
     if (TChist[ll].minValue() <= TChist[ll].maxValue()) {
       for (uint32 cc=TChist[ll].minValue(); cc<=TChist[ll].maxValue(); cc++) {
         if (TChist[ll].report(cc) > 0)
-          fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, TChist[ll].report(cc));
+          fprintf(F, "%u\t%u\t%lu\n", ll, cc, TChist[ll].report(cc));
       }
     }
   }
