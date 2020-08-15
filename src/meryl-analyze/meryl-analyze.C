@@ -182,10 +182,12 @@ main(int argc, char **argv) {
 
   uint32             maxCount = UINT32_MAX;
 
+  sparseHistogram<uint64,uint32>    CombinedHist[65];
   sparseHistogram<uint64,uint32>    AGhist[65];
   sparseHistogram<uint64,uint32>    TChist[65];  
 
-  for (uint32 ii=0; ii<65; ii++) {
+  for (uint32 ii=0; ii<=kmer::merSize(); ii++) {
+    CombinedHist[ii].initialize(0llu, UINT32_MAX);
     AGhist[ii].initialize(0llu, UINT32_MAX);
     TChist[ii].initialize(0llu, UINT32_MAX);
   }
@@ -248,50 +250,63 @@ main(int argc, char **argv) {
       TChist[rscore].insert(value);
     }
 
-    if ((++nKmers % 10000000) == 0)
-      fprintf(stderr, "Loaded %li kmers.\n", nKmers);
+    if (fscore > rscore) {
+      CombinedHist[fscore].insert(value);
+    } else {
+      CombinedHist[rscore].insert(value);
+    }
+
+    if ((++nKmers % 100000000) == 0)
+      fprintf(stderr, "Processed %li kmers.\n", nKmers);
   }
+  fprintf(stderr, "Processed %li kmers in total.\n\n", nKmers);
+  fprintf(stderr, "Clean up..\n\n");
 
   delete merylDB;
 
 
+  fprintf(stderr, "Output histogram\n");
 
-  for (uint32 ll=0; ll<65; ll++) {
+  char    outName[FILENAME_MAX+1];
+  sprintf(outName, "%s.AG_CT.hist", inputDBname);
+  FILE *F = AS_UTL_openOutputFile(outName);
+
+  for (uint32 ll=0; ll<=kmer::merSize(); ll++) {
+    if (CombinedHist[ll].minValue() <= CombinedHist[ll].maxValue()) {
+      for (uint32 cc=CombinedHist[ll].minValue(); cc<=CombinedHist[ll].maxValue(); cc++) {
+        if (CombinedHist[ll].report(cc) > 0)
+          fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, CombinedHist[ll].report(cc));
+      }
+    }
+  }
+  fclose(F);
+
+
+  sprintf(outName, "%s.AG.hist", inputDBname);
+  F = AS_UTL_openOutputFile(outName);
+
+  for (uint32 ll=0; ll<=kmer::merSize(); ll++) {
     if (AGhist[ll].minValue() <= AGhist[ll].maxValue()) {
-      char    outName[FILENAME_MAX+1];
-
-      sprintf(outName, "hist-runlen=%02u-ag", ll);
-
-      FILE *F = AS_UTL_openOutputFile(outName);
-
       for (uint32 cc=AGhist[ll].minValue(); cc<=AGhist[ll].maxValue(); cc++) {
         if (AGhist[ll].report(cc) > 0)
           fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, AGhist[ll].report(cc));
       }
-
-      fclose(F);
     }
   }
 
+  fclose(F);
 
-
-  for (uint32 ll=0; ll<65; ll++) {
+  sprintf(outName, "%s.CT.hist", inputDBname);
+  F = AS_UTL_openOutputFile(outName);
+  for (uint32 ll=0; ll<=kmer::merSize(); ll++) {
     if (TChist[ll].minValue() <= TChist[ll].maxValue()) {
-      char    outName[FILENAME_MAX+1];
-
-      sprintf(outName, "hist-runlen=%02u-tc", ll);
-
-      FILE *F = AS_UTL_openOutputFile(outName);
-
       for (uint32 cc=TChist[ll].minValue(); cc<=TChist[ll].maxValue(); cc++) {
         if (TChist[ll].report(cc) > 0)
           fprintf(F, "%2u\t%9u\t%lu\n", ll, cc, TChist[ll].report(cc));
       }
-
-      fclose(F);
     }
   }
-
+  fclose(F);
 
 
 
