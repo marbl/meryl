@@ -118,41 +118,30 @@ main(int argc, char **argv) {
   dnaSeqFile  *seqFile    = new dnaSeqFile(inputSeqName);
 
   {
-  uint32   nameMax = 0;
-  char    *name    = NULL;
-  uint64   seqLen  = 0;
-  uint64   seqMax  = 0;
-  char    *seq     = NULL;
-  uint8   *qlt     = NULL;
+    dnaSeq   seq;
+    char     fString[64];
+    char     rString[64];
 
-  char     fString[64];
-  char     rString[64];
+    while (seqFile->loadSequence(seq)) {
+      kmerIterator  kiter(seq.bases(), seq.length());
 
-  while (seqFile->loadSequence(name, nameMax, seq, qlt, seqMax, seqLen)) {
-    kmerIterator  kiter(seq, seqLen);
+      while (kiter.nextMer()) {
+        kmer     fMer  = kiter.fmer();
+        kmer     rMer  = kiter.rmer();
+        uint64   value = 0;
 
-    while (kiter.nextMer()) {
-      kmer     fMer  = kiter.fmer();
-      kmer     rMer  = kiter.rmer();
-      uint64   value = 0;
+        if (fMer < rMer)
+          value = check[fMer]--;
+        else
+          value = check[rMer]--;
 
-      if (fMer < rMer)
-        value = check[fMer]--;
-      else
-        value = check[rMer]--;
-
-      if (value == 0)
-        fprintf(stdout, "%s\t%s\t%s ZERO\n",
-                name,
-                kiter.fmer().toString(fString),
-                kiter.rmer().toString(rString));
-
+        if (value == 0)
+          fprintf(stdout, "%s\t%s\t%s ZERO\n",
+                  seq.name(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString));
+      }
     }
-  }
-
-  delete [] name;
-  delete [] seq;
-  delete [] qlt;
   }
 
   delete seqFile;
