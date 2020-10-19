@@ -57,8 +57,8 @@ isNumber(char *s, char dot='.') {
 
 //  Everything is initialized in the declaration.  Nothing really to do here.
 merylCommandBuilder::merylCommandBuilder() {
-  _allowedThreads = omp_get_max_threads();     //  Absolute maximum limits on
-  _allowedMemory  = getPhysicalMemorySize();   //  memory= and threads= values.
+  _allowedThreads = getMaxThreadsAllowed();   //  Absolute maximum limits on
+  _allowedMemory  = getMaxMemoryAllowed();    //  memory= and threads= values.
 }
 
 

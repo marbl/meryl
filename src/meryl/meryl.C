@@ -239,7 +239,7 @@ main(int argc, char **argv) {
       continue;
 
     fprintf(stderr, "\n");
-    fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, omp_get_max_threads(), omp_get_max_threads() == 1 ? "" : "s");
+    fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, getMaxThreadsAllowed(), getMaxThreadsAllowed() == 1 ? "" : "s");
     B->printTree(root, 2);
 
 #pragma omp parallel for schedule(dynamic, 1)

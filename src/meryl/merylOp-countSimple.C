@@ -183,7 +183,7 @@ merylOperation::countSimple(void) {
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _outputO->filename(), omp_get_max_threads());
+          _outputO->filename(), getMaxThreadsAllowed());
   fprintf(stderr, "             [ file ][  prefix ][  suffix ][ count-suffix ]\n");
   fprintf(stderr, "   widths    [    6 ][ %7u ][ %7u ][ %12u ]\n", wPrefix - 6, wSuffix, 2 * _countSuffixLength);
   fprintf(stderr, "   number    [   64 ][ %7lu ][ %7lu ][ %12s ]\n", nPrefix / 64, nSuffix, _countSuffixString);

@@ -212,7 +212,7 @@ main(int argc, char **argv) {
 
   uint64          minV       = 0;
   uint64          maxV       = UINT64_MAX;
-  uint32          threads    = omp_get_max_threads();
+  uint32          threads    = getMaxThreadsAllowed();
   uint32          memory     = 0;
   uint32          reportType = OP_NONE;
 

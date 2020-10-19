@@ -616,7 +616,7 @@ merylOperation::count(uint32  wPrefix,
 
       if (memUsed > _maxMemory) {
         fprintf(stderr, "Memory full.  Writing results to '%s', using " F_S32 " threads.\n",
-                _outputO->filename(), omp_get_max_threads());
+                _outputO->filename(), getMaxThreadsAllowed());
         fprintf(stderr, "\n");
 
 #pragma omp parallel for schedule(dynamic, 1)
@@ -659,7 +659,7 @@ merylOperation::count(uint32  wPrefix,
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _outputO->filename(), omp_get_max_threads());
+          _outputO->filename(), getMaxThreadsAllowed());
 
   //for (uint64 pp=0; pp<nPrefix; pp++)
   //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _outputO->fileNumber(pp));

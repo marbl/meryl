@@ -323,7 +323,7 @@ writeBatch(void *G, void *S) {
   //  Write data!
 
   fprintf(stderr, "Memory full.  Writing results to '%s', using " F_S32 " threads.\n",
-          g->_output->filename(), omp_get_max_threads());
+          g->_output->filename(), getMaxThreadsAllowed());
   fprintf(stderr, "\n");
 
 #pragma omp parallel for schedule(dynamic, 1)
@@ -388,7 +388,7 @@ merylOperation::countThreads(uint32  wPrefix,
   //  Set up a sweatShop and run it.
 
   sweatShop    *ss = new sweatShop(loadBases, insertKmers, writeBatch);
-  uint32        nt = omp_get_max_threads();
+  uint32        nt = getMaxThreadsAllowed();
 
   ss->setLoaderBatchSize(1 * nt);
   ss->setLoaderQueueSize(2 * nt);
@@ -403,7 +403,7 @@ merylOperation::countThreads(uint32  wPrefix,
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _outputO->filename(), omp_get_max_threads());
+          _outputO->filename(), getMaxThreadsAllowed());
 
   //for (uint64 pp=0; pp<nPrefix; pp++)
   //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _outputO->fileNumber(pp));

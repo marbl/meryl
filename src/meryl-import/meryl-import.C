@@ -37,7 +37,7 @@ main(int argc, char **argv) {
   bool    useC         = true;
   bool    useF         = false;
 
-  uint32  threads      = 1;
+  uint32  threads      = getMaxThreadsAllowed();
   //uint64  memory     = 8;
 
   argc = AS_configure(argc, argv);
