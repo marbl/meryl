@@ -215,6 +215,7 @@ main(int argc, char **argv) {
   uint32          threads    = getMaxThreadsAllowed();
   double          memory     = getMaxMemoryAllowed() / 1024.0 / 1024.0 / 1024.0;
   uint32          reportType = OP_NONE;
+  bool            doEstimate = false;
 
   argc = AS_configure(argc, argv);
 
@@ -265,6 +266,9 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-exclude") == 0) {
       reportType = OP_EXCLUDE;
 
+    } else if (strcmp(argv[arg], "-estimate") == 0) {
+      doEstimate = true;
+
     } else {
       char *s = new char [1024];
       snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
@@ -287,6 +291,7 @@ main(int argc, char **argv) {
 
   if (err.size() > 0) {
     fprintf(stderr, "usage: %s <report-type> \\\n", argv[0]);
+    fprintf(stderr, "        [-estimate] \\\n");
     fprintf(stderr, "         -sequence <input1.fasta> [<input2.fasta>] \\\n");
     fprintf(stderr, "         -output   <output1>      [<output2>]\n");
     fprintf(stderr, "         -mers     <input1.meryl> [<input2.meryl>] [...] \\\n");
@@ -313,6 +318,9 @@ main(int argc, char **argv) {
     fprintf(stderr, "  speed.  If the lookup table requires more memory than allowed, the program\n");
     fprintf(stderr, "  exits with an error.\n");
     fprintf(stderr, "    -memory m   Don't use more than m GB memory\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "  If -estimate is supplied, processing will stop after a (quick) estimate\n");
+    fprintf(stderr, "  of memory needed to load the databases is written to stdout.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  Exactly one report type must be specified.\n");
@@ -429,6 +437,11 @@ main(int argc, char **argv) {
     fprintf(stderr, "Not enough memory to load databases.  Increase -memory.\n");
     fprintf(stderr, "\n");
     exit(1);
+  }
+
+  if (doEstimate == true) {
+    fprintf(stderr, "-- Stopping after memory estimated reported; -estimate option enabled.\n");
+    exit(0);
   }
 
   for (uint32 ii=0; ii<inputDBname.size(); ii++) {
