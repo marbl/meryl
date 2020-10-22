@@ -131,12 +131,12 @@ reportExistence(dnaSeqFile                  *sfile,
 
 
 void
-filter(dnaSeqFile                      *sfile1,
-       dnaSeqFile                      *sfile2,
-       compressedFileWriter            *ofile1,
-       compressedFileWriter            *ofile2,
+filter(dnaSeqFile                  *sfile1,
+       dnaSeqFile                  *sfile2,
+       compressedFileWriter        *ofile1,
+       compressedFileWriter        *ofile2,
        vector<merylExactLookup *>  &klookup,
-       bool                             outputIfFound) {
+       bool                         outputIfFound) {
 
   //  Do nothing if there are no sequences.
 
