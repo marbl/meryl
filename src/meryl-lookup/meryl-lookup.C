@@ -213,7 +213,7 @@ main(int argc, char **argv) {
   uint64          minV       = 0;
   uint64          maxV       = UINT64_MAX;
   uint32          threads    = getMaxThreadsAllowed();
-  uint32          memory     = 0;
+  double          memory     = getMaxMemoryAllowed() / 1024.0 / 1024.0 / 1024.0;
   uint32          reportType = OP_NONE;
 
   argc = AS_configure(argc, argv);
@@ -251,7 +251,7 @@ main(int argc, char **argv) {
       threads = strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-memory") == 0) {
-      memory = strtouint32(argv[++arg]);
+      memory = strtodouble(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-dump") == 0) {
       reportType = OP_DUMP;
@@ -377,22 +377,72 @@ main(int argc, char **argv) {
 
   //  Open the kmers, build a lookup table.
 
+  vector<merylFileReader *>   merylDBs;
   vector<merylExactLookup *>  kmerLookups;
+  vector<double>              minMem;
+  vector<double>              optMem;
+
+  double                      minMemTotal = 0.0;
+  double                      optMemTotal = 0.0;
+
+  bool                        useMin = false;
+  bool                        useOpt = false;
 
   for (uint32 ii=0; ii<inputDBname.size(); ii++) {
-    fprintf(stderr, "-- Loading kmers from '%s' into lookup table.\n", inputDBname[ii]);
-
     merylFileReader   *merylDB    = new merylFileReader(inputDBname[ii]);
-    merylExactLookup  *kmerLookup = new merylExactLookup(merylDB, memory, minV, maxV);
+    merylExactLookup  *kmerLookup = new merylExactLookup();
 
+    merylDBs   .push_back(merylDB);
     kmerLookups.push_back(kmerLookup);
+    minMem     .push_back(0.0);
+    optMem     .push_back(0.0);
+  }
 
-    if (kmerLookup->configure() == false)
+  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
+    double  minMem = 0.0;
+    double  optMem = 0.0;
+
+    fprintf(stderr, "--\n");
+    fprintf(stderr, "-- Estimating memory usage for '%s'.\n", inputDBname[ii]);
+    fprintf(stderr, "--\n");
+
+    kmerLookups[ii]->estimateMemoryUsage(merylDBs[ii], memory, minMem, optMem, minV, maxV);
+
+    minMemTotal += minMem;
+    optMemTotal += optMem;
+  }
+
+  if      (optMemTotal <= memory)
+    useOpt = true;
+  else if (minMemTotal <= memory)
+    useMin = true;
+
+  fprintf(stderr, "--\n");
+  fprintf(stderr, "-- Minimal memory needed: %.3f GB%s\n", minMemTotal, (useMin) ? "  enabled" : "");
+  fprintf(stderr, "-- Optimal memory needed: %.3f GB%s\n", optMemTotal, (useOpt) ? "  enabled" : "");
+  fprintf(stderr, "-- Memory limit           %.3f GB\n",   memory);
+  fprintf(stderr, "--\n");
+
+  if ((useMin == false) &&
+      (useOpt == false)) {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Not enough memory to load databases.  Increase -memory.\n");
+    fprintf(stderr, "\n");
+    exit(1);
+  }
+
+  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
+    fprintf(stderr, "--\n");
+    fprintf(stderr, "-- Loading kmers from '%s' into lookup table.\n", inputDBname[ii]);
+    fprintf(stderr, "--\n");
+
+    if (kmerLookups[ii]->load(merylDBs[ii], memory, useMin, useOpt, minV, maxV) == false)
       exit(1);
+  }
 
-    kmerLookup->load();
 
-    delete merylDB;   //  Not needed anymore.
+  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
+    delete merylDBs[ii];
   }
 
   //  Open input sequences.
