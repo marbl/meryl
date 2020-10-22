@@ -296,7 +296,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "\n");
     fprintf(stderr, "  Multiple databases are supported.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "  Up to two inptu sequences are supported (only for -include / -exclude).\n");
+    fprintf(stderr, "  Up to two input sequences are supported (only for -include / -exclude).\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  Input files can be FASTA or FASTQ; uncompressed, gz, bz2 or xz compressed\n");
     fprintf(stderr, "\n");
@@ -314,11 +314,15 @@ main(int argc, char **argv) {
     fprintf(stderr, "  exits with an error.\n");
     fprintf(stderr, "    -memory m   Don't use more than m GB memory\n");
     fprintf(stderr, "\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "  Exactly one report type must be specified.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  -existence");
     fprintf(stderr, "    Report a tab-delimited line for each sequence showing the number of kmers\n");
     fprintf(stderr, "    in the sequence, in the database, and in both.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "    Only one input may be supplied.  If no output is supplied, output is written\n");
+    fprintf(stderr, "    to stdout.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    output:  seqName <tab> mersInSeq <tab> mersInDB <tab> mersInBoth\n");
     fprintf(stderr, "      seqName    - name of the sequence\n");
@@ -333,6 +337,9 @@ main(int argc, char **argv) {
     fprintf(stderr, "    order, annotated with the value of the kmer in the input database.  If the kmer\n");
     fprintf(stderr, "    does not exist in the database its value will be reported as zero.\n");
     fprintf(stderr, "\n");
+    fprintf(stderr, "    Only one input may be supplied.  If no output is supplied, output is written\n");
+    fprintf(stderr, "    to stdout.\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "    output:  seqName <tab> seqId <tab> seqPos <tab> exists <tab> fwd-mer <tab> fwd-val <tab> rev-mer <tab> rev-val\n");
     fprintf(stderr, "      seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "      seqId      - numeric version of the seqName (0-based)\n");
@@ -343,27 +350,20 @@ main(int argc, char **argv) {
     fprintf(stderr, "      rev-mer    - reverse mer sequence\n");
     fprintf(stderr, "      rev-val    - value of the reverse mer in the database\n");
     fprintf(stderr, "\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "  -include / -exclude\n");
     fprintf(stderr, "    Extract sequences containing (-include) or not containing (-exclude) kmers in\n");
     fprintf(stderr, "    any input database.  Output sequences are written in the same format as the input\n");
     fprintf(stderr, "    sequences, with the number of kmers found added to the name.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    If two input files are supplied, the corresponding sequences are treated as a pair.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
+    fprintf(stderr, "    If two input files are supplied, the corresponding sequences are treated as a pair,\n");
+    fprintf(stderr, "    and two output files MUST be supplied.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    output:  sequence given format (fasta or fastq) with the number of overlapping kmers appended\n");
     fprintf(stderr, "             if pairs of sequences are given, R1 will be stdout and R2 be named as <output.r2>\n");
     fprintf(stderr, "              <output.r2> will be automatically compressed if ends with .gz, .bz2, or xs\n");
     fprintf(stderr, "      seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "      mersInBoth - number of mers in both sequence and in the database\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  -exclude       Extract sequences *NOT containing* kmers in <input.meryl>.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "     output:  sequence given format (fasta or fastq) without reads containing kmers\n");
-    fprintf(stderr, "              if pairs of sequences are given, R1 will be stdout and R2 be named as <output.r2>\n");
-    fprintf(stderr, "              <output.r2> will be automatically compressed if ends with .gz, .bz2, or xs\n");
-    fprintf(stderr, "         seqName    - name of the sequence this kmer is from\n");
     fprintf(stderr, "\n");
 
     for (uint32 ii=0; ii<err.size(); ii++)
