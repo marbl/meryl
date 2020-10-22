@@ -201,11 +201,11 @@ filter(dnaSeqFile                  *sfile1,
 
 int
 main(int argc, char **argv) {
-  char           *seqName1 = NULL;
-  char           *seqName2 = NULL;
+  char const     *seqName1 = nullptr;
+  char const     *seqName2 = nullptr;
 
-  char           *outName1 = NULL;
-  char           *outName2 = NULL;
+  char const     *outName1 = "-";
+  char const     *outName2 = nullptr;
 
   vector<const char *>  inputDBname;
   vector<const char *>  inputDBlabel;
@@ -280,6 +280,10 @@ main(int argc, char **argv) {
     err.push_back("No query meryl database (-mers) supplied.\n");
   if (reportType == OP_NONE)
     err.push_back("No report-type (-existence, etc) supplied.\n");
+  if ((seqName1 != nullptr) && (outName1 == nullptr))
+    err.push_back("No output file (-output) supplied.\n");
+  if ((seqName2 != nullptr) && (outName2 == nullptr))
+    err.push_back("No second output file (-output) supplied.\n");
 
   if (err.size() > 0) {
     fprintf(stderr, "usage: %s <report-type> \\\n", argv[0]);
@@ -410,8 +414,8 @@ main(int argc, char **argv) {
 
   //  Open output writers.
 
-  compressedFileWriter  *outFile1 = (outName1 == NULL) ? NULL : new compressedFileWriter(outName1);
-  compressedFileWriter  *outFile2 = (outName2 == NULL) ? NULL : new compressedFileWriter(outName2);
+  compressedFileWriter  *outFile1 = (outName1 == nullptr) ? nullptr : new compressedFileWriter(outName1);
+  compressedFileWriter  *outFile2 = (outName2 == nullptr) ? nullptr : new compressedFileWriter(outName2);
 
   //  Do something.
 
