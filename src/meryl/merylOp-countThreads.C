@@ -23,11 +23,6 @@
 
 #include <atomic>
 
-//  The number of KB to use for a merylCountArray segment.
-#define SEGMENT_SIZE       64
-#define SEGMENT_SIZE_BITS  (SEGMENT_SIZE * 1024 * 8)
-
-
 
 class mcGlobalData {
 public:
@@ -55,7 +50,10 @@ public:
     _memUsed        = _memBase;
     _memReported    = 0;
 
+    _maxThreads     = getMaxThreadsAllowed();
+
     _kmersAdded     = 0;
+    _kmersAddedMax  = 0;
 
     _inputPos       = 0;
     //_inputs         = inputs;
@@ -68,7 +66,7 @@ public:
 
     for (uint32 pp=0; pp<_nPrefix; pp++) {      //  Initialize each bucket.
       _lock[pp].clear();
-      _memUsed += _data[pp].initialize(pp, wData, SEGMENT_SIZE);
+      _memUsed += _data[pp].initialize(pp, wData);
     }
   };
 
@@ -95,8 +93,13 @@ public:
   uint64                 _memUsed;          //  Sum of actual memory used.
   uint64                 _memReported;      //  Memory usage at last report.
 
+  uint32                 _maxThreads;
+
   uint64                 _kmersAdded;       //  Boring statistics for the user.
 
+  static
+  uint64                 _kmersAddedMax;    //  Largest number of kmers added in any merylCountArray
+  
   uint32                 _inputPos;         //  Input files.
   vector<merylInput *>  &_inputs;
 
@@ -107,17 +110,19 @@ public:
 };
 
 
+uint64  mcGlobalData::_kmersAddedMax = 0;
+
 
 #define BUF_MAX  (1 * 1024 * 1024)
 
 class mcComputation {
 public:
   mcComputation() {
-    _bufferMax  = BUF_MAX;
-    _bufferLen  = 0;
+    _bufferMax     = BUF_MAX;
+    _bufferLen     = 0;
 
-    _memUsed    = 0;
-    _kmersAdded = 0;
+    _memUsed       = 0;
+    _kmersAdded    = 0;
   };
 
   ~mcComputation() {
@@ -246,13 +251,13 @@ insertKmers(void *G, void *T, void *S) {
     if (useF == true) {
       pp = (kmdata)s->_kiter.fmer() >> g->_wData;
       mm = (kmdata)s->_kiter.fmer()  & g->_wDataMask;
-      //fprintf(stderr, "useF F=%s R=%s ms=%u pp %lu mm %lu\n", s->_kiter.fmer().toString(fstr), s->_kiter.rmer().toString(rstr), s->_kiter.fmer().merSize(), pp, mm);
+      //fprintf(stderr, "useF F=%s R=%s ms=%u pp %llu mm %llu\n", s->_kiter.fmer().toString(fstr), s->_kiter.rmer().toString(rstr), s->_kiter.fmer().merSize(), pp, mm);
     }
 
     else {
       pp = (kmdata)s->_kiter.rmer() >> g->_wData;
       mm = (kmdata)s->_kiter.rmer()  & g->_wDataMask;
-      //fprintf(stderr, "useR F=%s R=%s ms=%u pp %lu mm %lu\n", s->_kiter.fmer().toString(fstr), s->_kiter.rmer().toString(rstr), s->_kiter.rmer().merSize(), pp, mm);
+      //fprintf(stderr, "useR F=%s R=%s ms=%u pp %llu mm %llu\n", s->_kiter.fmer().toString(fstr), s->_kiter.rmer().toString(rstr), s->_kiter.rmer().merSize(), pp, mm);
     }
 
     assert(pp < g->_nPrefix);
@@ -269,8 +274,11 @@ insertKmers(void *G, void *T, void *S) {
     while (g->_lock[pp].test_and_set(std::memory_order_relaxed) == true)
       ;
 
-    s->_memUsed    += g->_data[pp].add(mm);
-    s->_kmersAdded += 1;
+    s->_memUsed        += g->_data[pp].add(mm);
+    s->_kmersAdded     += 1;
+
+    if (g->_kmersAddedMax < g->_data[pp].numKmers())
+      g->_kmersAddedMax   = g->_data[pp].numKmers();
 
     g->_lock[pp].clear(std::memory_order_relaxed);
   }
@@ -292,13 +300,16 @@ writeBatch(void *G, void *S) {
 
   //  Do some accounting.
 
-  if (g->_memUsed - g->_memReported > (uint64)128 * 1024 * 1024) {
-    g->_memReported = g->_memUsed;
+  uint64  sortMem = g->_maxThreads * g->_kmersAddedMax * sizeof(kmdata);
 
-    fprintf(stderr, "Used %3.3f GB out of %3.3f GB to store %12lu kmers.\n",
+  if (g->_memUsed + sortMem - g->_memReported > (uint64)128 * 1024 * 1024) {
+    g->_memReported = g->_memUsed + sortMem;
+
+    fprintf(stderr, "Used %3.3f GB / %3.3f GB to store %12lu kmers; need %3.3f GB to sort %12lu kmers\n",
             g->_memUsed   / 1024.0 / 1024.0 / 1024.0,
             g->_maxMemory / 1024.0 / 1024.0 / 1024.0,
-            g->_kmersAdded);
+            g->_kmersAdded,
+            sortMem / 1024.0 / 1024.0 / 1024.0, g->_kmersAddedMax);
   }
 
   //  Free the input buffer.
@@ -308,7 +319,7 @@ writeBatch(void *G, void *S) {
   //  If we haven't hit the memory limit yet, just return.
   //  Otherwise, dump data.
 
-  if (g->_memUsed < g->_maxMemory)
+  if (g->_memUsed + sortMem < g->_maxMemory)
     return;
 
   //  Tell all the threads to pause, then grab all the locks to ensure nobody

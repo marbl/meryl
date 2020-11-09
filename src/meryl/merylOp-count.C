@@ -20,10 +20,6 @@
 #include "strings.H"
 #include "system.H"
 
-//  The number of KB to use for a merylCountArray segment.
-#define SEGMENT_SIZE       64
-#define SEGMENT_SIZE_BITS  (SEGMENT_SIZE * 1024 * 8)
-
 
 //
 //  mcaSize       = sizeof(merylCountArray)  == 80
@@ -50,7 +46,7 @@
 //
 //  (nKmers / nPrefix+1) / mersPerSeg = (memory - mcaSize * nPrefix) / (ptrSize * nPrefix + segSize * nPrefix)
 //   nKmers / nPrefix+1  = mersPerSeg * (memory - mcaSize * nPrefix) / (ptrSize * nPrefix + segSize * nPrefix)
-
+#if 0
 uint64
 findMaxInputSizeForMemorySize(uint32 merSize, uint64 memSize) {
   uint64  mcaSize = sizeof(merylCountArray);
@@ -112,7 +108,7 @@ findMaxInputSizeForMemorySize(uint32 merSize, uint64 memSize) {
 
   exit(0);
 }
-
+#endif
 
 
 
@@ -175,7 +171,9 @@ findBestPrefixSize(uint64  nKmerEstimate,
                    uint64  memoryAllowed,
                    uint32 &bestPrefix_,
                    uint64 &memoryUsed_) {
-  uint32  merSize    = kmerTiny::merSize();
+  uint32  merSize      = kmerTiny::merSize();
+  uint32  segSizeBits  = merylCountArray::pagesPerSegment() * getPageSize() * 8;
+  uint32  segSizeBytes = merylCountArray::pagesPerSegment() * getPageSize();
 
   bestPrefix_  = 0;
   memoryUsed_  = UINT64_MAX;
@@ -195,16 +193,16 @@ findBestPrefixSize(uint64  nKmerEstimate,
   for (uint32 wp=1; wp < 2 * merSize - 1; wp++) {
     uint64  nPrefix          = (uint64)1 << wp;                          //  Number of prefix == number of blocks of data
     uint64  kmersPerPrefix   = nKmerEstimate / nPrefix + 1;              //  Expected number of kmers we need to store per prefix
-    uint64  kmersPerSeg      = SEGMENT_SIZE_BITS / (2 * merSize - wp);   //  Kmers per segment
+    uint64  kmersPerSeg      = segSizeBits / (2 * merSize - wp);   //  Kmers per segment
     uint64  segsPerPrefix    = kmersPerPrefix / kmersPerSeg + 1;         //
 
-    if (wp + countNumberOfBits64(segsPerPrefix) + countNumberOfBits64(SEGMENT_SIZE) + 10 >= 64)
+    if (wp + countNumberOfBits64(segsPerPrefix) + countNumberOfBits64(segSizeBytes) >= 64)
       break;   //  Otherwise, dataMemory overflows.
 
     uint64  structMemory     = ((sizeof(merylCountArray) * nPrefix) +                  //  Basic structs
                                 (sizeof(uint64 *)        * nPrefix * segsPerPrefix));  //  Pointers to segments
-    uint64  dataMemoryMin    = nPrefix *                 SEGMENT_SIZE * 1024;          //  Minimum memory needed for this size.
-    uint64  dataMemory       = nPrefix * segsPerPrefix * SEGMENT_SIZE * 1024;          //  Expected memory for full batch.
+    uint64  dataMemoryMin    = nPrefix *                 segSizeBytes;                 //  Minimum memory needed for this size.
+    uint64  dataMemory       = nPrefix * segsPerPrefix * segSizeBytes;                 //  Expected memory for full batch.
     uint64  totalMemory      = structMemory + dataMemory;
 
     //  Pick a larger prefix if it is dramatically smaller than what we have.
@@ -234,7 +232,9 @@ findBestValues(uint64  nKmerEstimate,
                uint64 &nPrefix_,
                uint32 &wData_,
                kmdata &wDataMask_) {
-  uint32  merSize = kmerTiny::merSize();
+  uint32  merSize      = kmerTiny::merSize();
+  uint32  segSizeBits  = merylCountArray::pagesPerSegment() * getPageSize() * 8;
+  uint32  segSizeBytes = merylCountArray::pagesPerSegment() * getPageSize();
 
   fprintf(stderr, "\n");
   fprintf(stderr, "\n");
@@ -248,16 +248,16 @@ findBestValues(uint64  nKmerEstimate,
   for (uint32 wp=1; wp < 2 * merSize - 1; wp++) {
     uint64  nPrefix          = (uint64)1 << wp;                          //  Number of prefix == number of blocks of data
     uint64  kmersPerPrefix   = nKmerEstimate / nPrefix + 1;              //  Expected number of kmers we need to store per prefix
-    uint64  kmersPerSeg      = SEGMENT_SIZE_BITS / (2 * merSize - wp);   //  Kmers per segment
+    uint64  kmersPerSeg      = segSizeBits / (2 * merSize - wp);         //  Kmers per segment
     uint64  segsPerPrefix    = kmersPerPrefix / kmersPerSeg + 1;         //
 
-    if (wp + countNumberOfBits64(segsPerPrefix) + countNumberOfBits64(SEGMENT_SIZE) + 10 >= 64)
+    if (wp + countNumberOfBits64(segsPerPrefix) + countNumberOfBits64(segSizeBytes) >= 64)
       break;   //  Otherwise, dataMemory overflows.
 
     uint64  structMemory     = ((sizeof(merylCountArray) * nPrefix) +                  //  Basic structs
                                 (sizeof(uint64 *)        * nPrefix * segsPerPrefix));  //  Pointers to segments
-    uint64  dataMemoryMin    = nPrefix *                 SEGMENT_SIZE * 1024;          //  Minimum memory needed for this size.
-    uint64  dataMemory       = nPrefix * segsPerPrefix * SEGMENT_SIZE * 1024;          //  Expected memory for full batch.
+    uint64  dataMemoryMin    = nPrefix *                 segSizeBytes;                 //  Minimum memory needed for this size.
+    uint64  dataMemory       = nPrefix * segsPerPrefix * segSizeBytes;                 //  Expected memory for full batch.
     uint64  totalMemory      = structMemory + dataMemory;
 
     fprintf(stderr, "%6" F_U32P "  %4" F_U64P " %cP  %4" F_U64P " %cB  %4" F_U64P " %cM  %4" F_U64P " %cS  %4" F_U64P " %cB  %4" F_U64P " %cB  %4" F_U64P " %cB",
@@ -554,7 +554,7 @@ merylOperation::count(uint32  wPrefix,
   memUsed = memBase;
 
   for (uint32 pp=0; pp<nPrefix; pp++)
-    memUsed += data[pp].initialize(pp, wData, SEGMENT_SIZE);
+    memUsed += data[pp].initialize(pp, wData);
 
   uint64          kmersAdded  = 0;
 
