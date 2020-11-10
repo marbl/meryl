@@ -32,6 +32,8 @@ public:
                uint32                  wData,
                kmdata                  wDataMask,
                uint64                  maxMemory,
+               uint32                  maxThreads,
+               uint64                  bufferSize,
                merylFileWriter        *output) : _inputs(inputs) {
     _operation      = op;
     _nPrefix        = nPrefix;
@@ -50,19 +52,18 @@ public:
     _memUsed        = _memBase;
     _memReported    = 0;
 
-    _maxThreads     = getMaxThreadsAllowed();
+    _maxThreads     = maxThreads;
+    _loadThreads    = 1;
+
+    _bufferSize     = bufferSize;
 
     _kmersAdded     = 0;
     _kmersAddedMax  = 0;
 
     _inputPos       = 0;
-    //_inputs         = inputs;
 
     for (uint32 ii=0; ii<65; ii++)
       _lastBuffer[ii] = 0;
-
-    _computeWait    = 0;
-    _numComputing   = 0;
 
     for (uint32 pp=0; pp<_nPrefix; pp++) {      //  Initialize each bucket.
       _lock[pp].clear();
@@ -93,55 +94,46 @@ public:
   uint64                 _memUsed;          //  Sum of actual memory used.
   uint64                 _memReported;      //  Memory usage at last report.
 
-  uint32                 _maxThreads;
+  uint32                 _maxThreads;       //  The max number of CPUs we can use.
+  uint32                 _loadThreads;      //  The number of CPUs used for reading input.
+
+  uint64                 _bufferSize;       //  Maximum size of a computation input buffer.
 
   uint64                 _kmersAdded;       //  Boring statistics for the user.
 
-  static
-  uint64                 _kmersAddedMax;    //  Largest number of kmers added in any merylCountArray
+  static                                    //  Largest number of kmers added in any merylCountArray,
+  uint64                 _kmersAddedMax;    //  used for reserving memory for sorting buckets.
   
   uint32                 _inputPos;         //  Input files.
   vector<merylInput *>  &_inputs;
 
   char                   _lastBuffer[65];   //  Wrap-around from the last buffer.
-
-  uint32                 _computeWait;
-  uint32                 _numComputing;
 };
 
 
 uint64  mcGlobalData::_kmersAddedMax = 0;
 
 
-#define BUF_MAX  (1 * 1024 * 1024)
 
 class mcComputation {
 public:
-  mcComputation() {
-    _bufferMax     = BUF_MAX;
-    _bufferLen     = 0;
-
-    _memUsed       = 0;
-    _kmersAdded    = 0;
+  mcComputation(uint64 bufmax) {
+    _bufferMax     = bufmax;
+    _buffer        = new char [_bufferMax];
   };
 
   ~mcComputation() {
+    delete [] _buffer;
   };
 
-  //  Data for input sequences.
-  uint64        _bufferMax;
-  uint64        _bufferLen;
-  char          _buffer[BUF_MAX];
+  uint64        _bufferMax  = 0;       //  Input data
+  uint64        _bufferLen  = 0;
+  char         *_buffer     = nullptr;
 
-  //  Data for converting sequence to kmers.
-  kmerIterator  _kiter;
+  kmerIterator  _kiter;                //  Sequence to kmer conversion
 
-  //  Data for debugging.
-  //char          _fstr[65];      //  For debugging
-  //char          _rstr[65];
-
-  uint64        _memUsed;
-  uint64        _kmersAdded;
+  uint64        _memUsed    = 0;       //  Output statistics on kmers added to
+  uint64        _kmersAdded = 0;       //  the merylCountArray but this block.
 };
 
 
@@ -150,12 +142,13 @@ public:
 void *
 loadBases(void *G) {
   mcGlobalData     *g  = (mcGlobalData  *)G;
-  mcComputation    *s  = new mcComputation();
+  mcComputation    *s  = new mcComputation(g->_bufferSize);
   uint32            kl = kmerTiny::merSize() - 1;
 
   //  Copy the end of the last block into our buffer.
 
   assert(s->_bufferLen == 0);
+  assert(s->_bufferMax > kl);
 
   if (g->_lastBuffer[0] != 0) {
     memcpy(s->_buffer, g->_lastBuffer, sizeof(char) * kl);
@@ -169,6 +162,14 @@ loadBases(void *G) {
 
   if (g->_inputPos >= g->_inputs.size())
     return(NULL);
+
+  //  Update the number of threads used for loading.  If the input is
+  //  compressed, reserve 2 threads, otherwise reserve 1.
+
+  if (g->_inputs[g->_inputPos]->isCompressedFile())
+    g->_loadThreads = 2;
+  else
+    g->_loadThreads = 1;
 
   //  Try to load bases.  Keep loading until the buffer is filled
   //  or we exhaust the file.
@@ -331,17 +332,26 @@ writeBatch(void *G, void *S) {
     while (g->_lock[pp].test_and_set(std::memory_order_relaxed) == true)
       ;
 
-  //  Write data!
+  //  Write data!  For reasons I don't understand, we need to reset the max
+  //  number of threads to use.  Something is resetting it to the number of
+  //  CPUs on the machine.
+  //
+  //  Since we still have a sequence loader around, we need to leave threads
+  //  for it.
 
-  fprintf(stderr, "Memory full.  Writing results to '%s', using " F_S32 " threads.\n",
-          g->_output->filename(), getMaxThreadsAllowed());
+  uint32  wThreads = (g->_maxThreads > g->_loadThreads) ? (g->_maxThreads - g->_loadThreads) : 1;
+  uint32  lThreads =                   g->_loadThreads;
+
+  fprintf(stderr, "Memory full.  Writing results to '%s', using %u thread%s (%u thread%s still doing input).\n",
+          g->_output->filename(),
+          wThreads, (wThreads == 1) ? "" : "s",
+          lThreads, (lThreads == 1) ? "" : "s");
   fprintf(stderr, "\n");
+
+  omp_set_num_threads(wThreads);
 
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<g->_output->numberOfFiles(); ff++) {
-    //fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
-    //        omp_get_thread_num(), ff, g->_output->firstPrefixInFile(ff), g->_output->lastPrefixInFile(ff));
-
     for (uint64 pp=g->_output->firstPrefixInFile(ff); pp <= g->_output->lastPrefixInFile(ff); pp++) {
       g->_data[pp].countKmers();                   //  Convert the list of kmers into a list of (kmer, count).
       g->_data[pp].dumpCountedKmers(g->_writer);   //  Write that list to disk.
@@ -358,7 +368,8 @@ writeBatch(void *G, void *S) {
   for (uint32 pp=0; pp<g->_nPrefix; pp++)
     g->_memUsed += g->_data[pp].usedSize();
 
-  g->_kmersAdded = 0;
+  g->_kmersAdded    = 0;
+  g->_kmersAddedMax = 0;
 
   //  Signal that threads can proceeed.
 
@@ -393,37 +404,49 @@ merylOperation::countThreads(uint32  wPrefix,
   _outputO->initialize(wPrefix);
 
   //  Initialize the counter.
+  //
+  //  Tell it to use _maxMemory, but carve out space for the input buffers.
+  //  At 2MB each, 16 per thread, and 16 threads, that's 512 MB.  Not huge,
+  //  but a big chunk of our (expected 16 or so GB total).  The extra buffers
+  //  are generally filled when a batch is dumped to disk.
 
-  mcGlobalData  *g = new mcGlobalData(_inputs, _operation, nPrefix, wData, wDataMask, _maxMemory, _outputO);
+  uint64  inputBufferSize = 2 * 1024 * 1024;
+
+  mcGlobalData  *g = new mcGlobalData(_inputs,
+                                      _operation,
+                                      nPrefix,
+                                      wData,
+                                      wDataMask,
+                                      _maxMemory - inputBufferSize * 4 * _maxThreads,
+                                      _maxThreads,
+                                      inputBufferSize,
+                                      _outputO);
 
   //  Set up a sweatShop and run it.
 
   sweatShop    *ss = new sweatShop(loadBases, insertKmers, writeBatch);
-  uint32        nt = getMaxThreadsAllowed();
 
-  ss->setLoaderBatchSize(1 * nt);
-  ss->setLoaderQueueSize(2 * nt);
-  ss->setWriterQueueSize(1 * nt);
-  ss->setNumberOfWorkers(1 * nt);
+  ss->setLoaderBatchSize(1);                     //  Load this many things before appending to input list
+  ss->setLoaderQueueSize(_maxThreads * 16);      //  Allow this many things on the input list before stalling the input
+  ss->setWriterQueueSize(_maxThreads);           //  Allow this many things on the output list before stalling the compute
+  ss->setNumberOfWorkers(_maxThreads - 1 - 1);   //  Use this many worker CPUs; leave one for input and one for gzip.
 
   ss->run(g, false);
 
   delete ss;
 
-  //  All data loaded.  Write the output.
+  //  All data loaded.  Write the output.  Reset threads before starting (see
+  //  above) to the maximum possible since there is no loader threads around
+  //  anymore.
 
   fprintf(stderr, "\n");
-  fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _outputO->filename(), getMaxThreadsAllowed());
+  fprintf(stderr, "Input complete.  Writing results to '%s', using %u thread%s.\n",
+          _outputO->filename(), _maxThreads, (_maxThreads == 1) ? "" : "s");
 
-  //for (uint64 pp=0; pp<nPrefix; pp++)
-  //  fprintf(stderr, "Prefix 0x%016lx writes to file %u\n", pp, _outputO->fileNumber(pp));
+  omp_set_num_threads(_maxThreads);
 
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
-    //fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
-    //        omp_get_thread_num(), ff, _outputO->firstPrefixInFile(ff), _outputO->lastPrefixInFile(ff));
-
     for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
       g->_data[pp].countKmers();                   //  Convert the list of kmers into a list of (kmer, count).
       g->_data[pp].dumpCountedKmers(g->_writer);   //  Write that list to disk.
