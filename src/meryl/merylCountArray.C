@@ -111,9 +111,10 @@ merylCountArray::initialize(uint64 prefix, uint32 width) {
   _bitsPerPage  = getPageSize() * 8;
   _nReAlloc     = 0;
 
-  //  Set the segment size, in bits, to be a multiple of the
-  //  page size.  Reserve some space for OS allocator stuff.
-  _segSize      = pagesPerSegment() * _bitsPerPage - 8 * 32;
+  //  Set the segment size, in bits, to be a multiple of the page size.
+  //  Reserve some space for OS allocator stuff (needs to be divisible by
+  //  64).
+  _segSize      = pagesPerSegment() * _bitsPerPage - 8 * 64;
   _segAlloc     = 0;
   _segments     = NULL;
 
@@ -233,7 +234,7 @@ merylCountArray::removeSegments(void) {
   _nReAlloc  = 0;
 
   _segAlloc = 0;                          //  Don't forget to
-  _segments = NULL;                       //  foret about it.
+  _segments = NULL;                       //  forget about it.
 
   _nBits        = 0;                      //  Indicate that we've stored no data.
   _nBitsTrigger = 0;

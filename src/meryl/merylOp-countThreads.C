@@ -99,19 +99,14 @@ public:
 
   uint64                 _bufferSize;       //  Maximum size of a computation input buffer.
 
-  uint64                 _kmersAdded;       //  Boring statistics for the user.
-
-  static                                    //  Largest number of kmers added in any merylCountArray,
-  uint64                 _kmersAddedMax;    //  used for reserving memory for sorting buckets.
+  uint64                 _kmersAdded;       //  Number of kmers added; boring statistics for the user.
+  uint64                 _kmersAddedMax;    //  Max kmers in any single merylCountArray; not boring.
   
   uint32                 _inputPos;         //  Input files.
   vector<merylInput *>  &_inputs;
 
   char                   _lastBuffer[65];   //  Wrap-around from the last buffer.
 };
-
-
-uint64  mcGlobalData::_kmersAddedMax = 0;
 
 
 
@@ -132,8 +127,9 @@ public:
 
   kmerIterator  _kiter;                //  Sequence to kmer conversion
 
-  uint64        _memUsed    = 0;       //  Output statistics on kmers added to
-  uint64        _kmersAdded = 0;       //  the merylCountArray but this block.
+  uint64        _memUsed       = 0;    //  Output statistics on kmers added to
+  uint64        _kmersAdded    = 0;    //  the merylCountArray but this block.
+  uint64        _kmersAddedMax = 0;
 };
 
 
@@ -277,9 +273,7 @@ insertKmers(void *G, void *T, void *S) {
 
     s->_memUsed        += g->_data[pp].add(mm);
     s->_kmersAdded     += 1;
-
-    if (g->_kmersAddedMax < g->_data[pp].numKmers())
-      g->_kmersAddedMax   = g->_data[pp].numKmers();
+    s->_kmersAddedMax   = max(s->_kmersAddedMax, g->_data[pp].numKmers());
 
     g->_lock[pp].clear(std::memory_order_relaxed);
   }
@@ -296,12 +290,23 @@ writeBatch(void *G, void *S) {
   //  Udpate memory used and kmers added.  There's only one writer thread,
   //  so this is thread safe!
 
-  g->_memUsed    += s->_memUsed;
-  g->_kmersAdded += s->_kmersAdded;
+  g->_memUsed       += s->_memUsed;
+  g->_kmersAdded    += s->_kmersAdded;
+  g->_kmersAddedMax  = max(s->_kmersAddedMax, g->_kmersAddedMax);
 
-  //  Do some accounting.
+  //  Free the input buffer.  All the data is loaded into merylCountArrays,
+  //  and all we needed to get from this is the stats above.
+
+  delete s;
+
+  //  Estimate, poorly, how much memory we'll need to sort the arrays.  It's
+  //  a poor estimate because we'll never have all threads sorting the
+  //  maximum number of kmers at the same time, but it's a safe poor
+  //  estimate.
 
   uint64  sortMem = g->_maxThreads * g->_kmersAddedMax * sizeof(kmdata);
+
+  //  Write a log every 128 MB of memory growth.
 
   if (g->_memUsed + sortMem - g->_memReported > (uint64)128 * 1024 * 1024) {
     g->_memReported = g->_memUsed + sortMem;
@@ -313,18 +318,13 @@ writeBatch(void *G, void *S) {
             sortMem / 1024.0 / 1024.0 / 1024.0, g->_kmersAddedMax);
   }
 
-  //  Free the input buffer.
-
-  delete s;
-
   //  If we haven't hit the memory limit yet, just return.
-  //  Otherwise, dump data.
 
   if (g->_memUsed + sortMem < g->_maxMemory)
     return;
 
   //  Tell all the threads to pause, then grab all the locks to ensure nobody
-  //  is still writing.
+  //  is still adding kmers to a merylCountArray.
 
   g->_dumping = true;
 

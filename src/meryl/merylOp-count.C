@@ -166,6 +166,10 @@ findExpectedSimpleSize(uint64  nKmerEstimate,
 
 
 
+//  Returns bestPrefix_ and memoryUsed_ corresponding to the minimal memory
+//  estimate for the supplied nKmerEstimate.  If no estimate is below
+//  memoryAllowed, 0 and UINT64_MAX, respectively, are returned.
+//
 void
 findBestPrefixSize(uint64  nKmerEstimate,
                    uint64  memoryAllowed,
@@ -191,10 +195,10 @@ findBestPrefixSize(uint64  nKmerEstimate,
   //  we end up with a prefix or a suffix of size zero.
 
   for (uint32 wp=1; wp < 2 * merSize - 1; wp++) {
-    uint64  nPrefix          = (uint64)1 << wp;                          //  Number of prefix == number of blocks of data
-    uint64  kmersPerPrefix   = nKmerEstimate / nPrefix + 1;              //  Expected number of kmers we need to store per prefix
+    uint64  nPrefix          = (uint64)1 << wp;                    //  Number of prefix == number of blocks of data
+    uint64  kmersPerPrefix   = nKmerEstimate / nPrefix + 1;        //  Expected number of kmers we need to store per prefix
     uint64  kmersPerSeg      = segSizeBits / (2 * merSize - wp);   //  Kmers per segment
-    uint64  segsPerPrefix    = kmersPerPrefix / kmersPerSeg + 1;         //
+    uint64  segsPerPrefix    = kmersPerPrefix / kmersPerSeg + 1;   //
 
     if (wp + countNumberOfBits64(segsPerPrefix) + countNumberOfBits64(segSizeBytes) >= 64)
       break;   //  Otherwise, dataMemory overflows.
@@ -293,70 +297,6 @@ findBestValues(uint64  nKmerEstimate,
 
 
 void
-reportNumberOfOutputs(uint64   nKmerEstimate,
-                      uint64   memoryUsed,        //  expected memory needed for counting in one block
-                      uint64   memoryAllowed,     //  memory the user said we can use
-                      bool     useSimple) {
-  uint32  nOutputsI      = memoryUsed / memoryAllowed + 1;
-  double  nOutputsD      = (double)memoryUsed / memoryAllowed - (nOutputsI - 1);
-
-
-  fprintf(stderr, "\n");
-  fprintf(stderr, "\n");
-  fprintf(stderr, "FINAL CONFIGURATION\n");
-  fprintf(stderr, "-------------------\n");
-
-  if (useSimple == true) {
-    assert(nOutputsI == 1);
-  }
-
-  else {
-    char    batchString[64] = { 0 };
-
-    if      (nOutputsD < 0.2) {
-      nOutputsI += 0;
-      snprintf(batchString, 42, "split into up to %u (possibly %u)", nOutputsI-1, nOutputsI);
-    }
-
-    else if (nOutputsD < 0.8) {
-      nOutputsI += 0;
-      snprintf(batchString, 42, "split into up to %u", nOutputsI);
-    }
-
-    else {
-      nOutputsI += 1;
-      snprintf(batchString, 42, "split into up to %u (possibly %u)", nOutputsI, nOutputsI+1);
-    }
-
-
-    if (nOutputsI > 1) {
-      fprintf(stderr, "\n");
-      fprintf(stderr, "WARNING:\n");
-      fprintf(stderr, "WARNING: Cannot fit into " F_U64 " %cB memory limit.\n", scaledNumber(memoryAllowed), scaledUnit(memoryAllowed));
-      fprintf(stderr, "WARNING: Will %s batches, and merge them at the end.\n", batchString);
-      fprintf(stderr, "WARNING:\n");
-    }
-
-    if (nOutputsI > 32) {
-      fprintf(stderr, "WARNING: Large number of batches.  Increase memory for better performance.\n");
-      fprintf(stderr, "WARNING:\n");
-    }
-  }
-
-  //  This is parsed by Canu.  Do not change.
-
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Configured %s mode for %.3f GB memory per batch, and up to %u batch%s.\n",
-          (useSimple == true) ? "simple" : "complex",
-          ((memoryUsed < memoryAllowed) ? memoryUsed : memoryAllowed) / 1024.0 / 1024.0 / 1024.0,
-          nOutputsI,
-          (nOutputsI == 1) ? "" : "es");
-  fprintf(stderr, "\n");
-}
-
-
-
-void
 merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maximum allowed memory in bytes
                                   bool    &useSimple_,         //  Output: algorithm to use
                                   uint32  &wPrefix_,           //  Output: Number of bits in the prefix (== bucket address)
@@ -406,9 +346,12 @@ merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maxim
 
   uint64   memoryUsedComplex = UINT64_MAX;
   uint32   bestPrefix        = 0;
+  uint32   nBatches          = 0;
 
-  findBestPrefixSize(_expNumKmers, memoryAllowed, bestPrefix, memoryUsedComplex);
-  findBestValues(_expNumKmers, bestPrefix, memoryUsedComplex, wPrefix_, nPrefix_, wData_, wDataMask_);
+  for (nBatches=1; memoryUsedComplex > memoryAllowed; nBatches++)
+    findBestPrefixSize(_expNumKmers / nBatches, memoryAllowed, bestPrefix, memoryUsedComplex);
+
+  findBestValues(_expNumKmers / nBatches, bestPrefix, memoryUsedComplex, wPrefix_, nPrefix_, wData_, wDataMask_);
 
   //
   //  Decide simple or complex.  useSimple_ is an output.
@@ -437,7 +380,21 @@ merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maxim
   //  Output the configuration.
   //
 
-  reportNumberOfOutputs(_expNumKmers, memoryUsed, memoryAllowed, useSimple_);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "FINAL CONFIGURATION\n");
+  fprintf(stderr, "-------------------\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Estimated to require %lu %cB memory out of %lu %cB allowed.\n",
+          scaledNumber(memoryUsed),    scaledUnit(memoryUsed),
+          scaledNumber(memoryAllowed), scaledUnit(memoryAllowed));
+  fprintf(stderr, "Estimated to require %u batch%s.\n", nBatches, (nBatches == 1) ? "" : "es");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Configured %s mode for %.3f GB memory per batch, and up to %u batch%s.\n",      //  This is parsed
+          (useSimple_ == true) ? "simple" : "complex",                                             //  by Canu.
+          ((memoryUsed < memoryAllowed) ? memoryUsed : memoryAllowed) / 1024.0 / 1024.0 / 1024.0,  //  DO NOT CHANGE!
+          nBatches, (nBatches == 1) ? "" : "es");
+  fprintf(stderr, "\n");
 }
 
 
