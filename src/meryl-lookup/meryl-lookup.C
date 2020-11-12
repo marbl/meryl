@@ -22,15 +22,15 @@
 #include "system.H"
 #include "sequence.H"
 #include "bits.H"
-
+#include "strings.H"
+#include <fstream>
+#include <iostream>
 
 #define OP_NONE       0
 #define OP_DUMP       1
 #define OP_EXISTENCE  2
 #define OP_INCLUDE    3
 #define OP_EXCLUDE    4
-
-
 
 void
 dumpExistence(dnaSeqFile                  *sfile,
@@ -68,63 +68,148 @@ dumpExistence(dnaSeqFile                  *sfile,
   char     rString[65];
   dnaSeq   seq;
 
-  for (uint32 seqId=0; sfile->loadSequence(seq); seqId++) {
-    kmerIterator  kiter(seq.bases(), seq.length());
+  uint32 ctgn = sfile->numberOfSequences();
 
-    while (kiter.nextBase()) {
-      if (kiter.isValid() == false) {
-        fprintf(ofile->file(), "%s\t%u\t%lu\t%c\n",
-                seq.name(),
+  const int threads = omp_get_max_threads();
+  uint32 chunks = ctgn;
+  
+  //  Run chunks at maximum of MAX_FILES. Setting this too high will break network storage
+  const int64 openMax = 512;  // sysconf(_SC_OPEN_MAX); gives 26159345.. perhaps too large?
+  fprintf(stderr, "At maximum, %ld files will be open.\n", openMax);
+  if (chunks > openMax) chunks = openMax;
+  uint32 chunkLeft = chunks;
+  char tmpFilename[64];
+
+  fprintf(stderr, "\nTotal of %u sequences found. Will be processed over %d threads, with maximum %u intermediate tmp.#.dump files\n", ctgn, threads, chunks);
+
+  for (uint32 ii = 0; ii < ctgn; ii += chunks) {
+    if ( ii + chunks > ctgn ) chunkLeft = ctgn - ii;
+
+#pragma omp parallel for private(seq, tmpFilename)
+    for (uint32 seqId = ii; seqId < ii + chunkLeft; seqId++) {
+
+#pragma omp critical
+      {
+        sfile->findSequence(seqId);
+        sfile->loadSequence(seq);
+      }
+      kmerIterator  kiter(seq.bases(), seq.length());
+      sprintf(tmpFilename, "tmp.%u.dump", seqId - ii);
+      compressedFileWriter  *tmpFile = new compressedFileWriter(tmpFilename);
+
+      splitToWords seqNameField;  //  No need to remain the rest
+      seqNameField.split(seq.name());
+      char* seqName = seqNameField[0];
+
+      while (kiter.nextBase()) {
+        if (kiter.isValid() == false) {
+          fprintf(tmpFile->file(), "%s\t%u\t%lu\t%c\n",
+              seqName,
+              seqId,
+              kiter.position(),
+              kiter.isACGTbgn() ? 'n' : 'N');
+        }
+
+        else {
+          for (uint32 dd=0; dd<klookup.size(); dd++) {
+            uint64  fValue = 0;
+            uint64  rValue = 0;
+            bool    fExists = klookup[dd]->exists(kiter.fmer(), fValue);
+            bool    rExists = klookup[dd]->exists(kiter.rmer(), rValue);
+
+            fprintf(tmpFile->file(), "%s\t%u\t%lu\t%c\t%s\t%lu\t%s\t%lu\t%s\n",
+                seqName,
                 seqId,
                 kiter.position(),
-                kiter.isACGTbgn() ? 'n' : 'N');
-      }
-
-      else {
-        for (uint32 dd=0; dd<klookup.size(); dd++) {
-          uint64  fValue = 0;
-          uint64  rValue = 0;
-          bool    fExists = klookup[dd]->exists(kiter.fmer(), fValue);
-          bool    rExists = klookup[dd]->exists(kiter.rmer(), rValue);
-
-          fprintf(ofile->file(), "%s\t%u\t%lu\t%c\t%s\t%lu\t%s\t%lu\t%s\n",
-                  seq.name(),
-                  seqId,
-                  kiter.position(),
-                  (fExists || rExists) ? 'T' : 'F',
-                  kiter.fmer().toString(fString), fValue,
-                  kiter.rmer().toString(rString), rValue,
-                  labels[dd]);
+                (fExists || rExists) ? 'T' : 'F',
+                kiter.fmer().toString(fString), fValue,
+                kiter.rmer().toString(rString), rValue,
+                labels[dd]);
+          }
         }
       }
+    }
+
+    memset(tmpFilename, 0, 64);
+    string line;
+
+    fprintf(stderr, "Merging outputs from %u files\n", chunkLeft);
+    for (uint32 tt=0; tt < chunkLeft; tt++) {
+      sprintf(tmpFilename, "tmp.%u.dump", tt);
+      ifstream tmpFile(tmpFilename, std::ios_base::binary);
+
+      if (tmpFile.is_open()) {
+        cout << tmpFile.rdbuf();
+        tmpFile.close();
+        remove(tmpFilename);
+      } else {
+        fprintf(stderr, "Unable to open file %s\n", tmpFilename);
+      }
+      memset(tmpFilename, 0, 64);
     }
   }
 }
 
 
 
+
 void
-reportExistence(dnaSeqFile                  *sfile,
-                compressedFileWriter        *ofile,
-                vector<merylExactLookup *>  &klookup,
-                vector<const char *>        &klabel) {
-  dnaSeq   seq;
+reportExistence(dnaSeqFile      *sfile,
+    compressedFileWriter        *ofile,
+    vector<merylExactLookup *>  &klookup,
+    vector<const char *>        &klabel) {
+    dnaSeq   seq;
 
-  while (sfile->loadSequence(seq)) {
-    kmerIterator  kiter(seq.bases(), seq.length());
+  const uint32 ctgn = sfile->numberOfSequences();
+  const int threads = omp_get_max_threads();
+  fprintf(stderr, "\nTotal of %u sequences found. Will be processed over %d threads\n", ctgn, threads);
 
-    uint64   nKmer      = 0;
-    uint64   nKmerFound = 0;
+  //  Initializing output variables
+  string seqNames[ctgn];
+  uint64 nKmer[ctgn];
+  uint64 nKmerFound[ctgn][klookup.size()];
+  for (uint32 ii=0; ii<ctgn; ii++)  {
+    nKmer[ii]=0;
+    for (uint32 dd=0; dd<klookup.size(); dd++) {
+      nKmerFound[ii][dd] = 0;
+    } 
+  } 
 
-    while (kiter.nextMer()) {
-      nKmer++;
+#pragma omp parallel for private(seq)
+  for (uint32 seqId = 0; seqId < ctgn; seqId++) {
 
-      if ((klookup[0]->value(kiter.fmer()) > 0) ||
-          (klookup[0]->value(kiter.rmer()) > 0))
-        nKmerFound++;
+#pragma omp critical
+    {
+      sfile->findSequence(seqId);
+      sfile->loadSequence(seq);
     }
 
-    fprintf(ofile->file(), "%s\t%lu\t%lu\t%lu\n", seq.name(), nKmer, klookup[0]->nKmers(), nKmerFound);
+    kmerIterator  kiter(seq.bases(), seq.length());
+    splitToWords seqNameField;  //  No need to remain the rest
+    seqNameField.split(seq.name());
+    seqNames[seqId] = seqNameField[0];
+
+    while (kiter.nextMer()) {
+      nKmer[seqId]++;
+
+      for (uint32 dd=0; dd<klookup.size(); dd++) {
+        if ((klookup[dd]->value(kiter.fmer()) > 0) ||
+            (klookup[dd]->value(kiter.rmer()) > 0))
+          nKmerFound[seqId][dd]++;
+      }
+    }
+  }
+
+  //  Flush output
+  fprintf(stderr, "Writing sequence results.\n");
+
+  for (uint32 seqId = 0; seqId < ctgn; seqId++) {
+
+    fprintf(ofile->file(), "%s\t%lu", seqNames[seqId].c_str(), nKmer[seqId]);
+    for (uint32 dd=0; dd<klookup.size(); dd++) {
+      fprintf(ofile->file(), "\t%lu\t%lu", klookup[dd]->nKmers(), nKmerFound[seqId][dd]);
+    }
+    fprintf(ofile->file(), "\n");
   }
 }
 
@@ -329,15 +414,15 @@ main(int argc, char **argv) {
     fprintf(stderr, "    Report a tab-delimited line for each sequence showing the number of kmers\n");
     fprintf(stderr, "    in the sequence, in the database, and in both.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    Only one input may be supplied.  If no output is supplied, output is written\n");
+    fprintf(stderr, "    Multiple input -mers may be supplied.  If no output is supplied, output is written\n");
     fprintf(stderr, "    to stdout.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    output:  seqName <tab> mersInSeq <tab> mersInDB <tab> mersInBoth\n");
-    fprintf(stderr, "      seqName    - name of the sequence\n");
-    fprintf(stderr, "      mersInSeq  - number of mers in the sequence\n");
-    fprintf(stderr, "      mersInDB   - number of mers in the meryl database\n");
-    fprintf(stderr, "      mersInBoth - number of mers in the sequence that are\n");
-    fprintf(stderr, "                   also in the database\n");
+    fprintf(stderr, "    output:  seqName <tab> mersInSeq <tab> mersInDB1 <tab> mersInSeq&DB1 [ <tab> mersInDB2 <tab> mersInSeq&DB2 ... ]\n");
+    fprintf(stderr, "      seqName      - name of the sequence\n");
+    fprintf(stderr, "      mersInSeq    - number of mers in the sequence\n");
+    fprintf(stderr, "      mersInDB     - number of mers in the meryl database\n");
+    fprintf(stderr, "      mersInSeq&DB - number of mers in the sequence that are\n");
+    fprintf(stderr, "                     also in the database\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  -dump\n");
@@ -466,7 +551,7 @@ main(int argc, char **argv) {
   if (seqName1 != NULL) {
     fprintf(stderr, "-- Opening sequences in '%s'.\n", seqName1);
 
-    seqFile1 = new dnaSeqFile(seqName1);
+    seqFile1 = new dnaSeqFile(seqName1, true);
   }
 
   if (seqName2 != NULL) {
