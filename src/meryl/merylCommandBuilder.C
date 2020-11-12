@@ -58,7 +58,7 @@ isNumber(char *s, char dot='.') {
 //  Everything is initialized in the declaration.  Nothing really to do here.
 merylCommandBuilder::merylCommandBuilder() {
   _allowedThreads = getMaxThreadsAllowed();   //  Absolute maximum limits on
-  _allowedMemory  = getMaxMemoryAllowed();    //  memory= and threads= values.
+  _allowedMemory  = getMaxMemoryAllowed();    //  memory= and threads= values
 }
 
 
@@ -629,6 +629,8 @@ merylCommandBuilder::printTree(merylOperation *op, uint32 indent) {
 void
 merylCommandBuilder::spawnThreads(void) {
   uint32  indent = 0;
+
+  omp_set_num_threads(_allowedThreads);
 
   for (uint32 tt=0; tt<64; tt++) {
 
