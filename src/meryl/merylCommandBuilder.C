@@ -214,13 +214,6 @@ merylCommandBuilder::processOptions(void) {
     return(true);
   }
 
-  if (strncmp(_optString, "-E", 3) == 0) {
-#warning "-E not implemented."
-    //findMaxInputSizeForMemorySize(strtouint32(argv[arg+1]),
-    //                              (uint64)(1000000000 * strtodouble(argv[arg+2])));
-    return(true);
-  }
-
   //  If the string is entirely a number, treat it as either a threshold or a
   //  constant, depending on the operation.  This is used for things like
   //  "greater-than 45" and "divide 2".
