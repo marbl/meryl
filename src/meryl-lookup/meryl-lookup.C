@@ -36,14 +36,16 @@ void
 dumpExistence(dnaSeqFile                  *sfile,
               compressedFileWriter        *ofile,
               vector<merylExactLookup *>  &klookup,
-              vector<const char *>        &klabel) {
+              vector<const char *>        &klabel,
+              vector<const char *>        &kname) {
 
   //  Build a list of labels for each database.  If no labels are provided,
   //  this is just an empty string.
+  //
+  const  uint32 numLookupDB = klookup.size();
+  char   **labels = new char * [numLookupDB];
 
-  char   **labels = new char * [klookup.size()];
-
-  for (uint32 ll=0; ll<klookup.size(); ll++) {
+  for (uint32 ll=0; ll<numLookupDB; ll++) {
 
     //  If we don't have the ll'th input label, make an empty string.
 
@@ -74,28 +76,36 @@ dumpExistence(dnaSeqFile                  *sfile,
   uint32 chunks = ctgn;
   
   //  Run chunks at maximum of MAX_FILES. Setting this too high will break network storage
-  const int64 openMax = 512;  // sysconf(_SC_OPEN_MAX); gives 26159345.. perhaps too large?
-  fprintf(stderr, "At maximum, %ld files will be open.\n", openMax);
-  if (chunks > openMax) chunks = openMax;
+  const int64 openMax = sysconf(_SC_OPEN_MAX) / 2; // prevent too many open files
+  if (chunks > openMax) { chunks = openMax;  }
   uint32 chunkLeft = chunks;
-  char tmpFilename[64];
+  string tmpPrefix = string("tmp_") + sfile->filename() + string("_");
+  for (uint32 dd = 0; dd < numLookupDB; dd++) {
+    splitToWords fp(kname.at(dd), splitPaths);
+    tmpPrefix += fp.last() + string("_");
+  }
 
-  fprintf(stderr, "\nTotal of %u sequences found. Will be processed over %d threads, with maximum %u intermediate tmp.#.dump files\n", ctgn, threads, chunks);
+  string tmpFilename;
+
+  fprintf(stderr, "\nTotal of %u sequences found. Will be processed over %d threads, with maximum %u intermediate %s#.dump files\n", ctgn, threads, chunks, tmpPrefix.c_str());
 
   for (uint32 ii = 0; ii < ctgn; ii += chunks) {
     if ( ii + chunks > ctgn ) chunkLeft = ctgn - ii;
+    fprintf(stderr, "Reading sequence %u - %u  ... \n", ii, ii+chunkLeft);
 
 #pragma omp parallel for private(seq, tmpFilename)
     for (uint32 seqId = ii; seqId < ii + chunkLeft; seqId++) {
 
 #pragma omp critical
       {
+        //  fprintf(stderr, "Load\t%u\n", seqId);
         sfile->findSequence(seqId);
         sfile->loadSequence(seq);
       }
+      //  fprintf(stderr, "Iterate\t%u\n", seqId);
       kmerIterator  kiter(seq.bases(), seq.length());
-      sprintf(tmpFilename, "tmp.%u.dump", seqId - ii);
-      compressedFileWriter  *tmpFile = new compressedFileWriter(tmpFilename);
+      tmpFilename = tmpPrefix + to_string(seqId - ii) + ".dump";
+      compressedFileWriter  *tmpFile = new compressedFileWriter(tmpFilename.c_str());
 
       splitToWords seqNameField;  //  No need to remain the rest
       seqNameField.split(seq.name());
@@ -111,7 +121,7 @@ dumpExistence(dnaSeqFile                  *sfile,
         }
 
         else {
-          for (uint32 dd=0; dd<klookup.size(); dd++) {
+          for (uint32 dd=0; dd<numLookupDB; dd++) {
             uint64  fValue = 0;
             uint64  rValue = 0;
             bool    fExists = klookup[dd]->exists(kiter.fmer(), fValue);
@@ -128,25 +138,40 @@ dumpExistence(dnaSeqFile                  *sfile,
           }
         }
       }
+      delete tmpFile;
+      //  fprintf(stderr, "Done\t%u\n", seqId);
+
+      //  write output, sequence order is unsorted
+#pragma omp critical
+      {
+        //  fprintf(stderr, "Write\t%u\n", seqId);
+        ifstream tmpFileI(tmpFilename, std::ios_base::binary);
+        if (tmpFileI.is_open()) {
+          cout << tmpFileI.rdbuf();
+          tmpFileI.close();
+          remove(tmpFilename.c_str());
+        } else {
+          fprintf(stderr, "Unable to open file %s\n", tmpFilename.c_str());
+        }
+        //  fprintf(stderr, "Done\t%u\n", seqId);
+      }
     }
 
-    memset(tmpFilename, 0, 64);
-    string line;
-
-    fprintf(stderr, "Merging outputs from %u files\n", chunkLeft);
+    /*
+    fprintf(stderr, "Pushing outputs\n");
     for (uint32 tt=0; tt < chunkLeft; tt++) {
-      sprintf(tmpFilename, "tmp.%u.dump", tt);
+      tmpFilename = tmpPrefix + "tmp." + to_string(tt) + ".dump";
       ifstream tmpFile(tmpFilename, std::ios_base::binary);
 
       if (tmpFile.is_open()) {
         cout << tmpFile.rdbuf();
         tmpFile.close();
-        remove(tmpFilename);
+        remove(tmpFilename.c_str());
       } else {
-        fprintf(stderr, "Unable to open file %s\n", tmpFilename);
+        fprintf(stderr, "Unable to open file %s\n", tmpFilename.c_str());
       }
-      memset(tmpFilename, 0, 64);
     }
+    */
   }
 }
 
@@ -539,10 +564,6 @@ main(int argc, char **argv) {
   }
 
 
-  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
-    delete merylDBs[ii];
-  }
-
   //  Open input sequences.
 
   dnaSeqFile  *seqFile1 = NULL;
@@ -568,7 +589,7 @@ main(int argc, char **argv) {
   //  Do something.
 
   if (reportType == OP_DUMP)
-    dumpExistence(seqFile1, outFile1, kmerLookups, inputDBlabel);
+    dumpExistence(seqFile1, outFile1, kmerLookups, inputDBlabel, inputDBname);
 
   if (reportType == OP_EXISTENCE)
     reportExistence(seqFile1, outFile1, kmerLookups, inputDBlabel);
@@ -587,8 +608,10 @@ main(int argc, char **argv) {
   delete outFile1;
   delete outFile2;
 
-  for (uint32 ii=0; ii<kmerLookups.size(); ii++)
+  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
+    delete merylDBs[ii];
     delete kmerLookups[ii];
+  }
 
   fprintf(stderr, "Bye!\n");
 
