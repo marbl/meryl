@@ -569,15 +569,13 @@ main(int argc, char **argv) {
   dnaSeqFile  *seqFile1 = NULL;
   dnaSeqFile  *seqFile2 = NULL;
 
-  if (seqName1 != NULL) {
-    fprintf(stderr, "-- Opening sequences in '%s'.\n", seqName1);
-
-    seqFile1 = new dnaSeqFile(seqName1, true);
+  if (seqName1 == NULL) {
+    fprintf(stderr, "-- Error opening sequences in '%s'.\n", seqName1);
+    exit(1);
   }
 
   if (seqName2 != NULL) {
     fprintf(stderr, "-- Opening sequences in '%s'.\n", seqName2);
-
     seqFile2 = new dnaSeqFile(seqName2);
   }
 
@@ -588,17 +586,20 @@ main(int argc, char **argv) {
 
   //  Do something.
 
-  if (reportType == OP_DUMP)
+  fprintf(stderr, "-- Opening sequences in '%s'.\n", seqName1);
+  if (reportType == OP_DUMP) {
+    seqFile1 = new dnaSeqFile(seqName1, true);
     dumpExistence(seqFile1, outFile1, kmerLookups, inputDBlabel, inputDBname);
-
-  if (reportType == OP_EXISTENCE)
+  } else if (reportType == OP_EXISTENCE) {
+    seqFile1 = new dnaSeqFile(seqName1, true);
     reportExistence(seqFile1, outFile1, kmerLookups, inputDBlabel);
-
-  if (reportType == OP_INCLUDE)
+  } else if (reportType == OP_INCLUDE) {
+    seqFile1 = new dnaSeqFile(seqName1);
     filter(seqFile1, seqFile2, outFile1, outFile2, kmerLookups, true);
-
-  if (reportType == OP_EXCLUDE)
+  } else if (reportType == OP_EXCLUDE) {
+    seqFile1 = new dnaSeqFile(seqName1);
     filter(seqFile1, seqFile2, outFile1, outFile2, kmerLookups, false);
+  }
 
   //  Done!
 
