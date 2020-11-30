@@ -37,16 +37,16 @@ main(int argc, char **argv) {
     //  Scan for debug options and requests for help.
     //
 
-    if (strcmp(argv[arg], "dumpIndex") == 0) {               //  Report the index for the dataset.
-      arg++;                                                 //  It's just the parameters used for encoding.
-      delete new merylFileReader(argv[arg++], true);
-      continue;
+    if (strcmp(argv[arg], "dumpIndex") == 0) {         //  Report the index for the dataset.
+      arg++;                                           //  It's just the parameters used for encoding.
+      delete new merylFileReader(argv[arg++], true);   //  Expects a meryl db directory as a parameter.
+      exit(0);
     }
 
-    if (strcmp(argv[arg], "dumpFile") == 0) {                //  Dump the index for a single data file.
-      arg++;
-      dumpMerylDataFile(argv[arg++]);
-      continue;
+    if (strcmp(argv[arg], "dumpFile") == 0) {          //  Dump the index for a single data file.
+      arg++;                                           //  Expects a meryl file prefix as a parameter.
+      dumpMerylDataFile(argv[arg++]);                  //  (e.g., db.meryl/0x000000)
+      exit(0);
     }
 
     if ((strcmp(argv[arg], "-h")   == 0) ||
