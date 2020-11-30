@@ -122,12 +122,12 @@ dumpExistence(dnaSeqFile                  *sfile,
 
         else {
           for (uint32 dd=0; dd<numLookupDB; dd++) {
-            uint64  fValue = 0;
-            uint64  rValue = 0;
+            kmvalu  fValue = 0;
+            kmvalu  rValue = 0;
             bool    fExists = klookup[dd]->exists(kiter.fmer(), fValue);
             bool    rExists = klookup[dd]->exists(kiter.rmer(), rValue);
 
-            fprintf(tmpFile->file(), "%s\t%u\t%lu\t%c\t%s\t%lu\t%s\t%lu\t%s\n",
+            fprintf(tmpFile->file(), "%s\t%u\t%lu\t%c\t%s\t%u\t%s\t%u\t%s\n",
                 seqName,
                 seqId,
                 kiter.position(),
@@ -320,8 +320,8 @@ main(int argc, char **argv) {
   vector<const char *>  inputDBname;
   vector<const char *>  inputDBlabel;
 
-  uint64          minV       = 0;
-  uint64          maxV       = UINT64_MAX;
+  kmvalu          minV       = 0;
+  kmvalu          maxV       = kmvalumax;
   uint32          threads    = getMaxThreadsAllowed();
   double          memory     = getMaxMemoryAllowed() / 1024.0 / 1024.0 / 1024.0;
   uint32          reportType = OP_NONE;
@@ -353,10 +353,10 @@ main(int argc, char **argv) {
         outName2 = argv[++arg];
 
     } else if (strcmp(argv[arg], "-min") == 0) {
-      minV = strtouint64(argv[++arg]);
+      minV = (kmvalu)strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-max") == 0) {
-      maxV = strtouint64(argv[++arg]);
+      maxV = (kmvalu)strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-threads") == 0) {
       threads = strtouint32(argv[++arg]);
