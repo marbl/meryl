@@ -149,7 +149,7 @@ main(int argc, char **argv) {
   uint32  nPrefix   = 1 << wPrefix;
 
   uint32  wData     = 2 * kmerTiny::merSize() - wPrefix;
-  uint64  wDataMask = uint64MASK(wData);
+  uint64  wDataMask = buildLowBitMask<uint64>(wData);
 
   //  Open the input kmer file, allocate space for reading kmer lines.
 
