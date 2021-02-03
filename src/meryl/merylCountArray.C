@@ -255,11 +255,11 @@ void
 merylCountArray::addSegment(uint32 seg) {
 
   if (_segAlloc == 0) {
-    resizeArray(_segments, _segAlloc, _segAlloc, 64, resizeArray_copyData | resizeArray_clearNew);
+    resizeArray(_segments, _segAlloc, _segAlloc, 64, _raAct::copyData | _raAct::clearNew);
     _nReAlloc++;
   }
   if (seg >= _segAlloc) {
-    resizeArray(_segments, _segAlloc, _segAlloc, 2 * _segAlloc, resizeArray_copyData | resizeArray_clearNew);
+    resizeArray(_segments, _segAlloc, _segAlloc, 2 * _segAlloc, _raAct::copyData | _raAct::clearNew);
     _nReAlloc++;
   }
   assert(_segments[seg] == NULL);

@@ -35,8 +35,8 @@ main(int argc, char **argv) {
 
   argc = AS_configure(argc, argv);
 
-  vector<char const *>  err;
-  int                   arg = 1;
+  std::vector<char const *>  err;
+  int                        arg = 1;
   while (arg < argc) {
     if        (strcmp(argv[arg], "-sequence") == 0) {   //  INPUT READS and RANGE TO PROCESS
       inputSeqName = argv[++arg];
@@ -80,7 +80,7 @@ main(int argc, char **argv) {
 
 
 
-  map<kmer,uint32>   check;
+  std::map<kmer,uint32>   check;
 
   //  Open a database, load the kmers and values into 'check'.
 
@@ -137,7 +137,7 @@ main(int argc, char **argv) {
 
         if (value == 0)
           fprintf(stdout, "%s\t%s\t%s ZERO\n",
-                  seq.name(),
+                  seq.ident(),
                   kiter.fmer().toString(fString),
                   kiter.rmer().toString(rString));
       }
@@ -148,7 +148,7 @@ main(int argc, char **argv) {
 
   //  Check that all values are zero.
 
-  for (map<kmer,uint32>::iterator it=check.begin(); it != check.end(); it++) {
+  for (auto it=check.begin(); it != check.end(); it++) {
     kmer    k = it->first;
     uint32  v = it->second;
 

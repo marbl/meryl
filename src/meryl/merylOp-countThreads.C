@@ -26,15 +26,15 @@
 
 class mcGlobalData {
 public:
-  mcGlobalData(vector<merylInput *>   &inputs,
-               merylOp                 op,
-               uint64                  nPrefix,
-               uint32                  wData,
-               kmdata                  wDataMask,
-               uint64                  maxMemory,
-               uint32                  maxThreads,
-               uint64                  bufferSize,
-               merylFileWriter        *output) : _inputs(inputs) {
+  mcGlobalData(std::vector<merylInput *> &inputs,
+               merylOp                    op,
+               uint64                     nPrefix,
+               uint32                     wData,
+               kmdata                     wDataMask,
+               uint64                     maxMemory,
+               uint32                     maxThreads,
+               uint64                     bufferSize,
+               merylFileWriter           *output) : _inputs(inputs) {
     _operation      = op;
     _nPrefix        = nPrefix;
     _wData          = wData;
@@ -77,35 +77,35 @@ public:
     delete [] _writer;
   };
 
-  merylOp                _operation;        //  Parameters.
-  uint64                 _nPrefix;
-  uint32                 _wData;
-  kmdata                 _wDataMask;
+  merylOp                     _operation;        //  Parameters.
+  uint64                      _nPrefix;
+  uint32                      _wData;
+  kmdata                      _wDataMask;
 
-  bool                   _dumping;
+  bool                        _dumping;
 
-  std::atomic_flag      *_lock;
-  merylCountArray       *_data;             //  Data for counting.
-  merylFileWriter       *_output;
-  merylBlockWriter      *_writer;           //  Data for writing.
+  std::atomic_flag           *_lock;
+  merylCountArray            *_data;             //  Data for counting.
+  merylFileWriter            *_output;
+  merylBlockWriter           *_writer;           //  Data for writing.
 
-  uint64                 _maxMemory;        //  Maximum memory we can use.
-  uint64                 _memBase;          //  Overhead memory.
-  uint64                 _memUsed;          //  Sum of actual memory used.
-  uint64                 _memReported;      //  Memory usage at last report.
+  uint64                      _maxMemory;        //  Maximum memory we can use.
+  uint64                      _memBase;          //  Overhead memory.
+  uint64                      _memUsed;          //  Sum of actual memory used.
+  uint64                      _memReported;      //  Memory usage at last report.
 
-  uint32                 _maxThreads;       //  The max number of CPUs we can use.
-  uint32                 _loadThreads;      //  The number of CPUs used for reading input.
+  uint32                      _maxThreads;       //  The max number of CPUs we can use.
+  uint32                      _loadThreads;      //  The number of CPUs used for reading input.
 
-  uint64                 _bufferSize;       //  Maximum size of a computation input buffer.
+  uint64                      _bufferSize;       //  Maximum size of a computation input buffer.
 
-  uint64                 _kmersAdded;       //  Number of kmers added; boring statistics for the user.
-  uint64                 _kmersAddedMax;    //  Max kmers in any single merylCountArray; not boring.
+  uint64                      _kmersAdded;       //  Number of kmers added; boring statistics for the user.
+  uint64                      _kmersAddedMax;    //  Max kmers in any single merylCountArray; not boring.
   
-  uint32                 _inputPos;         //  Input files.
-  vector<merylInput *>  &_inputs;
+  uint32                      _inputPos;         //  Input files.
+  std::vector<merylInput *>  &_inputs;
 
-  char                   _lastBuffer[65];   //  Wrap-around from the last buffer.
+  char                        _lastBuffer[65];   //  Wrap-around from the last buffer.
 };
 
 
@@ -273,7 +273,7 @@ insertKmers(void *G, void *T, void *S) {
 
     s->_memUsed        += g->_data[pp].add(mm);
     s->_kmersAdded     += 1;
-    s->_kmersAddedMax   = max(s->_kmersAddedMax, g->_data[pp].numKmers());
+    s->_kmersAddedMax   = std::max(s->_kmersAddedMax, g->_data[pp].numKmers());
 
     g->_lock[pp].clear(std::memory_order_relaxed);
   }
@@ -292,7 +292,7 @@ writeBatch(void *G, void *S) {
 
   g->_memUsed       += s->_memUsed;
   g->_kmersAdded    += s->_kmersAdded;
-  g->_kmersAddedMax  = max(s->_kmersAddedMax, g->_kmersAddedMax);
+  g->_kmersAddedMax  = std::max(s->_kmersAddedMax, g->_kmersAddedMax);
 
   //  Free the input buffer.  All the data is loaded into merylCountArrays,
   //  and all we needed to get from this is the stats above.

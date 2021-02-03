@@ -30,7 +30,7 @@ main(int argc, char **argv) {
 
   argc = AS_configure(argc, argv);
 
-  vector<char *>  err;
+  std::vector<char *>  err;
   for (int32 arg=1; arg < argc; arg++) {
 
     //

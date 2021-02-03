@@ -111,9 +111,9 @@ merylOperation::countSimple(void) {
             highBits[hib].allocate(nEntries);
           }
 
-          if (highBits[hib].flipBit(kidx) == 0) {    //  If not set, set it,
-            highBitMax = max(highBitMax, hib + 1);   //  remember the possible maximum bit set,
-            break;                                   //  and stop.
+          if (highBits[hib].flipBit(kidx) == 0) {         //  If not set, set it,
+            highBitMax = std::max(highBitMax, hib + 1);   //  remember the possible maximum bit set,
+            break;                                        //  and stop.
           }
         }
       }

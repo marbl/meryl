@@ -236,7 +236,7 @@ private:
   void    findSumCount(void);
   void    subtractCount(void);
 
-  vector<merylInput *>           _inputs;
+  std::vector<merylInput *>      _inputs;
   bool                           _isMultiSet = false;
 
   merylOp                        _operation = opNothing;

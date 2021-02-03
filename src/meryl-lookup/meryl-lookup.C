@@ -26,6 +26,8 @@
 #include <fstream>
 #include <iostream>
 
+using namespace std;  //  For ifstream and string.
+
 #define OP_NONE       0
 #define OP_DUMP       1
 #define OP_EXISTENCE  2
@@ -33,11 +35,11 @@
 #define OP_EXCLUDE    4
 
 void
-dumpExistence(dnaSeqFile                  *sfile,
-              compressedFileWriter        *ofile,
-              vector<merylExactLookup *>  &klookup,
-              vector<const char *>        &klabel,
-              vector<const char *>        &kname) {
+dumpExistence(dnaSeqFile                       *sfile,
+              compressedFileWriter             *ofile,
+              std::vector<merylExactLookup *>  &klookup,
+              std::vector<const char *>        &klabel,
+              std::vector<const char *>        &kname) {
 
   //  Build a list of labels for each database.  If no labels are provided,
   //  this is just an empty string.
@@ -107,14 +109,10 @@ dumpExistence(dnaSeqFile                  *sfile,
       tmpFilename = tmpPrefix + to_string(seqId - ii) + ".dump";
       compressedFileWriter  *tmpFile = new compressedFileWriter(tmpFilename.c_str());
 
-      splitToWords seqNameField;  //  No need to remain the rest
-      seqNameField.split(seq.name());
-      char* seqName = seqNameField[0];
-
       while (kiter.nextBase()) {
         if (kiter.isValid() == false) {
           fprintf(tmpFile->file(), "%s\t%u\t%lu\t%c\n",
-              seqName,
+              seq.ident(),
               seqId,
               kiter.position(),
               kiter.isACGTbgn() ? 'n' : 'N');
@@ -128,7 +126,7 @@ dumpExistence(dnaSeqFile                  *sfile,
             bool    rExists = klookup[dd]->exists(kiter.rmer(), rValue);
 
             fprintf(tmpFile->file(), "%s\t%u\t%lu\t%c\t%s\t%u\t%s\t%u\t%s\n",
-                seqName,
+                seq.ident(),
                 seqId,
                 kiter.position(),
                 (fExists || rExists) ? 'T' : 'F',
@@ -179,11 +177,11 @@ dumpExistence(dnaSeqFile                  *sfile,
 
 
 void
-reportExistence(dnaSeqFile      *sfile,
-    compressedFileWriter        *ofile,
-    vector<merylExactLookup *>  &klookup,
-    vector<const char *>        &klabel) {
-    dnaSeq   seq;
+reportExistence(dnaSeqFile                       *sfile,
+                compressedFileWriter             *ofile,
+                std::vector<merylExactLookup *>  &klookup,
+                std::vector<const char *>        &klabel) {
+  dnaSeq   seq;
 
   const uint32 ctgn = sfile->numberOfSequences();
   const int threads = omp_get_max_threads();
@@ -210,9 +208,10 @@ reportExistence(dnaSeqFile      *sfile,
     }
 
     kmerIterator  kiter(seq.bases(), seq.length());
-    splitToWords seqNameField;  //  No need to remain the rest
-    seqNameField.split(seq.name());
-    seqNames[seqId] = seqNameField[0];
+
+    seqNames[seqId] = seq.ident();
+
+    char kmerString[65];
 
     while (kiter.nextMer()) {
       nKmer[seqId]++;
@@ -241,12 +240,12 @@ reportExistence(dnaSeqFile      *sfile,
 
 
 void
-filter(dnaSeqFile                  *sfile1,
-       dnaSeqFile                  *sfile2,
-       compressedFileWriter        *ofile1,
-       compressedFileWriter        *ofile2,
-       vector<merylExactLookup *>  &klookup,
-       bool                         outputIfFound) {
+filter(dnaSeqFile                       *sfile1,
+       dnaSeqFile                       *sfile2,
+       compressedFileWriter             *ofile1,
+       compressedFileWriter             *ofile2,
+       std::vector<merylExactLookup *>  &klookup,
+       bool                              outputIfFound) {
 
   //  Do nothing if there are no sequences.
 
@@ -293,13 +292,13 @@ filter(dnaSeqFile                  *sfile1,
       nReadsFound++;
 
       if (sfile1 != NULL) {
-        if (seq1.quals()[0] == 0)   fprintf(ofile1->file(), ">%s nKmers=%u\n%s\n",        seq1.name(), nKmerFound, seq1.bases());
-        else                        fprintf(ofile1->file(), "@%s nKmers=%u\n%s\n+\n%s\n", seq1.name(), nKmerFound, seq1.bases(), seq1.quals());
+        if (seq1.quals()[0] == 0)   fprintf(ofile1->file(), ">%s nKmers=%u\n%s\n",        seq1.ident(), nKmerFound, seq1.bases());
+        else                        fprintf(ofile1->file(), "@%s nKmers=%u\n%s\n+\n%s\n", seq1.ident(), nKmerFound, seq1.bases(), seq1.quals());
       }
 
       if (sfile2 != NULL) {
-        if (seq2.quals()[0] == 0)   fprintf(ofile2->file(), ">%s nKmers=%u\n%s\n",        seq2.name(), nKmerFound, seq2.bases());
-        else                        fprintf(ofile2->file(), "@%s nKmers=%u\n%s\n+\n%s\n", seq2.name(), nKmerFound, seq2.bases(), seq2.quals());
+        if (seq2.quals()[0] == 0)   fprintf(ofile2->file(), ">%s nKmers=%u\n%s\n",        seq2.ident(), nKmerFound, seq2.bases());
+        else                        fprintf(ofile2->file(), "@%s nKmers=%u\n%s\n+\n%s\n", seq2.ident(), nKmerFound, seq2.bases(), seq2.quals());
       }
     }
   }
@@ -317,8 +316,8 @@ main(int argc, char **argv) {
   char const     *outName1 = "-";
   char const     *outName2 = nullptr;
 
-  vector<const char *>  inputDBname;
-  vector<const char *>  inputDBlabel;
+  std::vector<const char *>  inputDBname;
+  std::vector<const char *>  inputDBlabel;
 
   kmvalu          minV       = 0;
   kmvalu          maxV       = kmvalumax;
@@ -329,8 +328,8 @@ main(int argc, char **argv) {
 
   argc = AS_configure(argc, argv);
 
-  vector<char const *>  err;
-  int                   arg = 1;
+  std::vector<char const *>  err;
+  int                        arg = 1;
   while (arg < argc) {
     if        (strcmp(argv[arg], "-sequence") == 0) {
       seqName1 = argv[++arg];
@@ -495,16 +494,16 @@ main(int argc, char **argv) {
 
   //  Open the kmers, build a lookup table.
 
-  vector<merylFileReader *>   merylDBs;
-  vector<merylExactLookup *>  kmerLookups;
-  vector<double>              minMem;
-  vector<double>              optMem;
+  std::vector<merylFileReader *>   merylDBs;
+  std::vector<merylExactLookup *>  kmerLookups;
+  std::vector<double>              minMem;
+  std::vector<double>              optMem;
 
-  double                      minMemTotal = 0.0;
-  double                      optMemTotal = 0.0;
+  double                           minMemTotal = 0.0;
+  double                           optMemTotal = 0.0;
 
-  bool                        useMin = false;
-  bool                        useOpt = false;
+  bool                             useMin = false;
+  bool                             useOpt = false;
 
   for (uint32 ii=0; ii<inputDBname.size(); ii++) {
     merylFileReader   *merylDB    = new merylFileReader(inputDBname[ii]);
@@ -570,7 +569,7 @@ main(int argc, char **argv) {
   dnaSeqFile  *seqFile2 = NULL;
 
   if (seqName1 == NULL) {
-    fprintf(stderr, "-- Error opening sequences in '%s'.\n", seqName1);
+    fprintf(stderr, "-- No sequences supplied?\n");
     exit(1);
   }
 

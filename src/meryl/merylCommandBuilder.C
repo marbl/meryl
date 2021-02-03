@@ -507,7 +507,7 @@ merylCommandBuilder::isMerylInput(void) {
 }
 
 bool
-merylCommandBuilder::isCanuInput(vector<char *> &err) {
+merylCommandBuilder::isCanuInput(std::vector<char *> &err) {
 
   if ((fileExists(_sqInfName) == false) ||
       (fileExists(_sqRdsName) == false))

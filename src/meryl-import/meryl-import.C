@@ -42,8 +42,8 @@ main(int argc, char **argv) {
 
   argc = AS_configure(argc, argv);
 
-  vector<char const *>  err;
-  int                   arg = 1;
+  std::vector<char const *>  err;
+  int                        arg = 1;
   while (arg < argc) {
     if        (strcmp(argv[arg], "-kmers") == 0) {
       inputName = argv[++arg];
