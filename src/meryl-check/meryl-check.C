@@ -23,15 +23,72 @@
 #include "bits.H"
 
 
+void
+loadLookup(char const         *inputDBname,
+           uint64              minV,
+           uint64              maxV,
+           merylExactLookup   &lookup) {
+
+  fprintf(stderr, "==\n");
+  fprintf(stderr, "==  Create merylExactLookup from '%s'.\n", inputDBname);
+  fprintf(stderr, "==\n");
+
+  merylFileReader   *merylDB = new merylFileReader(inputDBname);
+
+  lookup.load(merylDB, 16.0, true, false, minV, maxV);
+
+  fprintf(stderr, "\n");
+
+  delete merylDB;
+}
+
+
+void
+loadMap(char const             *inputDBname,
+        uint64                  minV,
+        uint64                  maxV,
+        std::map<kmer, kmvalu> &lookup) {
+
+  fprintf(stderr, "==\n");
+  fprintf(stderr, "==  Create merylExactLookup from '%s'.\n", inputDBname);
+  fprintf(stderr, "==\n");
+
+  merylFileReader   *merylDB = new merylFileReader(inputDBname);
+
+  uint64     nKmers = 0;
+  uint64     nSkips = 0;
+
+  while (merylDB->nextMer() == true) {
+    kmer    kmer  = merylDB->theFMer();
+    uint32  value = merylDB->theValue();
+
+    if ((minV <= value) &&
+        (value <= maxV)) {
+      lookup[kmer] = value;
+      nKmers++;
+    } else {
+      nSkips++;
+    }
+
+    if (((nKmers + nSkips) % 100000) == 0)
+      fprintf(stderr, "==    Loaded %lu kmers; ignored %lu.\r", nKmers, nSkips);
+  }
+
+  fprintf(stderr, "==    Loaded %lu kmers; ignored %lu; map size %lu.\n", nKmers, nSkips, lookup.size());
+  fprintf(stderr, "\n");
+
+  delete merylDB;
+}
+
 
 
 int
 main(int argc, char **argv) {
-  char   *inputSeqName = NULL;
-  char   *inputDBname  = NULL;
-  //uint64  minV         = 0;
-  //uint64  maxV         = UINT64_MAX;
-  //uint32  threads      = 1;
+  char   *inputSeqName = nullptr;
+  char   *inputDBname  = nullptr;
+  uint64  minV         = 0;
+  uint64  maxV         = uint64max;
+  uint32  threads      = 1;
 
   argc = AS_configure(argc, argv);
 
@@ -44,14 +101,14 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-mers") == 0) {
       inputDBname = argv[++arg];
 
-    //} else if (strcmp(argv[arg], "-min") == 0) {
-    //  minV = strtouint64(argv[++arg]);
+      //} else if (strcmp(argv[arg], "-min") == 0) {
+      //  minV = strtouint64(argv[++arg]);
 
-    //} else if (strcmp(argv[arg], "-max") == 0) {
-    //  maxV = strtouint64(argv[++arg]);
+      //} else if (strcmp(argv[arg], "-max") == 0) {
+      //  maxV = strtouint64(argv[++arg]);
 
-    //} else if (strcmp(argv[arg], "-threads") == 0) {
-    //  threads = strtouint32(argv[++arg]);
+      //} else if (strcmp(argv[arg], "-threads") == 0) {
+      //  threads = strtouint32(argv[++arg]);
 
     } else {
       char *s = new char [1024];
@@ -62,13 +119,18 @@ main(int argc, char **argv) {
     arg++;
   }
 
-  if (inputSeqName == NULL)
-    err.push_back("No input sequences (-sequence) supplied.\n");
-  if (inputDBname == NULL)
-    err.push_back("No query meryl database (-mers) supplied.\n");
+  if (inputSeqName == nullptr)   err.push_back("No input sequences (-sequence) supplied.\n");
+  if (inputDBname  == nullptr)   err.push_back("No query meryl database (-mers) supplied.\n");
 
   if (err.size() > 0) {
     fprintf(stderr, "usage: %s ...\n", argv[0]);
+    fprintf(stderr, "  -sequence    X.fasta\n");
+    fprintf(stderr, "  -mers        X.meryl\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Loads kmers in X.meryl into a merylExactLookup table and a standard\n");
+    fprintf(stderr, "C++ associative map.  Verifies that every kmer present in X.fasta is\n");
+    fprintf(stderr, "present in both the merylExactLookup and the associative map, and that\n");
+    fprintf(stderr, "the value returned by both is the same.\n");
     fprintf(stderr, "\n");
 
     for (uint32 ii=0; ii<err.size(); ii++)
@@ -80,40 +142,26 @@ main(int argc, char **argv) {
 
 
 
-  std::map<kmer,uint32>   check;
+  merylExactLookup        kmerLookup;
+  std::map<kmer,kmvalu>   kmerValue;
+  std::map<kmer,kmvalu>   kmerCheck;
 
-  //  Open a database, load the kmers and values into 'check'.
 
-  fprintf(stderr, "Open meryl database '%s'.\n", inputDBname);
-  merylFileReader   *merylDB    = new merylFileReader(inputDBname);
+  loadLookup(inputDBname, minV, maxV, kmerLookup);
+  loadMap   (inputDBname, minV, maxV, kmerValue);
 
-  fprintf(stderr, "Convert to lookup table.\n");
-  //merylExactLookup  *kmerLookup = new merylExactLookup(merylDB, minV, maxV);
+  fprintf(stderr, "==\n");
+  fprintf(stderr, "==  Copy kmerValue to kmerCheck.\n");
+  fprintf(stderr, "==\n");
 
-  fprintf(stderr, "Create mapping to value.\n");
-  uint64                 nKmers     = 0;
-
-  while (merylDB->nextMer() == true) {
-    kmer    kmer  = merylDB->theFMer();
-    uint32  value = merylDB->theValue();
-
-    check[kmer] = value;
-
-    nKmers++;
-
-    if ((nKmers % 100000) == 0) {
-      fprintf(stderr, "Loaded %li kmers.\n", nKmers);
-    }
-  }
-
-  delete merylDB;
-  //delete kmerLookup;
-
-  fprintf(stderr,"Loaded %lu kmers into check map of size %lu\n", nKmers, check.size());
+  kmerCheck = kmerValue;
 
   //
 
-  fprintf(stderr, "Stream kmers from '%s'.\n", inputSeqName);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "==\n");
+  fprintf(stderr, "==  Stream kmers from '%s'.\n", inputSeqName);
+  fprintf(stderr, "==\n");
 
   dnaSeqFile  *seqFile    = new dnaSeqFile(inputSeqName);
 
@@ -121,6 +169,7 @@ main(int argc, char **argv) {
     dnaSeq   seq;
     char     fString[64];
     char     rString[64];
+    uint64   nTest = 0;
 
     while (seqFile->loadSequence(seq)) {
       kmerIterator  kiter(seq.bases(), seq.length());
@@ -128,18 +177,82 @@ main(int argc, char **argv) {
       while (kiter.nextMer()) {
         kmer     fMer  = kiter.fmer();
         kmer     rMer  = kiter.rmer();
-        uint64   value = 0;
+        kmer     cMer  = (fMer < rMer) ? fMer : rMer;
+        kmvalu   value;
 
-        if (fMer < rMer)
-          value = check[fMer]--;
-        else
-          value = check[rMer]--;
+        if (kmerLookup.exists(cMer) == false) {
+          fprintf(stdout, "%s\t%s\t%s MISSING from kmerLookup::exists()\n",
+                  seq.ident(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString));
+          exit(1);
+#ifdef SHOW_SUCCESS
+        } else {
+          fprintf(stdout, "%s\t%s\t%s FOUND in kmerLookup::exists()\n",
+                  seq.ident(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString));
+#endif
+        }
 
-        if (value == 0)
+        if (kmerLookup.exists(cMer, value) == false) {
+          fprintf(stdout, "%s\t%s\t%s MISSING from kmerLookup::exists(mer, value) - (not found)\n",
+                  seq.ident(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString));
+          exit(1);
+        }
+        if (value != kmerValue[cMer]) {
+          fprintf(stdout, "%s\t%s\t%s MISSING from kmerLookup::exists(mer, value) -  kmerLookup=%u kmerValue=%u\n",
+                  seq.ident(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString),
+                  kmerLookup.value(cMer),
+                  kmerCheck[cMer]);
+          exit(1);
+#ifdef SHOW_SUCCESS
+        } else {
+          fprintf(stdout, "%s\t%s\t%s FOUND in kmerLookup::exists(mer, value)\n",
+                  seq.ident(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString));
+#endif
+        }
+
+        if (kmerLookup.value(cMer) != kmerValue[cMer]) {
+          fprintf(stdout, "%s\t%s\t%s MISSING from kmerLookup::value() -- kmerLookup=%u kmerValue=%u\n",
+                  seq.ident(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString),
+                  kmerLookup.value(cMer),
+                  kmerCheck[cMer]);
+          exit(1);
+#ifdef SHOW_SUCCESS
+        } else {
+          fprintf(stdout, "%s\t%s\t%s FOUND in kmerLookup::value()\n",
+                  seq.ident(),
+                  kiter.fmer().toString(fString),
+                  kiter.rmer().toString(rString));
+#endif
+        }
+
+        //  Subtract one from the kmer check counters.  If this is zero, the
+        //  kmerIterator returned too many kmers.
+
+        if (kmerCheck[cMer] == 0) {
           fprintf(stdout, "%s\t%s\t%s ZERO\n",
                   seq.ident(),
                   kiter.fmer().toString(fString),
                   kiter.rmer().toString(rString));
+          exit(1);
+        }
+
+        --kmerCheck[cMer];
+
+        //  Log.
+
+        if ((++nTest % 100000) == 0)
+          fprintf(stderr, "==    Tested %lu kmers.\r", nTest);
       }
     }
   }
@@ -148,7 +261,12 @@ main(int argc, char **argv) {
 
   //  Check that all values are zero.
 
-  for (auto it=check.begin(); it != check.end(); it++) {
+  fprintf(stderr, "\n");
+  fprintf(stderr, "==\n");
+  fprintf(stderr, "==  Checking all kmers were seen.\n");
+  fprintf(stderr, "==\n");
+
+  for (auto it=kmerCheck.begin(); it != kmerCheck.end(); it++) {
     kmer    k = it->first;
     uint32  v = it->second;
 
@@ -158,6 +276,10 @@ main(int argc, char **argv) {
       fprintf(stderr, "%s\t%u\n", k.toString(kmerString), v);
     }
   }
+
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Success!\n");
+  fprintf(stderr, "\n");
 
   exit(0);
 }
