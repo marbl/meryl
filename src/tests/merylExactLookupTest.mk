@@ -1,5 +1,5 @@
-TARGET   := meryl-check
-SOURCES  := meryl-check.C \
+TARGET   := merylExactLookupTest
+SOURCES  := merylExactLookupTest.C \
 
 SRC_INCDIRS  := . ../utility/src/utility
 
