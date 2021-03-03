@@ -422,14 +422,18 @@ merylOperation::countThreads(uint32  wPrefix,
                                       inputBufferSize,
                                       _outputO);
 
-  //  Set up a sweatShop and run it.
+  //  Set up a sweatShop and run it.  We'll reserve one thread for input, one
+  //  for gzip and use the remaining for counting -- unless there are no
+  //  remaining, then we'll just use one.
 
   sweatShop    *ss = new sweatShop(loadBases, insertKmers, writeBatch);
 
-  ss->setLoaderBatchSize(1);                     //  Load this many things before appending to input list
-  ss->setLoaderQueueSize(_maxThreads * 16);      //  Allow this many things on the input list before stalling the input
-  ss->setWriterQueueSize(_maxThreads);           //  Allow this many things on the output list before stalling the compute
-  ss->setNumberOfWorkers(_maxThreads - 1 - 1);   //  Use this many worker CPUs; leave one for input and one for gzip.
+  uint32 nw = (_maxThreads > 2) ? (_maxThreads - 2) : 1;
+
+  ss->setLoaderBatchSize(1);            //  Load this many things before appending to input list
+  ss->setLoaderQueueSize(nw * 16);      //  Allow this many things on the input list before stalling the input
+  ss->setWriterQueueSize(nw);           //  Allow this many things on the output list before stalling the compute
+  ss->setNumberOfWorkers(nw);           //  Use this many worker CPUs; leave one for input and one for gzip.
 
   ss->run(g, false);
 
