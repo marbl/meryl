@@ -103,6 +103,8 @@ main(int argc, char **argv) {
     fprintf(stderr, "\n");
     fprintf(stderr, "  COMMANDS:\n");
     fprintf(stderr, "\n");
+    fprintf(stderr, "    statistics           display total, unique, distnict, present number of the kmers on the screen.  accepts exactly one input.\n");
+    fprintf(stderr, "    histogram            display kmer frequency on the screen as 'frequency<tab>count'.  accepts exactly one input.\n");
     fprintf(stderr, "    print                display kmers on the screen as 'kmer<tab>count'.  accepts exactly one input.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    count                Count the occurrences of canonical kmers in the input.  must have 'output' specified.\n");
