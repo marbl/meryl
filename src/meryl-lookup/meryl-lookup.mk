@@ -1,5 +1,8 @@
 TARGET   := meryl-lookup
-SOURCES  := meryl-lookup.C
+SOURCES  := meryl-lookup.C \
+            dump.C \
+            existence.C \
+            include-exclude.C
 
 SRC_INCDIRS := .
 
