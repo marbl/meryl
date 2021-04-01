@@ -125,12 +125,12 @@ void
 lookupGlobal::openOutputs(void) {
 
   if (outName1) {
-    fprintf(stderr, "-- Opening output file '%s'.\n", seqName1);
+    fprintf(stderr, "-- Opening output file '%s'.\n", outName1);
     outFile1 = new compressedFileWriter(outName1);
   }
 
   if (outName2) {
-    fprintf(stderr, "-- Opening output file '%s'.\n", seqName1);
+    fprintf(stderr, "-- Opening output file '%s'.\n", outName1);
     outFile2 = new compressedFileWriter(outName2);
   }
 }
