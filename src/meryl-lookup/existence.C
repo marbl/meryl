@@ -16,78 +16,129 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "runtime.H"
-
-#include "kmers.H"
-#include "system.H"
-#include "sequence.H"
-#include "bits.H"
-#include "strings.H"
-#include <fstream>
-#include <iostream>
-
-using namespace std;  //  For ifstream and string.
+#include "meryl-lookup.H"
+#include "sweatShop.H"
 
 
-void
-reportExistence(dnaSeqFile                       *sfile,
-                compressedFileWriter             *ofile,
-                std::vector<merylExactLookup *>  &klookup,
-                std::vector<const char *>        &klabel) {
-  dnaSeq   seq;
 
-  const uint32 ctgn = sfile->numberOfSequences();
-  const int threads = omp_get_max_threads();
-  fprintf(stderr, "\nTotal of %u sequences found. Will be processed over %d threads\n", ctgn, threads);
+class existInput {
+public:
+  existInput() {
+  };
+  ~existInput() {
+    delete [] nFound;
+  };
 
-  //  Initializing output variables
-  string seqNames[ctgn];
-  uint64 nKmer[ctgn];
-  uint64 nKmerFound[ctgn][klookup.size()];
-  for (uint32 ii=0; ii<ctgn; ii++)  {
-    nKmer[ii]=0;
-    for (uint32 dd=0; dd<klookup.size(); dd++) {
-      nKmerFound[ii][dd] = 0;
-    } 
-  } 
+  dnaSeq        seq;
 
-#pragma omp parallel for private(seq)
-  for (uint32 seqId = 0; seqId < ctgn; seqId++) {
+  uint64        nTotal  = 0;
+  uint64       *nFound  = nullptr;
+};
 
-#pragma omp critical
-    {
-      sfile->findSequence(seqId);
-      sfile->loadSequence(seq);
-    }
 
-    kmerIterator  kiter(seq.bases(), seq.length());
 
-    seqNames[seqId] = seq.ident();
+static    //  (This really came from merfin)
+void *
+loadSequence(void *G) {
+  lookupGlobal *g = (lookupGlobal *)G;
+  existInput   *s = new existInput();
 
-    char kmerString[65];
-
-    while (kiter.nextMer()) {
-      nKmer[seqId]++;
-
-      for (uint32 dd=0; dd<klookup.size(); dd++) {
-        if ((klookup[dd]->value(kiter.fmer()) > 0) ||
-            (klookup[dd]->value(kiter.rmer()) > 0))
-          nKmerFound[seqId][dd]++;
-      }
-    }
+  if (g->seqFile1->loadSequence(s->seq) == false) {
+    delete s;
+    return(nullptr);
   }
 
-  //  Flush output
-  fprintf(stderr, "Writing sequence results.\n");
-
-  for (uint32 seqId = 0; seqId < ctgn; seqId++) {
-
-    fprintf(ofile->file(), "%s\t%lu", seqNames[seqId].c_str(), nKmer[seqId]);
-    for (uint32 dd=0; dd<klookup.size(); dd++) {
-      fprintf(ofile->file(), "\t%lu\t%lu", klookup[dd]->nKmers(), nKmerFound[seqId][dd]);
-    }
-    fprintf(ofile->file(), "\n");
-  }
+  return(s);
 }
 
 
+
+static
+void
+processSequence(void *G, void *T, void *S) {
+  lookupGlobal *g   = (lookupGlobal *)G;
+  existInput   *s   = (existInput   *)S;
+  int32         nIn = g->lookupDBs.size();
+
+  //  Allocate and clear outputs.
+
+  s->nTotal = 0;
+  s->nFound = new uint64 [nIn];
+
+  for (uint32 dd=0; dd<nIn; dd++)
+    s->nFound[dd] = 0;
+
+  //  Zip through the kmers, counting how many kmers we have and how many we
+  //  found in each input.
+
+  kmerIterator  kiter(s->seq.bases(), s->seq.length());
+
+  while (kiter.nextMer()) {
+    s->nTotal++;
+
+    for (uint32 dd=0; dd<nIn; dd++) {
+      if ((g->lookupDBs[dd]->value(kiter.fmer()) > 0) ||
+          (g->lookupDBs[dd]->value(kiter.rmer()) > 0))
+        s->nFound[dd]++;
+    }
+  }
+
+  //  Release the memory use for storing the sequence.
+
+  s->seq.releaseBases();
+}
+
+
+
+static
+void
+outputSequence(void *G, void *S) {
+  lookupGlobal *g   = (lookupGlobal *)G;
+  existInput   *s   = (existInput   *)S;
+  int32         nIn = g->lookupDBs.size();
+
+  //  Allocate space for the output string.
+
+  resizeArray(g->outstring, 0, g->outstringMax, 16 + 16 * 2 * nIn, _raAct::doNothing);
+
+  //  Create the string.
+
+  char *t = g->outstring;
+
+  *t++ = '\t';
+  t = toDec(s->nTotal, t);
+
+  for (uint32 dd=0; dd<nIn; dd++) {
+    *t++ = '\t';
+    t = toDec(g->lookupDBs[dd]->nKmers(), t);
+
+    *t++ = '\t';
+    t = toDec(s->nFound[dd], t);
+  }
+
+  *t++ = '\n';
+  *t   = 0;
+
+  //  And output it.
+
+  fputs(s->seq.ident(), g->outFile1->file());
+  fputs(g->outstring,   g->outFile1->file());
+
+  delete s;
+}
+
+
+
+
+void
+reportExistence(lookupGlobal *g) {
+  sweatShop     *ss = new sweatShop(loadSequence, processSequence, outputSequence);
+
+  ss->setLoaderQueueSize(4096);
+  ss->setNumberOfWorkers(omp_get_max_threads());
+  ss->setWriterQueueSize(4096);
+
+  ss->run(g, g->showProgress);
+
+  delete ss;
+}

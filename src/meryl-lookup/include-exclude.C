@@ -16,81 +16,129 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "runtime.H"
+#include "meryl-lookup.H"
+#include "sweatShop.H"
 
-#include "kmers.H"
-#include "system.H"
-#include "sequence.H"
-#include "bits.H"
-#include "strings.H"
-#include <fstream>
-#include <iostream>
+
+
+class filterInput {
+public:
+  filterInput() {
+  };
+  ~filterInput() {
+  };
+
+  dnaSeq        seq1;
+  dnaSeq        seq2;
+
+  uint64        nTotal;
+  uint64        nFound;
+};
+
+
+
+
+static
+void *
+loadSequence(void *G) {
+  lookupGlobal *g = (lookupGlobal *)G;
+  filterInput  *s = new filterInput;
+
+  bool   load1 = (g->seqFile1 != nullptr) && (g->seqFile1->loadSequence(s->seq1) == true);
+  bool   load2 = (g->seqFile2 != nullptr) && (g->seqFile2->loadSequence(s->seq2) == true);
+
+  if ((load1 == false) &&
+      (load2 == false)) {
+    delete s;
+    return(nullptr);
+  }
+
+  return(s);
+}
+
+
+
+static
+uint64
+processSequence(merylExactLookup *L, dnaSeq &seq) {
+  kmerIterator kiter(seq.bases(), seq.length());
+  uint64       found = 0;
+
+  while (kiter.nextMer())
+    if ((L->value(kiter.fmer()) > 0) ||
+        (L->value(kiter.rmer()) > 0))
+      found++;
+
+  return(found);
+}
+
+
+static
+void
+processSequence(void *G, void *T, void *S) {
+  lookupGlobal *g = (lookupGlobal *)G;
+  filterInput  *s = (filterInput  *)S;
+
+  //  Count the number of kmers found in the database from either
+  //  seq1 or seq2.
+
+  s->nFound  = processSequence(g->lookupDBs[0], s->seq1);
+  s->nFound += processSequence(g->lookupDBs[0], s->seq2);
+}
+
+
+
+static
+void
+outputSequence(compressedFileWriter  *O,
+               dnaSeq                &seq,
+               uint64                 nFound) {
+
+  if (O == nullptr)
+    return;
+
+  if (seq.quals()[0] == 0)   fprintf(O->file(), ">%s nKmers=%lu\n%s\n",        seq.ident(), nFound, seq.bases());
+  else                       fprintf(O->file(), "@%s nKmers=%lu\n%s\n+\n%s\n", seq.ident(), nFound, seq.bases(), seq.quals());
+}
+
+
+static
+void
+outputSequence(void *G, void *S) {
+  lookupGlobal *g = (lookupGlobal *)G;
+  filterInput  *s = (filterInput  *)S;
+
+  g->nReadsTotal++;
+
+  //  Write output if:
+  //    'include' and    mers found.
+  //    'exclude' and no mers found.
+
+  if (((s->nFound  > 0) && (g->reportType == lookupOp::opInclude)) ||
+      ((s->nFound == 0) && (g->reportType == lookupOp::opExclude))) {
+    g->nReadsFound++;
+
+    outputSequence(g->outFile1, s->seq1, s->nFound);
+    outputSequence(g->outFile2, s->seq2, s->nFound);
+  }
+
+  delete s;
+}
+
 
 
 void
-filter(dnaSeqFile                       *sfile1,
-       dnaSeqFile                       *sfile2,
-       compressedFileWriter             *ofile1,
-       compressedFileWriter             *ofile2,
-       std::vector<merylExactLookup *>  &klookup,
-       bool                              outputIfFound) {
+filter(lookupGlobal *g) {
+  sweatShop     *ss = new sweatShop(loadSequence, processSequence, outputSequence);
 
-  //  Do nothing if there are no sequences.
+  ss->setLoaderQueueSize(omp_get_max_threads());
+  ss->setNumberOfWorkers(omp_get_max_threads());
+  ss->setWriterQueueSize(omp_get_max_threads());
 
-  if ((sfile1 == NULL) && (sfile2 == NULL))
-    return;
+  ss->run(g, g->showProgress);
 
-  //  While we load sequences from all files supplied...
+  delete ss;
 
-  dnaSeq  seq1;
-  dnaSeq  seq2;
-
-  uint64   nReads      = 0;
-  uint64   nReadsFound = 0;
-
-  while (((sfile1 == NULL) || (sfile1->loadSequence(seq1))) &&
-         ((sfile2 == NULL) || (sfile2->loadSequence(seq2)))) {
-    uint32 nKmerFound = 0;
-
-    nReads++;
-
-    if (seq1.length() > 0) {
-      kmerIterator  kiter(seq1.bases(), seq1.length());
-
-      while (kiter.nextMer())
-        if ((klookup[0]->value(kiter.fmer()) > 0) ||
-            (klookup[0]->value(kiter.rmer()) > 0))
-          nKmerFound++;
-    }
-
-    if (seq2.length() > 0) {
-      kmerIterator  kiter(seq2.bases(), seq2.length());
-
-      while (kiter.nextMer())
-        if ((klookup[0]->value(kiter.fmer()) > 0) ||
-            (klookup[0]->value(kiter.rmer()) > 0))
-          nKmerFound++;
-    }
-
-    //  Report the sequence if:
-    //    any kmers are found and     ifFound
-    //    no  kmers are found and not ifFound
-
-    if ((nKmerFound > 0) == outputIfFound) {
-      nReadsFound++;
-
-      if (sfile1 != NULL) {
-        if (seq1.quals()[0] == 0)   fprintf(ofile1->file(), ">%s nKmers=%u\n%s\n",        seq1.ident(), nKmerFound, seq1.bases());
-        else                        fprintf(ofile1->file(), "@%s nKmers=%u\n%s\n+\n%s\n", seq1.ident(), nKmerFound, seq1.bases(), seq1.quals());
-      }
-
-      if (sfile2 != NULL) {
-        if (seq2.quals()[0] == 0)   fprintf(ofile2->file(), ">%s nKmers=%u\n%s\n",        seq2.ident(), nKmerFound, seq2.bases());
-        else                        fprintf(ofile2->file(), "@%s nKmers=%u\n%s\n+\n%s\n", seq2.ident(), nKmerFound, seq2.bases(), seq2.quals());
-      }
-    }
-  }
-
-  fprintf(stderr, "\nIncluding %lu reads (or read pairs) out of %lu.\n", nReadsFound, nReads);
+  fprintf(stderr, "\nIncluding %lu reads (or read pairs) out of %lu.\n", g->nReadsTotal, g->nReadsFound);
 }
 

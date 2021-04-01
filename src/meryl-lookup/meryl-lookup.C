@@ -16,137 +16,237 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "runtime.H"
+#include "meryl-lookup.H"
 
-#include "kmers.H"
-#include "system.H"
-#include "sequence.H"
-#include "bits.H"
-#include "strings.H"
-#include <fstream>
-#include <iostream>
-
-using namespace std;  //  For ifstream and string.
-
-#define OP_NONE       0
-#define OP_DUMP       1
-#define OP_EXISTENCE  2
-#define OP_INCLUDE    3
-#define OP_EXCLUDE    4
+void   dumpExistence(lookupGlobal *G);
+void   reportExistence(lookupGlobal *G);
+void   filter(lookupGlobal *G);
 
 
 void
-dumpExistence(dnaSeqFile                       *sfile,
-              compressedFileWriter             *ofile,
-              std::vector<merylExactLookup *>  &klookup,
-              std::vector<const char *>        &klabel,
-              std::vector<const char *>        &kname);
+lookupGlobal::initialize(void) {
+  omp_set_num_threads(nThreads);
+}
 
 
-void
-reportExistence(dnaSeqFile                       *sfile,
-                compressedFileWriter             *ofile,
-                std::vector<merylExactLookup *>  &klookup,
-                std::vector<const char *>        &klabel);
 
 void
-filter(dnaSeqFile                       *sfile1,
-       dnaSeqFile                       *sfile2,
-       compressedFileWriter             *ofile1,
-       compressedFileWriter             *ofile2,
-       std::vector<merylExactLookup *>  &klookup,
-       bool                              outputIfFound);
+lookupGlobal::loadLookupTables(void) {
+  std::vector<merylFileReader *>    merylDBs;    //  Input meryl database.
+  std::vector<double>               minMem;      //  Estimated min memory for lookup table.
+  std::vector<double>               optMem;      //  Estimated max memory for lookup table.
+
+  //  Open input meryl databases, initialize lookup.
+
+  for (uint32 ii=0; ii<lookupDBname.size(); ii++) {
+    merylDBs .push_back(new merylFileReader(lookupDBname[ii]));
+    minMem   .push_back(0.0);
+    optMem   .push_back(0.0);
+    lookupDBs.push_back(new merylExactLookup());
+  }
+
+  //  Estimate memory needed for each lookup table.
+
+  double   minMemTotal = 0.0;
+  double   optMemTotal = 0.0;
+
+  for (uint32 ii=0; ii<lookupDBname.size(); ii++) {
+    fprintf(stderr, "--\n");
+    fprintf(stderr, "-- Estimating memory usage for '%s'.\n", lookupDBname[ii]);
+    fprintf(stderr, "--\n");
+
+    double  minm, optm;
+    lookupDBs[ii]->estimateMemoryUsage(merylDBs[ii], maxMemory, minm, optm, minV, maxV);
+
+    minMemTotal += minm;
+    optMemTotal += optm;
+  }
+
+  //  Use either the smallest or 'fastest' table, or fail, depending on how
+  //  much memory the use lets us use.
+
+  bool  useOpt = (optMemTotal <= maxMemory);
+  bool  useMin = (minMemTotal <= maxMemory) && (useOpt == false);
+
+  fprintf(stderr, "--\n");
+  fprintf(stderr, "-- Minimal memory needed: %.3f GB%s\n", minMemTotal, (useMin) ? "  enabled" : "");
+  fprintf(stderr, "-- Optimal memory needed: %.3f GB%s\n", optMemTotal, (useOpt) ? "  enabled" : "");
+  fprintf(stderr, "-- Memory limit           %.3f GB\n",   maxMemory);
+  fprintf(stderr, "--\n");
+
+  if ((useMin == false) &&
+      (useOpt == false)) {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Not enough memory to load databases.  Increase -memory.\n");
+    fprintf(stderr, "\n");
+    exit(1);
+  }
+
+  if (doEstimate == true) {
+    fprintf(stderr, "-- Stopping after memory estimated reported; -estimate option enabled.\n");
+    exit(0);
+  }
+
+  //  Now load the data and forget about the input databases.
+
+  for (uint32 ii=0; ii<lookupDBname.size(); ii++) {
+    fprintf(stderr, "--\n");
+    fprintf(stderr, "-- Loading kmers from '%s' into lookup table.\n", lookupDBname[ii]);
+    fprintf(stderr, "--\n");
+
+    if (lookupDBs[ii]->load(merylDBs[ii], maxMemory, useMin, useOpt, minV, maxV) == false)
+      exit(1);
+
+    delete merylDBs[ii];
+  }
+}
+
+
+
+//  Open input sequences.
+void
+lookupGlobal::openInputs(void) {
+
+  if (seqName1) {
+    fprintf(stderr, "-- Opening input sequences '%s'.\n", seqName1);
+    seqFile1 = new dnaSeqFile(seqName1);
+  }
+
+  if (seqName2) {
+    fprintf(stderr, "-- Opening input sequences '%s'.\n", seqName2);
+    seqFile2 = new dnaSeqFile(seqName2);
+  }
+}
+
+
+
+//  Open output writers.
+void
+lookupGlobal::openOutputs(void) {
+
+  if (outName1) {
+    fprintf(stderr, "-- Opening output file '%s'.\n", seqName1);
+    outFile1 = new compressedFileWriter(outName1);
+  }
+
+  if (outName2) {
+    fprintf(stderr, "-- Opening output file '%s'.\n", seqName1);
+    outFile2 = new compressedFileWriter(outName2);
+  }
+}
+
+
+
+
 
 
 int
 main(int argc, char **argv) {
-  char const     *seqName1 = nullptr;
-  char const     *seqName2 = nullptr;
-
-  char const     *outName1 = "-";
-  char const     *outName2 = nullptr;
-
-  std::vector<const char *>  inputDBname;
-  std::vector<const char *>  inputDBlabel;
-
-  kmvalu          minV       = 0;
-  kmvalu          maxV       = kmvalumax;
-  uint32          threads    = getMaxThreadsAllowed();
-  double          memory     = getMaxMemoryAllowed() / 1024.0 / 1024.0 / 1024.0;
-  uint32          reportType = OP_NONE;
-  bool            doEstimate = false;
+  lookupGlobal  *G = new lookupGlobal;
 
   argc = AS_configure(argc, argv);
 
   std::vector<char const *>  err;
-  int                        arg = 1;
-  while (arg < argc) {
+  for (int32 arg=1; arg < argc; arg++) {
     if        (strcmp(argv[arg], "-sequence") == 0) {
-      seqName1 = argv[++arg];
+      G->seqName1 = argv[++arg];
 
       if ((arg + 1 < argc) && (argv[arg + 1][0] != '-'))
-        seqName2 = argv[++arg];
+        G->seqName2 = argv[++arg];
 
     } else if (strcmp(argv[arg], "-mers") == 0) {
       while ((arg + 1 < argc) && (argv[arg + 1][0] != '-'))
-        inputDBname.push_back(argv[++arg]);
+        G->lookupDBname.push_back(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-labels") == 0) {
       while ((arg + 1 < argc) && (argv[arg + 1][0] != '-'))
-        inputDBlabel.push_back(argv[++arg]);
+        G->lookupDBlabel.push_back(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-output") == 0) {
-      outName1 = argv[++arg];
+      G->outName1 = argv[++arg];
 
       if ((arg + 1 < argc) && (argv[arg + 1][0] != '-'))
-        outName2 = argv[++arg];
+        G->outName2 = argv[++arg];
 
     } else if (strcmp(argv[arg], "-min") == 0) {
-      minV = (kmvalu)strtouint32(argv[++arg]);
+      G->minV = (kmvalu)strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-max") == 0) {
-      maxV = (kmvalu)strtouint32(argv[++arg]);
+      G->maxV = (kmvalu)strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-threads") == 0) {
-      threads = strtouint32(argv[++arg]);
+      G->nThreads = strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-memory") == 0) {
-      memory = strtodouble(argv[++arg]);
+      G->maxMemory = strtodouble(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-dump") == 0) {
-      reportType = OP_DUMP;
+      G->reportType = lookupOp::opDump;
 
     } else if (strcmp(argv[arg], "-existence") == 0) {
-      reportType = OP_EXISTENCE;
+      G->reportType = lookupOp::opExistence;
 
     } else if (strcmp(argv[arg], "-include") == 0) {
-      reportType = OP_INCLUDE;
+      G->reportType = lookupOp::opInclude;
 
     } else if (strcmp(argv[arg], "-exclude") == 0) {
-      reportType = OP_EXCLUDE;
+      G->reportType = lookupOp::opExclude;
 
     } else if (strcmp(argv[arg], "-estimate") == 0) {
-      doEstimate = true;
+      G->doEstimate = true;
+
+    } else if (strcmp(argv[arg], "-V") == 0) {
+      G->showProgress = true;
 
     } else {
       char *s = new char [1024];
       snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
       err.push_back(s);
     }
-
-    arg++;
   }
 
-  if ((seqName1 == NULL) && (seqName2 == NULL))
-    err.push_back("No input sequences (-sequence) supplied.\n");
-  if (inputDBname.size() == 0)
-    err.push_back("No query meryl database (-mers) supplied.\n");
-  if (reportType == OP_NONE)
-    err.push_back("No report-type (-existence, etc) supplied.\n");
-  if ((seqName1 != nullptr) && (outName1 == nullptr))
-    err.push_back("No output file (-output) supplied.\n");
-  if ((seqName2 != nullptr) && (outName2 == nullptr))
-    err.push_back("No second output file (-output) supplied.\n");
+  //  Check for invalid usage.
+
+  if (G->reportType == lookupOp::opNone) {
+    err.push_back("No report-type (-existence, -dump, -include, -exclude) supplied.\n");
+  }
+
+  if (G->reportType == lookupOp::opDump) {
+    if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
+    if (G->seqName2 != nullptr)  err.push_back("Only one input sequence (-sequence) supported for -dump.\n");
+
+    if (G->outName1 == nullptr)  err.push_back("No output file (-output) supplied.\n");
+    if (G->outName2 != nullptr)  err.push_back("Only one output file (-output) supported for -dump.\n");
+
+    if (G->lookupDBname.size() == 0) err.push_back("No meryl database (-mers) supplied.\n");
+    if (G->lookupDBname.size()  > 1) err.push_back("Only one meryl database (-mers) supported for -dump.\n");
+  }
+
+  if (G->reportType == lookupOp::opExistence) {
+    if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
+    if (G->seqName2 != nullptr)  err.push_back("Only one input sequence (-sequence) supported for -existence.\n");
+
+    if (G->outName1 == nullptr)  err.push_back("No output file (-output) supplied.\n");
+    if (G->outName2 != nullptr)  err.push_back("Only one output file (-output) supported for -existence.\n");
+
+    if (G->lookupDBname.size() == 0) err.push_back("No meryl database (-mers) supplied.\n");
+  }
+
+  if ((G->reportType == lookupOp::opInclude) ||
+      (G->reportType == lookupOp::opExclude)) {
+    if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
+    if (G->outName1 == nullptr)  err.push_back("No output file (-output) supplied.\n");
+
+    if ((G->seqName2 != nullptr) &&
+        (G->outName2 == nullptr)) err.push_back("No second output file (-output) supplied for second input (-input) file.\n");
+
+    if ((G->seqName2 == nullptr) &&
+        (G->outName2 != nullptr)) err.push_back("No second input file (-input) supplied for second output (-output) file.\n");
+
+    if (G->lookupDBname.size() == 0) err.push_back("No meryl database (-mers) supplied.\n");
+    if (G->lookupDBname.size()  > 1) err.push_back("Only one meryl database (-mers) supported for -include or -exclude.\n");
+  }
+
 
   if (err.size() > 0) {
     fprintf(stderr, "usage: %s <report-type> \\\n", argv[0]);
@@ -240,130 +340,26 @@ main(int argc, char **argv) {
     exit(1);
   }
 
-  omp_set_num_threads(threads);
+  G->initialize();
+  G->loadLookupTables();
+  G->openInputs();
+  G->openOutputs();
 
-  //  Open the kmers, build a lookup table.
-
-  std::vector<merylFileReader *>   merylDBs;
-  std::vector<merylExactLookup *>  kmerLookups;
-  std::vector<double>              minMem;
-  std::vector<double>              optMem;
-
-  double                           minMemTotal = 0.0;
-  double                           optMemTotal = 0.0;
-
-  bool                             useMin = false;
-  bool                             useOpt = false;
-
-  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
-    merylFileReader   *merylDB    = new merylFileReader(inputDBname[ii]);
-    merylExactLookup  *kmerLookup = new merylExactLookup();
-
-    merylDBs   .push_back(merylDB);
-    kmerLookups.push_back(kmerLookup);
-    minMem     .push_back(0.0);
-    optMem     .push_back(0.0);
+  switch (G->reportType) {
+    case lookupOp::opNone:                               break;
+    case lookupOp::opDump:         dumpExistence(G);     break;
+    case lookupOp::opExistence:    reportExistence(G);   break;
+    case lookupOp::opInclude:      filter(G);            break;
+    case lookupOp::opExclude:      filter(G);            break;
+    default:                                             break;
   }
 
-  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
-    double  minMem = 0.0;
-    double  optMem = 0.0;
-
-    fprintf(stderr, "--\n");
-    fprintf(stderr, "-- Estimating memory usage for '%s'.\n", inputDBname[ii]);
-    fprintf(stderr, "--\n");
-
-    kmerLookups[ii]->estimateMemoryUsage(merylDBs[ii], memory, minMem, optMem, minV, maxV);
-
-    minMemTotal += minMem;
-    optMemTotal += optMem;
-  }
-
-  if      (optMemTotal <= memory)
-    useOpt = true;
-  else if (minMemTotal <= memory)
-    useMin = true;
-
-  fprintf(stderr, "--\n");
-  fprintf(stderr, "-- Minimal memory needed: %.3f GB%s\n", minMemTotal, (useMin) ? "  enabled" : "");
-  fprintf(stderr, "-- Optimal memory needed: %.3f GB%s\n", optMemTotal, (useOpt) ? "  enabled" : "");
-  fprintf(stderr, "-- Memory limit           %.3f GB\n",   memory);
-  fprintf(stderr, "--\n");
-
-  if ((useMin == false) &&
-      (useOpt == false)) {
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Not enough memory to load databases.  Increase -memory.\n");
-    fprintf(stderr, "\n");
-    exit(1);
-  }
-
-  if (doEstimate == true) {
-    fprintf(stderr, "-- Stopping after memory estimated reported; -estimate option enabled.\n");
-    exit(0);
-  }
-
-  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
-    fprintf(stderr, "--\n");
-    fprintf(stderr, "-- Loading kmers from '%s' into lookup table.\n", inputDBname[ii]);
-    fprintf(stderr, "--\n");
-
-    if (kmerLookups[ii]->load(merylDBs[ii], memory, useMin, useOpt, minV, maxV) == false)
-      exit(1);
-  }
-
-
-  //  Open input sequences.
-
-  dnaSeqFile  *seqFile1 = NULL;
-  dnaSeqFile  *seqFile2 = NULL;
-
-  if (seqName1 == NULL) {
-    fprintf(stderr, "-- No sequences supplied?\n");
-    exit(1);
-  }
-
-  if (seqName2 != NULL) {
-    fprintf(stderr, "-- Opening sequences in '%s'.\n", seqName2);
-    seqFile2 = new dnaSeqFile(seqName2);
-  }
-
-  //  Open output writers.
-
-  compressedFileWriter  *outFile1 = (outName1 == nullptr) ? nullptr : new compressedFileWriter(outName1);
-  compressedFileWriter  *outFile2 = (outName2 == nullptr) ? nullptr : new compressedFileWriter(outName2);
-
-  //  Do something.
-
-  fprintf(stderr, "-- Opening sequences in '%s'.\n", seqName1);
-  if (reportType == OP_DUMP) {
-    seqFile1 = new dnaSeqFile(seqName1, true);
-    dumpExistence(seqFile1, outFile1, kmerLookups, inputDBlabel, inputDBname);
-  } else if (reportType == OP_EXISTENCE) {
-    seqFile1 = new dnaSeqFile(seqName1, true);
-    reportExistence(seqFile1, outFile1, kmerLookups, inputDBlabel);
-  } else if (reportType == OP_INCLUDE) {
-    seqFile1 = new dnaSeqFile(seqName1);
-    filter(seqFile1, seqFile2, outFile1, outFile2, kmerLookups, true);
-  } else if (reportType == OP_EXCLUDE) {
-    seqFile1 = new dnaSeqFile(seqName1);
-    filter(seqFile1, seqFile2, outFile1, outFile2, kmerLookups, false);
-  }
-
-  //  Done!
-
-  delete seqFile1;
-  delete seqFile2;
-
-  delete outFile1;
-  delete outFile2;
-
-  for (uint32 ii=0; ii<inputDBname.size(); ii++) {
-    delete merylDBs[ii];
-    delete kmerLookups[ii];
-  }
-
+  delete G;
   fprintf(stderr, "Bye!\n");
 
-  exit(0);
+  return(0);
 }
+
+
+
+
