@@ -25,17 +25,41 @@ public:
   dumpInput() {
   };
   ~dumpInput() {
-    delete [] fwd;
-    delete [] rev;
+    for (uint32 ii=0; ii<existLen; ii++)
+      delete exist[ii];
+    delete [] exist;
+    delete [] count;
+    delete [] depth;
   };
 
-  dnaSeq        seq;
-  uint64        seqIdx;
+  void     outputBED(lookupGlobal *g);
+  void     outputWIG(lookupGlobal *g);
 
-  kmvalu       *fwd    = nullptr;
-  kmvalu       *rev    = nullptr;
+  dnaSeq        seq;      //  Sequence we're processing.
+  uint64        seqIdx;   //  Index of that sequence in the input file.
 
-  uint64        maxP;
+  uint64        maxP;     //  Maximum position set in the following data.
+
+  //  BED format output is:
+  //    seqName bgn end [label [score [...]]]
+  //
+  //  This will be stored as a bitvector, one vector per input DB.
+
+  uint32        existLen = 0;
+  bitArray    **exist    = nullptr;
+
+  //  WIGGLE format output is:
+  //    track type=<name>             <wiggle track definition line>
+  //    variableStep chrom=<name>
+  //    position value
+  //    position value
+  //
+  //  'value' is either:
+  //    the sum of the fwd and rev kmer counts,
+  //    the number of kmers touching this base (aka, depth)
+
+  kmvalu       *count = nullptr;
+  uint8        *depth = nullptr;
 };
 
 
@@ -63,28 +87,115 @@ void
 processSequence(void *G, void *T, void *S) {
   lookupGlobal     *g   = (lookupGlobal *)G;
   dumpInput        *s   = (dumpInput    *)S;
-  merylExactLookup *L = g->lookupDBs[0];
 
-  //  Allocate and clear outputs.
+  //
+  //  In all the lookups below, we ask for both the F and the R mer, instead
+  //  of just the canonical mer, so we can support non-canonical databases.
+  //
 
-  s->fwd = new kmvalu [s->seq.length()];
-  s->rev = new kmvalu [s->seq.length()];
+  kmerIterator      kiter(s->seq.bases(), s->seq.length());
 
-  for (uint32 ii=0; ii<s->seq.length(); ii++)
-    s->fwd[ii] = s->rev[ii] = 0;
+  //  For BED, remember which kmers are found in each database.
 
-  //  Zip down all the kmers, saving the value of each.
+  if (g->reportType == lookupOp::opDumpBED) {
+    s->existLen = g->lookupDBs.size();
+    s->exist    = new bitArray * [s->existLen];
 
-  kmerIterator  kiter(s->seq.bases(), s->seq.length());
+    for (uint32 dd=0; dd<s->existLen; dd++)
+      s->exist[dd] = new bitArray(s->seq.length());
 
-  while (kiter.nextMer()) {
-    uint64  p = kiter.bgnPosition();
+    while (kiter.nextMer()) {
+      uint64  p  = kiter.bgnPosition();
+      kmer    f  = kiter.fmer(), c;
+      kmer    r  = kiter.rmer(), n;
 
-    s->fwd[p] = L->value(kiter.fmer());
-    s->rev[p] = L->value(kiter.rmer());
+      if (f < r) {   //  A small optimization; since (hopefully)
+        c = f;       //  the usual use case will be with a
+        n = r;       //  canonical DB, we can test for the
+      } else {       //  canonical and non-canonical kmers,
+        c = r;       //  instead of the f and r kmers.  If we
+        n = n;       //  test the canonical first, we'll skip the
+      }              //  non-canonical lookup.
 
-    s->maxP = p+1;
+      for (uint32 dd=0; dd<g->lookupDBs.size(); dd++) {
+        merylExactLookup *L = g->lookupDBs[dd];
+
+        if ((L->exists(c) == true) ||
+            (L->exists(n) == true)) {
+          s->exist[dd]->setBit(p, true);
+          s->maxP = p;
+        }
+      }
+    }
   }
+
+  //  For WIGgle, remember the count of the kmer in all databases.
+
+  if (g->reportType == lookupOp::opDumpWIGcount) {
+    s->count = new kmvalu [s->seq.length()];
+
+    for (uint32 ii=0; ii<s->seq.length(); ii++)
+      s->count[ii] = 0;
+
+    while (kiter.nextMer()) {
+      uint64  p  = kiter.bgnPosition();
+      kmer    f  = kiter.fmer();
+      kmer    r  = kiter.rmer();
+
+      for (uint32 dd=0; dd<g->lookupDBs.size(); dd++) {
+        merylExactLookup *L = g->lookupDBs[dd];
+
+        kmvalu  fv = L->value(f);   //  Ask for each individually, instead of the
+        kmvalu  rv = L->value(r);   //  canonical, to support non-canonical DBs.
+
+        if (f == r)                 //  Don't double count palindromes.
+          s->count[p] += fv;
+        else
+          s->count[p] += fv + rv;
+
+        s->maxP = p;
+      }
+    }
+  }
+
+  //  For WIGgle, compute the depth of coverage of kmers that exist in the DB.
+  //
+  //  BPW expects that the obvious implementation used below will be faster
+  //  than the clever implementation (build list of increment, decrement,
+  //  sort, scan list to find depth at each position) but didn't test.
+  //
+  //  It will certainly be smaller memory.
+
+  if (g->reportType == lookupOp::opDumpWIGdepth) {
+    merylExactLookup *L = g->lookupDBs[0];
+
+    s->depth = new uint8 [s->seq.length()];
+
+    for (uint32 ii=0; ii<s->seq.length(); ii++)
+      s->depth[ii] = 0;
+
+    while (kiter.nextMer()) {
+      kmer    f  = kiter.fmer(), c;
+      kmer    r  = kiter.rmer(), n;
+
+      if (f < r) {   //  A small optimization; since (hopefully)
+        c = f;       //  the usual use case will be with a
+        n = r;       //  canonical DB, we can test for the
+      } else {       //  canonical and non-canonical kmers,
+        c = r;       //  instead of the f and r kmers.  If we
+        n = n;       //  test the canonical first, we'll skip the
+      }              //  non-canonical lookup.
+
+      if ((L->exists(c) == true) ||
+          (L->exists(n) == true)) {
+        for (uint64 p=kiter.bgnPosition(); p<kiter.endPosition(); p++)
+          s->depth[p]++;
+
+        s->maxP = kiter.endPosition();
+      }
+    }
+  }
+
 
   //  Release the memory use for storing the sequence.
 
@@ -93,21 +204,22 @@ processSequence(void *G, void *T, void *S) {
 
 
 
-static
+
 void
-outputSequence(void *G, void *S) {
-  lookupGlobal     *g      = (lookupGlobal *)G;
-  dumpInput        *s      = (dumpInput    *)S;
+dumpInput::outputBED(lookupGlobal *g) {
 
   //  Allocate space for the output string.
 
-  resizeArray(g->outstring, 0, g->outstringMax, strlen(s->seq.ident()) + 16 + 16 + 16, _raAct::doNothing);
+  uint32  maxIdent = strlen(seq.ident());
+  uint32  maxLabel = g->lookupDBlabelLen;
 
-  //  Copy the sequence ident into the output strig.
+  resizeArray(g->outstring, 0, g->outstringMax, maxIdent + 16 + 16 + maxLabel + 1, _raAct::doNothing);
+
+  //  Copy the sequence ident into the output string.
 
   char *outptr = g->outstring;
 
-  for (char const *x = s->seq.ident(); *x; )
+  for (char const *x = seq.ident(); *x; )
     *outptr++ = *x++;
 
   *outptr++ = '\t';
@@ -115,19 +227,91 @@ outputSequence(void *G, void *S) {
   //  'outptr' is now where we start adding new info for each kmer,
   //  and we output the string from 'outroot'.
 
-  for (uint64 p=0; p<s->maxP; p++) {
+  uint32  k = kmer::merSize();
+
+  for (uint64 p=0; p<maxP; p++) {
+    for (uint32 dd=0; dd<g->lookupDBs.size(); dd++) {
+      char *t;
+
+      if (exist[dd]->getBit(p) == false)                   //  Not set?  No kmer here.
+        continue;
+
+      t = toDec(p,     outptr);                            //  Append the begin position.
+
+      *t++ = '\t';
+      t = toDec(p + k, t);                                 //  Append the end position.
+
+      if (dd < g->lookupDBlabel.size()) {                  //  If a label exists,
+        *t++ = '\t';                                       //
+        for (char const *x = g->lookupDBlabel[dd]; *x; )   //  append the label.
+          *t++ = *x++;
+      }
+
+      *t++ = '\n';                                         //  Terminate the string.
+      *t   = 0;
+
+      fputs(g->outstring, g->outFile1->file());
+    }
+  }
+}
+
+
+void
+dumpInput::outputWIG(lookupGlobal *g) {
+
+  //  Allocate space for the output string - this is fixed length, just an
+  //  integer position and an integer count/depth.
+
+  resizeArray(g->outstring, 0, g->outstringMax, 16 + 16 + 1, _raAct::doNothing);
+
+  //  Output a track definition line.
+
+  fprintf(g->outFile1->file(), "variableStep chrom=%s\n", seq.ident());
+
+  //  Then all the data.
+
+  bool   isCount = (g->reportType == lookupOp::opDumpWIGcount);
+  bool   isDepth = (g->reportType == lookupOp::opDumpWIGdepth);
+
+  for (uint64 p=0; p<maxP; p++) {
     char *t;
 
-    if (s->fwd[p] + s->rev[p] == 0)
+    if (((isCount) && (count[p] == 0)) ||
+        ((isDepth) && (depth[p] == 0)))
       continue;
 
-    t = toDec(s->seqIdx, outptr);   *t++ = '\t';
-    t = toDec(p, t);                *t++ = '\t';
-    t = toDec(s->fwd[p], t);        *t++ = '\t';
-    t = toDec(s->rev[p], t);        *t++ = '\n';   *t = 0;
+    t = toDec(p, g->outstring);
+
+    *t++ = '\t';
+
+    if (isCount)
+      t = toDec(count[p], t);
+
+    if (isDepth)
+      t = toDec(depth[p], t);
+
+    *t++ = '\n';
+    *t   = 0;
 
     fputs(g->outstring, g->outFile1->file());
   }
+}
+
+
+static
+void
+outputSequence(void *G, void *S) {
+  lookupGlobal     *g      = (lookupGlobal *)G;
+  dumpInput        *s      = (dumpInput    *)S;
+
+  if (g->reportType == lookupOp::opDumpBED)
+    s->outputBED(g);
+
+  if (g->reportType == lookupOp::opDumpWIGcount)
+    s->outputWIG(g);
+
+  if (g->reportType == lookupOp::opDumpWIGdepth)
+    s->outputWIG(g);
 
   delete s;
 }

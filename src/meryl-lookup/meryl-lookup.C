@@ -26,6 +26,13 @@ void   filter(lookupGlobal *G);
 void
 lookupGlobal::initialize(void) {
   omp_set_num_threads(nThreads);
+
+  //  Compute the max length of any single label.  Used during output.
+
+  lookupDBlabelLen = 0;
+
+  for (uint32 ll=0; ll<lookupDBlabel.size(); ll++)
+    lookupDBlabelLen = std::max(lookupDBlabelLen, (uint32)strlen(lookupDBlabel[ll]));
 }
 
 
@@ -180,8 +187,14 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-memory") == 0) {
       G->maxMemory = strtodouble(argv[++arg]);
 
-    } else if (strcmp(argv[arg], "-dump") == 0) {
-      G->reportType = lookupOp::opDump;
+    } else if (strcmp(argv[arg], "-dump-bed") == 0) {
+      G->reportType = lookupOp::opDumpBED;
+
+    } else if (strcmp(argv[arg], "-dump-wig-count") == 0) {
+      G->reportType = lookupOp::opDumpWIGcount;
+
+    } else if (strcmp(argv[arg], "-dump-wig-depth") == 0) {
+      G->reportType = lookupOp::opDumpWIGdepth;
 
     } else if (strcmp(argv[arg], "-existence") == 0) {
       G->reportType = lookupOp::opExistence;
@@ -211,6 +224,7 @@ main(int argc, char **argv) {
     err.push_back("No report-type (-existence, -dump, -include, -exclude) supplied.\n");
   }
 
+#if 0
   if (G->reportType == lookupOp::opDump) {
     if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
     if (G->seqName2 != nullptr)  err.push_back("Only one input sequence (-sequence) supported for -dump.\n");
@@ -221,6 +235,7 @@ main(int argc, char **argv) {
     if (G->lookupDBname.size() == 0) err.push_back("No meryl database (-mers) supplied.\n");
     if (G->lookupDBname.size()  > 1) err.push_back("Only one meryl database (-mers) supported for -dump.\n");
   }
+#endif
 
   if (G->reportType == lookupOp::opExistence) {
     if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
@@ -346,12 +361,14 @@ main(int argc, char **argv) {
   G->openOutputs();
 
   switch (G->reportType) {
-    case lookupOp::opNone:                               break;
-    case lookupOp::opDump:         dumpExistence(G);     break;
-    case lookupOp::opExistence:    reportExistence(G);   break;
-    case lookupOp::opInclude:      filter(G);            break;
-    case lookupOp::opExclude:      filter(G);            break;
-    default:                                             break;
+    case lookupOp::opNone:                                break;
+    case lookupOp::opDumpBED:       dumpExistence(G);     break;
+    case lookupOp::opDumpWIGcount:  dumpExistence(G);     break;
+    case lookupOp::opDumpWIGdepth:  dumpExistence(G);     break;
+    case lookupOp::opExistence:     reportExistence(G);   break;
+    case lookupOp::opInclude:       filter(G);            break;
+    case lookupOp::opExclude:       filter(G);            break;
+    default:                                              break;
   }
 
   delete G;

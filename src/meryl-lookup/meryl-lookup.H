@@ -24,7 +24,9 @@
 
 enum class lookupOp {
   opNone,
-  opDump,
+  opDumpBED,
+  opDumpWIGcount,
+  opDumpWIGdepth,
   opExistence,
   opInclude,
   opExclude
@@ -75,6 +77,7 @@ public:
 
   std::vector<const char *>         lookupDBname;
   std::vector<const char *>         lookupDBlabel;
+  uint32                            lookupDBlabelLen = 0;
   std::vector<merylExactLookup *>   lookupDBs;   //  Kmer lookup table.
 
   kmvalu                            minV         = 0;
