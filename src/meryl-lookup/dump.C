@@ -35,10 +35,10 @@ public:
   void     outputBED(lookupGlobal *g);
   void     outputWIG(lookupGlobal *g);
 
-  dnaSeq        seq;      //  Sequence we're processing.
-  uint64        seqIdx;   //  Index of that sequence in the input file.
+  dnaSeq        seq;          //  Sequence we're processing.
+  uint64        seqIdx = 0;   //  Index of that sequence in the input file.
 
-  uint64        maxP;     //  Maximum position set in the following data.
+  uint64        maxP   = 0;   //  Maximum position set in the following data.
 
   //  BED format output is:
   //    seqName bgn end [label [score [...]]]
