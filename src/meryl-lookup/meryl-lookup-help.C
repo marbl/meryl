@@ -23,7 +23,7 @@ void
 helpBED(char const *progname) {
 
   if (progname) {
-    fprintf(stderr, "usage: %s -dump-bed \\\n", progname);
+    fprintf(stderr, "usage: %s -bed \\\n", progname);
     fprintf(stderr, "         -sequence input.fasta \\\n");
     fprintf(stderr, "         -output   output.bed\\\n");
     fprintf(stderr, "         -mers     <input1.meryl> [<input2.meryl>] [...] [-estimate] \\\n");
@@ -31,7 +31,7 @@ helpBED(char const *progname) {
     fprintf(stderr, "\n");
   }
 
-  fprintf(stderr, "  -dump-bed:\n");
+  fprintf(stderr, "  -bed:\n");
   fprintf(stderr, "     Generate a BED format file showing the location of kmers in\n");
   fprintf(stderr, "     any input database on each sequence in 'input1.fasta'.\n");
   fprintf(stderr, "\n");
