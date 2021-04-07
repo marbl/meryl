@@ -114,7 +114,7 @@ processSequence(void *G, void *T, void *S) {
         n = r;       //  canonical DB, we can test for the
       } else {       //  canonical and non-canonical kmers,
         c = r;       //  instead of the f and r kmers.  If we
-        n = n;       //  test the canonical first, we'll skip the
+        n = f;       //  test the canonical first, we'll skip the
       }              //  non-canonical lookup.
 
       for (uint32 dd=0; dd<g->lookupDBs.size(); dd++) {
