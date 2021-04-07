@@ -122,7 +122,11 @@ processSequence(void *G, void *T, void *S) {
 
         if ((L->exists(c) == true) ||
             (L->exists(n) == true)) {
-          s->exist[dd]->setBit(p, true);
+          if (g->lookupDBlabelLen > 0)       //  If labels are present, remember which
+            s->exist[dd]->setBit(p, true);   //  database the kmer was found in.  If not,
+          else                               //  remove duplicate outputs by flagging the
+            s->exist[0]->setBit(p, true);    //  kmer as present only in the first db.
+
           s->maxP = p;
         }
       }
