@@ -284,7 +284,7 @@ dumpInput::outputWIG(lookupGlobal *g) {
         ((isDepth) && (depth[p] == 0)))
       continue;
 
-    t = toDec(p, g->outstring);
+    t = toDec(p + 1, g->outstring);
 
     *t++ = '\t';
 
