@@ -97,7 +97,7 @@ processSequence(void *G, void *T, void *S) {
 
   //  For BED, remember which kmers are found in each database.
 
-  if (g->reportType == lookupOp::opDumpBED) {
+  if (g->reportType == lookupOp::opBED) {
     s->existLen = g->lookupDBs.size();
     s->exist    = new bitArray * [s->existLen];
 
@@ -135,7 +135,7 @@ processSequence(void *G, void *T, void *S) {
 
   //  For WIGgle, remember the count of the kmer in all databases.
 
-  if (g->reportType == lookupOp::opDumpWIGcount) {
+  if (g->reportType == lookupOp::opWIGcount) {
     s->count = new kmvalu [s->seq.length()];
 
     for (uint32 ii=0; ii<s->seq.length(); ii++)
@@ -170,7 +170,7 @@ processSequence(void *G, void *T, void *S) {
   //
   //  It will certainly be smaller memory.
 
-  if (g->reportType == lookupOp::opDumpWIGdepth) {
+  if (g->reportType == lookupOp::opWIGdepth) {
     merylExactLookup *L = g->lookupDBs[0];
 
     s->depth = new uint8 [s->seq.length()];
@@ -274,8 +274,8 @@ dumpInput::outputWIG(lookupGlobal *g) {
 
   //  Then all the data.
 
-  bool   isCount = (g->reportType == lookupOp::opDumpWIGcount);
-  bool   isDepth = (g->reportType == lookupOp::opDumpWIGdepth);
+  bool   isCount = (g->reportType == lookupOp::opWIGcount);
+  bool   isDepth = (g->reportType == lookupOp::opWIGdepth);
 
   for (uint64 p=0; p<maxP; p++) {
     char *t;
@@ -308,13 +308,13 @@ outputSequence(void *G, void *S) {
   lookupGlobal     *g      = (lookupGlobal *)G;
   dumpInput        *s      = (dumpInput    *)S;
 
-  if (g->reportType == lookupOp::opDumpBED)
+  if (g->reportType == lookupOp::opBED)
     s->outputBED(g);
 
-  if (g->reportType == lookupOp::opDumpWIGcount)
+  if (g->reportType == lookupOp::opWIGcount)
     s->outputWIG(g);
 
-  if (g->reportType == lookupOp::opDumpWIGdepth)
+  if (g->reportType == lookupOp::opWIGdepth)
     s->outputWIG(g);
 
   delete s;

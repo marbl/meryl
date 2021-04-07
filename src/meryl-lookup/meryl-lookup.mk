@@ -1,5 +1,6 @@
 TARGET   := meryl-lookup
 SOURCES  := meryl-lookup.C \
+            meryl-lookup-help.C \
             dump.C \
             existence.C \
             include-exclude.C

@@ -18,10 +18,6 @@
 
 #include "meryl-lookup.H"
 
-void   dumpExistence(lookupGlobal *G);
-void   reportExistence(lookupGlobal *G);
-void   filter(lookupGlobal *G);
-
 
 void
 lookupGlobal::initialize(void) {
@@ -187,14 +183,14 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-memory") == 0) {
       G->maxMemory = strtodouble(argv[++arg]);
 
-    } else if (strcmp(argv[arg], "-dump-bed") == 0) {
-      G->reportType = lookupOp::opDumpBED;
+    } else if (strcmp(argv[arg], "-bed") == 0) {
+      G->reportType = lookupOp::opBED;
 
-    } else if (strcmp(argv[arg], "-dump-wig-count") == 0) {
-      G->reportType = lookupOp::opDumpWIGcount;
+    } else if (strcmp(argv[arg], "-wig-count") == 0) {
+      G->reportType = lookupOp::opWIGcount;
 
-    } else if (strcmp(argv[arg], "-dump-wig-depth") == 0) {
-      G->reportType = lookupOp::opDumpWIGdepth;
+    } else if (strcmp(argv[arg], "-wig-depth") == 0) {
+      G->reportType = lookupOp::opWIGdepth;
 
     } else if (strcmp(argv[arg], "-existence") == 0) {
       G->reportType = lookupOp::opExistence;
@@ -211,6 +207,9 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-V") == 0) {
       G->showProgress = true;
 
+    } else if (strcmp(argv[arg], "-help") == 0) {
+      err.push_back(nullptr);
+
     } else {
       char *s = new char [1024];
       snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
@@ -220,139 +219,24 @@ main(int argc, char **argv) {
 
   //  Check for invalid usage.
 
-  if (G->reportType == lookupOp::opNone) {
-    err.push_back("No report-type (-existence, -dump, -include, -exclude) supplied.\n");
-  }
-
-#if 0
-  if (G->reportType == lookupOp::opDump) {
-    if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
-    if (G->seqName2 != nullptr)  err.push_back("Only one input sequence (-sequence) supported for -dump.\n");
-
-    if (G->outName1 == nullptr)  err.push_back("No output file (-output) supplied.\n");
-    if (G->outName2 != nullptr)  err.push_back("Only one output file (-output) supported for -dump.\n");
-
-    if (G->lookupDBname.size() == 0) err.push_back("No meryl database (-mers) supplied.\n");
-    if (G->lookupDBname.size()  > 1) err.push_back("Only one meryl database (-mers) supported for -dump.\n");
-  }
-#endif
-
-  if (G->reportType == lookupOp::opExistence) {
-    if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
-    if (G->seqName2 != nullptr)  err.push_back("Only one input sequence (-sequence) supported for -existence.\n");
-
-    if (G->outName1 == nullptr)  err.push_back("No output file (-output) supplied.\n");
-    if (G->outName2 != nullptr)  err.push_back("Only one output file (-output) supported for -existence.\n");
-
-    if (G->lookupDBname.size() == 0) err.push_back("No meryl database (-mers) supplied.\n");
-  }
-
-  if ((G->reportType == lookupOp::opInclude) ||
-      (G->reportType == lookupOp::opExclude)) {
-    if (G->seqName1 == nullptr)  err.push_back("No input sequences (-sequence) supplied.\n");
-    if (G->outName1 == nullptr)  err.push_back("No output file (-output) supplied.\n");
-
-    if ((G->seqName2 != nullptr) &&
-        (G->outName2 == nullptr)) err.push_back("No second output file (-output) supplied for second input (-input) file.\n");
-
-    if ((G->seqName2 == nullptr) &&
-        (G->outName2 != nullptr)) err.push_back("No second input file (-input) supplied for second output (-output) file.\n");
-
-    if (G->lookupDBname.size() == 0) err.push_back("No meryl database (-mers) supplied.\n");
-    if (G->lookupDBname.size()  > 1) err.push_back("Only one meryl database (-mers) supported for -include or -exclude.\n");
-  }
-
+  G->checkInvalid(err);
 
   if (err.size() > 0) {
-    fprintf(stderr, "usage: %s <report-type> \\\n", argv[0]);
-    fprintf(stderr, "        [-estimate] \\\n");
-    fprintf(stderr, "         -sequence <input1.fasta> [<input2.fasta>] \\\n");
-    fprintf(stderr, "         -output   <output1>      [<output2>]\n");
-    fprintf(stderr, "         -mers     <input1.meryl> [<input2.meryl>] [...] \\\n");
-    fprintf(stderr, "         -labels   <input1name>   [<input2name>]   [...]\n");
-    fprintf(stderr, "  Query the kmers in meryl database(s) <input.meryl> with the sequences\n");
-    fprintf(stderr, "  in <input.fasta>.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Multiple databases are supported.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Up to two input sequences are supported (only for -include / -exclude).\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Input files can be FASTA or FASTQ; uncompressed, gz, bz2 or xz compressed\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Output from each input is sent to the associated output file.  Files will be\n");
-    fprintf(stderr, "  compressed if the appropriate extension is supplied (gz, bz2 or xz).\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Each input database can be filtered by value.  More advanced filtering\n");
-    fprintf(stderr, "  requires a new database to be constructed using meryl.\n");
-    fprintf(stderr, "    -min   m    Ignore kmers with value below m\n");
-    fprintf(stderr, "    -max   m    Ignore kmers with value above m\n");
-    fprintf(stderr, "    -threads t  Number of threads to use when constructing lookup table.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Memory usage can be limited, within reason, by sacrificing kmer lookup\n");
-    fprintf(stderr, "  speed.  If the lookup table requires more memory than allowed, the program\n");
-    fprintf(stderr, "  exits with an error.\n");
-    fprintf(stderr, "    -memory m   Don't use more than m GB memory\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  If -estimate is supplied, processing will stop after a (quick) estimate\n");
-    fprintf(stderr, "  of memory needed to load the databases is written to stdout.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Exactly one report type must be specified.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  -existence");
-    fprintf(stderr, "    Report a tab-delimited line for each sequence showing the number of kmers\n");
-    fprintf(stderr, "    in the sequence, in the database, and in both.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    Multiple input -mers may be supplied.  If no output is supplied, output is written\n");
-    fprintf(stderr, "    to stdout.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    output:  seqName <tab> mersInSeq <tab> mersInDB1 <tab> mersInSeq&DB1 [ <tab> mersInDB2 <tab> mersInSeq&DB2 ... ]\n");
-    fprintf(stderr, "      seqName      - name of the sequence\n");
-    fprintf(stderr, "      mersInSeq    - number of mers in the sequence\n");
-    fprintf(stderr, "      mersInDB     - number of mers in the meryl database\n");
-    fprintf(stderr, "      mersInSeq&DB - number of mers in the sequence that are\n");
-    fprintf(stderr, "                     also in the database\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  -dump\n");
-    fprintf(stderr, "    Report a tab-delimited line reporting each kmer in the input sequences, in\n");
-    fprintf(stderr, "    order, annotated with the value of the kmer in the input database.  If the kmer\n");
-    fprintf(stderr, "    does not exist in the database its value will be reported as zero.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    Only one input may be supplied.  If no output is supplied, output is written\n");
-    fprintf(stderr, "    to stdout.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    output:  seqName <tab> seqId <tab> seqPos <tab> exists <tab> fwd-mer <tab> fwd-val <tab> rev-mer <tab> rev-val\n");
-    fprintf(stderr, "      seqName    - name of the sequence this kmer is from\n");
-    fprintf(stderr, "      seqId      - numeric version of the seqName (0-based)\n");
-    fprintf(stderr, "      seqPos     - start position (0-based) of the kmer in the sequence\n");
-    fprintf(stderr, "      exists     - 'T' if the kmer exists in the database, 'F' if it does not\n");
-    fprintf(stderr, "      fwd-mer    - forward mer sequence\n");
-    fprintf(stderr, "      fwd-val    - value of the forward mer in the database\n");
-    fprintf(stderr, "      rev-mer    - reverse mer sequence\n");
-    fprintf(stderr, "      rev-val    - value of the reverse mer in the database\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  -include / -exclude\n");
-    fprintf(stderr, "    Extract sequences containing (-include) or not containing (-exclude) kmers in\n");
-    fprintf(stderr, "    any input database.  Output sequences are written in the same format as the input\n");
-    fprintf(stderr, "    sequences, with the number of kmers found added to the name.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    If two input files are supplied, the corresponding sequences are treated as a pair,\n");
-    fprintf(stderr, "    and two output files MUST be supplied.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    output:  sequence given format (fasta or fastq) with the number of overlapping kmers appended\n");
-    fprintf(stderr, "             if pairs of sequences are given, R1 will be stdout and R2 be named as <output.r2>\n");
-    fprintf(stderr, "              <output.r2> will be automatically compressed if ends with .gz, .bz2, or xs\n");
-    fprintf(stderr, "      seqName    - name of the sequence this kmer is from\n");
-    fprintf(stderr, "      mersInBoth - number of mers in both sequence and in the database\n");
-    fprintf(stderr, "\n");
+    switch (G->reportType) {
+      case lookupOp::opNone:          help(argv[0]);                 break;
+      case lookupOp::opBED:           helpBED(argv[0]);              break;
+      case lookupOp::opWIGcount:      helpWIGcount(argv[0]);         break;
+      case lookupOp::opWIGdepth:      helpWIGdepth(argv[0]);         break;
+      case lookupOp::opExistence:     helpExistence(argv[0]);        break;
+      case lookupOp::opInclude:       helpIncludeExclude(argv[0]);   break;
+      case lookupOp::opExclude:       helpIncludeExclude(argv[0]);   break;
+    }
 
     for (uint32 ii=0; ii<err.size(); ii++)
       if (err[ii])
         fputs(err[ii], stderr);
 
-    exit(1);
+    return(1);
   }
 
   G->initialize();
@@ -362,13 +246,12 @@ main(int argc, char **argv) {
 
   switch (G->reportType) {
     case lookupOp::opNone:                                break;
-    case lookupOp::opDumpBED:       dumpExistence(G);     break;
-    case lookupOp::opDumpWIGcount:  dumpExistence(G);     break;
-    case lookupOp::opDumpWIGdepth:  dumpExistence(G);     break;
+    case lookupOp::opBED:           dumpExistence(G);     break;
+    case lookupOp::opWIGcount:      dumpExistence(G);     break;
+    case lookupOp::opWIGdepth:      dumpExistence(G);     break;
     case lookupOp::opExistence:     reportExistence(G);   break;
     case lookupOp::opInclude:       filter(G);            break;
     case lookupOp::opExclude:       filter(G);            break;
-    default:                                              break;
   }
 
   delete G;
@@ -378,5 +261,68 @@ main(int argc, char **argv) {
 }
 
 
+char const *
+makeString(char const *t, char const *l) {
+  char   *s = new char [1024];
+  sprintf(s, t, l);
+  return(s);
+}
 
+void
+lookupGlobal::checkInvalid(std::vector<char const *> &err) {
 
+  //  If there is no report type, we can skip all the other checks.
+
+  if (reportType == lookupOp::opNone) {
+    err.push_back("No report-type (-bed, -wig-count, -wig-depth, -existence, -include, -exclude) supplied.\n");
+    return;
+  }
+
+  //  Everybody needs at least one input, one database, and one output.
+
+  if (seqName1 == nullptr)
+    err.push_back("No input sequences (-sequence) supplied.\n");
+
+  if (lookupDBname.size() == 0)
+    err.push_back("No meryl database (-mers) supplied.\n");
+
+  if (outName1 == nullptr)
+    err.push_back("No output file (-output) supplied.\n");
+
+  //  Only include/exclude can take a second input.
+
+  if ((reportType != lookupOp::opInclude) &&
+      (reportType != lookupOp::opExclude)) {
+    if (seqName2 != nullptr)
+      err.push_back(makeString("Only one input sequence (-sequence) supported for %s.\n", toString(reportType)));
+
+    if (outName2 != nullptr)
+      err.push_back(makeString("Only one output file (-output) supported for %s.\n", toString(reportType)));
+  }
+
+  //  If include/exclude, be sure there is an output for the second input,
+  //  and that there is only one input database.
+
+  if ((reportType == lookupOp::opInclude) ||
+      (reportType == lookupOp::opExclude)) {
+    if ((seqName2 != nullptr) &&
+        (outName2 == nullptr))
+      err.push_back("No second output file (-output) supplied for second input (-input) file.\n");
+
+    if ((seqName2 == nullptr) &&
+        (outName2 != nullptr))
+      err.push_back("No second input file (-input) supplied for second output (-output) file.\n");
+
+    if (lookupDBname.size()  > 1)
+      err.push_back(makeString("Only one meryl database (-mers) supported for %s.\n", toString(reportType)));
+  }
+
+  //  Reject labels for things that don't use them.
+
+  if (((reportType == lookupOp::opWIGcount) ||
+       (reportType == lookupOp::opWIGdepth) ||
+       (reportType == lookupOp::opExistence) ||
+       (reportType == lookupOp::opInclude) ||
+       (reportType == lookupOp::opExclude)) && (lookupDBlabel.size() > 0))
+    err.push_back(makeString("Labels (-labels) not supported for %s.\n", toString(reportType)));
+}

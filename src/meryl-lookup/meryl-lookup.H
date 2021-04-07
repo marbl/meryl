@@ -24,13 +24,28 @@
 
 enum class lookupOp {
   opNone,
-  opDumpBED,
-  opDumpWIGcount,
-  opDumpWIGdepth,
+  opBED,
+  opWIGcount,
+  opWIGdepth,
   opExistence,
   opInclude,
   opExclude
 };
+
+inline
+const char *
+toString(lookupOp op) {
+  switch (op) {
+    case lookupOp::opNone:       return("(not supplied)");  break;
+    case lookupOp::opBED:        return("-bed");            break;
+    case lookupOp::opWIGcount:   return("-wig-count");      break;
+    case lookupOp::opWIGdepth:   return("-wig-depth");      break;
+    case lookupOp::opExistence:  return("-existence");      break;
+    case lookupOp::opInclude:    return("-include");        break;
+    case lookupOp::opExclude:    return("-exclude");        break;
+  }
+  return("(not supplied)");
+}
 
 
 
@@ -51,6 +66,8 @@ public:
     delete outFile1;
     delete outFile2;
   };
+
+  void checkInvalid(std::vector<char const *> &err);
 
   void initialize(void);
   void loadLookupTables(void);
@@ -97,8 +114,17 @@ public:
 
   uint64                            nReadsTotal  = 0;
   uint64                            nReadsFound  = 0;
-
 };
 
 
 
+void helpBED           (char const *progname=nullptr);
+void helpWIGcount      (char const *progname=nullptr);
+void helpWIGdepth      (char const *progname=nullptr);
+void helpExistence     (char const *progname=nullptr);
+void helpIncludeExclude(char const *progname=nullptr);
+void help              (char const *progname=nullptr);
+
+void dumpExistence(lookupGlobal *G);
+void reportExistence(lookupGlobal *G);
+void filter(lookupGlobal *G);
