@@ -127,7 +127,7 @@ processSequence(void *G, void *T, void *S) {
           else                               //  remove duplicate outputs by flagging the
             s->exist[0]->setBit(p, true);    //  kmer as present only in the first db.
 
-          s->maxP = p;
+          s->maxP = p+1;
         }
       }
     }
@@ -157,7 +157,7 @@ processSequence(void *G, void *T, void *S) {
         else
           s->count[p] += fv + rv;
 
-        s->maxP = p;
+        s->maxP = p+1;
       }
     }
   }
