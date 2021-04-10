@@ -174,6 +174,8 @@ helpIncludeExclude(char const *progname) {
     fprintf(stderr, "         -sequence <input1.fasta> [<input2.fasta>] \\\n");
     fprintf(stderr, "         -output   <output1>      [<output2>] \\\n");
     fprintf(stderr, "         -mers     <input1.meryl> [-estimate] \\\n");
+    fprintf(stderr, "         -10x\n");
+    fprintf(stderr, "\n");
   }
 
   fprintf(stderr, "  -include:\n");
@@ -186,6 +188,10 @@ helpIncludeExclude(char const *progname) {
   if (progname == nullptr)
     return;
 
+  fprintf(stderr, "  -10x:\n");
+  fprintf(stderr, "     When -10x is supplied, the first 23 bp of every sequence in input1.fasta\n");
+  fprintf(stderr, "     will be ignored while looking up for kmer existence.\n");
+  fprintf(stderr, "\n");
   fprintf(stderr, "     Exactly one input database must be supplied.  The -labels option is\n");
   fprintf(stderr, "     not used.\n");
   fprintf(stderr, "\n");
@@ -221,6 +227,6 @@ help(char const *progname) {
   helpWIGdepth();
   helpExistence();
   helpIncludeExclude();
-  fprintf(stderr, "Run `%s <report-type> -help` for detals on each method.\n", progname);
+  fprintf(stderr, "Run `%s <report-type> -help` for details on each method.\n", progname);
   fprintf(stderr, "\n");
 }

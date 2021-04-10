@@ -60,14 +60,18 @@ loadSequence(void *G) {
 
 static
 uint64
-processSequence(merylExactLookup *L, dnaSeq &seq) {
+processSequence(merylExactLookup *L, dnaSeq &seq, bool is10x) {
   kmerIterator kiter(seq.bases(), seq.length());
   uint64       found = 0;
 
-  while (kiter.nextMer())
+  //  Ignore the first 23 kmers in seq
+
+  while (kiter.nextMer()) {
+    if (is10x && kiter.bgnPosition() < 23)  continue;
     if ((L->value(kiter.fmer()) > 0) ||
         (L->value(kiter.rmer()) > 0))
       found++;
+  }
 
   return(found);
 }
@@ -81,9 +85,11 @@ processSequence(void *G, void *T, void *S) {
 
   //  Count the number of kmers found in the database from either
   //  seq1 or seq2.
+  //
+  //  If this is 10X Genomics reads, ignore counting in the first 23 bp of the seq1.
 
-  s->nFound  = processSequence(g->lookupDBs[0], s->seq1);
-  s->nFound += processSequence(g->lookupDBs[0], s->seq2);
+  s->nFound  = processSequence(g->lookupDBs[0], s->seq1, g->is10x);
+  s->nFound += processSequence(g->lookupDBs[0], s->seq2, false);
 }
 
 
@@ -129,6 +135,10 @@ outputSequence(void *G, void *S) {
 
 void
 filter(lookupGlobal *g) {
+
+  if (g->is10x)
+    fprintf(stderr, "\nRunning in 10x mode. The first 23 bp of every sequence in %s will be ignored while looking up.\n", g->seqFile1->filename());
+  
   sweatShop     *ss = new sweatShop(loadSequence, processSequence, outputSequence);
 
   ss->setLoaderQueueSize(omp_get_max_threads());

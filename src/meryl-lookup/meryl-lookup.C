@@ -201,6 +201,9 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-exclude") == 0) {
       G->reportType = lookupOp::opExclude;
 
+    } else if (strcmp(argv[arg], "-10x") == 0) {
+      G->is10x = true;
+
     } else if (strcmp(argv[arg], "-estimate") == 0) {
       G->doEstimate = true;
 
