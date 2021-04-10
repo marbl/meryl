@@ -141,7 +141,7 @@ filter(lookupGlobal *g) {
   
   sweatShop     *ss = new sweatShop(loadSequence, processSequence, outputSequence);
 
-  ss->setLoaderQueueSize(omp_get_max_threads());
+  ss->setLoaderQueueSize(10240);
   ss->setNumberOfWorkers(omp_get_max_threads());
   ss->setWriterQueueSize(omp_get_max_threads());
 
