@@ -178,6 +178,30 @@ processSequence(void *G, void *T, void *S) {
     for (uint32 ii=0; ii<s->seq.length(); ii++)
       s->depth[ii] = 0;
 
+    //  Confused.  The SIMPLE_DEPTH method _should_ be slower; it does
+    //  'kmersize' work per kmer, compared to N work.  But if the number of
+    //  kmers found is small, it turns out to be (slightly) faster.
+    //
+    //  On a large database of 'the wrong' kmers (homopoly compressed chm13 reads)
+    //  a human genome assembly (hg0733) takes:
+    //    1080 user seconds, 7:25 wall  SIMPLE_DEPTH
+    //    1123 user seconds, 7:33 wall
+    //
+    //  But on a large database of 'the correct' kmers (chm13 reads, uncompressed)
+    //  a human genome assembly (chm13) takes:
+    //    3699 user seconds, 30:29 wall  SIMPLE_DEPTH
+    //    3740 user seconds, 27:45 wall
+    //  A second run:
+    //    3608 user seconds, 27:56 wall  SIMPLE_DEPTH
+    //    3622 user seconds, 26:49 wall
+    //  So largely not different.  I'm leaving SIMPLE_DEPTH _disabled_;
+    //  suspecting that a larger k (k=22 here) will matter.
+
+#define SIMPLE_DEPTH
+#undef  SIMPLE_DEPTH
+
+#ifdef SIMPLE_DEPTH
+
     while (kiter.nextMer()) {
       kmer    f  = kiter.fmer(), c;
       kmer    r  = kiter.rmer(), n;
@@ -198,6 +222,39 @@ processSequence(void *G, void *T, void *S) {
         s->maxP = kiter.endPosition();
       }
     }
+
+#else
+
+    while (kiter.nextMer()) {
+      kmer    f  = kiter.fmer(), c;
+      kmer    r  = kiter.rmer(), n;
+
+      if (f < r) {   //  A small optimization; since (hopefully)
+        c = f;       //  the usual use case will be with a
+        n = r;       //  canonical DB, we can test for the
+      } else {       //  canonical and non-canonical kmers,
+        c = r;       //  instead of the f and r kmers.  If we
+        n = n;       //  test the canonical first, we'll skip the
+      }              //  non-canonical lookup.
+
+      if ((L->exists(c) == true) ||
+          (L->exists(n) == true)) {
+        s->depth[kiter.bgnPosition()] += 1;
+        s->depth[kiter.endPosition()] -= 1;
+
+        s->maxP = kiter.endPosition();
+      }
+    }
+  
+    //  Convert that change-in-depth into depth, and rewrite the array.
+
+    uint32 d = 0;
+    for (uint64 pp=0; pp<=s->maxP; pp++) {
+      d += s->depth[pp];
+      s->depth[pp] = d;
+    }
+
+#endif
   }
 
 
