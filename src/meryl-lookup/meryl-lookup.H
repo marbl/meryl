@@ -76,7 +76,6 @@ public:
 
   //  Inputs.
 
-  uint32                            nThreads     = getMaxThreadsAllowed();
   double                            maxMemory    = getMaxMemoryAllowed() / 1024.0 / 1024.0 / 1024.0;
 
   char const                       *seqName1     = nullptr;

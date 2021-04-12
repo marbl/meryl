@@ -21,7 +21,6 @@
 
 void
 lookupGlobal::initialize(void) {
-  omp_set_num_threads(nThreads);
 
   //  Compute the max length of any single label.  Used during output.
 
@@ -149,6 +148,9 @@ main(int argc, char **argv) {
 
   argc = AS_configure(argc, argv);
 
+  uint32  lThreads = 0;   //  Threads for loading kmer databases
+  uint32  nThreads = 0;   //  Threads for computing stuff
+
   std::vector<char const *>  err;
   for (int32 arg=1; arg < argc; arg++) {
     if        (strcmp(argv[arg], "-sequence") == 0) {
@@ -178,7 +180,10 @@ main(int argc, char **argv) {
       G->maxV = (kmvalu)strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-threads") == 0) {
-      G->nThreads = strtouint32(argv[++arg]);
+      nThreads = strtouint32(argv[++arg]);
+
+    } else if (strcmp(argv[arg], "-loadthreads") == 0) {
+      lThreads = strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-memory") == 0) {
       G->maxMemory = strtodouble(argv[++arg]);
@@ -242,10 +247,17 @@ main(int argc, char **argv) {
     return(1);
   }
 
+  if (nThreads == 0)   nThreads = getMaxThreadsAllowed();
+  if (lThreads == 0)   lThreads = nThreads;
+
+  omp_set_num_threads(lThreads);   //  Enable threads for loading data.
+
   G->initialize();
   G->loadLookupTables();
   G->openInputs();
   G->openOutputs();
+
+  omp_set_num_threads(nThreads);   //  Enable threads for computing results.
 
   switch (G->reportType) {
     case lookupOp::opNone:                                break;
