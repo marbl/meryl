@@ -114,6 +114,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "      n=<N>              expect N mers in the input (optional; for precise memory sizing).\n");
     fprintf(stderr, "      memory=M           use no more than (about) M GB memory.\n");
     fprintf(stderr, "      threads=T          use no more than T threads.\n");
+    fprintf(stderr, "      compress           compress homopolymer runs to a single letter.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    less-than N          return kmers that occur fewer than N times in the input.  accepts exactly one input.\n");
     fprintf(stderr, "    greater-than N       return kmers that occur more than N times in the input.  accepts exactly one input.\n");
