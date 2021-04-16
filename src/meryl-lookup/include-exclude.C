@@ -103,8 +103,8 @@ outputSequence(compressedFileWriter  *O,
   if (O == nullptr)
     return;
 
-  if (seq.quals()[0] == 0)   AS_UTL_writeFastA(O->file(), seq.bases(), seq.length(), 0,                         ">%s nKmers=%lu\n", seq.ident(), nFound);
-  else                       AS_UTL_writeFastQ(O->file(), seq.bases(), seq.length(), seq.quals(), seq.length(), "@%s nKmers=%lu\n", seq.ident(), nFound);
+  if (seq.quals()[0] == 0)   outputFASTA(O->file(), seq.bases(),              seq.length(), 0, "%s nKmers=%lu", seq.ident(), nFound);
+  else                       outputFASTQ(O->file(), seq.bases(), seq.quals(), seq.length(),    "%s nKmers=%lu", seq.ident(), nFound);
 }
 
 
