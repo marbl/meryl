@@ -23,7 +23,7 @@ void
 helpBED(char const *progname) {
 
   if (progname) {
-    fprintf(stderr, "usage: %s -bed \\\n", progname);
+    fprintf(stderr, "usage: %s [-bed | -bed-runs] \\\n", progname);
     fprintf(stderr, "         -sequence input.fasta \\\n");
     fprintf(stderr, "         -output   output.bed\\\n");
     fprintf(stderr, "         -mers     <input1.meryl> [<input2.meryl>] [...] [-estimate] \\\n");
@@ -34,6 +34,12 @@ helpBED(char const *progname) {
   fprintf(stderr, "  -bed:\n");
   fprintf(stderr, "     Generate a BED format file showing the location of kmers in\n");
   fprintf(stderr, "     any input database on each sequence in 'input1.fasta'.\n");
+  fprintf(stderr, "     Each kmer is reported in a separate bed record.\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "  -bed-runs:\n");
+  fprintf(stderr, "     Generate a BED format file showing the location of kmers in\n");
+  fprintf(stderr, "     any input database on each sequence in 'input1.fasta'.\n");
+  fprintf(stderr, "     Overlapping kmers are combined into a single bed record.\n");
   fprintf(stderr, "\n");
 
   if (progname == nullptr)
@@ -57,6 +63,10 @@ helpBED(char const *progname) {
   fprintf(stderr, "     Without the -labels option, the output will be:\n");
   fprintf(stderr, "       sequence1 <tab> 0 <tab> 21\n");
   fprintf(stderr, "       sequence1 <tab> 1 <tab> 22\n");
+  fprintf(stderr, "\n");
+  fprintf(stderr, "     If -bed-runs is used, the output will bed:\n");
+  fprintf(stderr, "       sequence1 <tab> 0 <tab> 22 <tab> A\n");
+  fprintf(stderr, "       sequence1 <tab> 0 <tab> 22 <tab> B\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "     Output lines are written in the order sequences appear in the input\n");
   fprintf(stderr, "     file, and are in increasing position within the sequence itself.\n");

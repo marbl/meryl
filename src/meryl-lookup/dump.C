@@ -32,8 +32,9 @@ public:
     delete [] depth;
   };
 
-  void     outputBED(lookupGlobal *g);
-  void     outputWIG(lookupGlobal *g);
+  void     outputBED    (lookupGlobal *g);
+  void     outputBEDruns(lookupGlobal *g);
+  void     outputWIG    (lookupGlobal *g);
 
   dnaSeq        seq;          //  Sequence we're processing.
   uint64        seqIdx = 0;   //  Index of that sequence in the input file.
@@ -302,6 +303,72 @@ dumpInput::outputBED(lookupGlobal *g) {
 
 
 void
+dumpInput::outputBEDruns(lookupGlobal *g) {
+
+  //  Allocate space for the output string.
+
+  uint32  maxIdent = strlen(seq.ident());
+  uint32  maxLabel = g->lookupDBlabelLen;
+
+  resizeArray(g->outstring, 0, g->outstringMax, maxIdent + 16 + 16 + maxLabel + 1, _raAct::doNothing);
+
+  //  Copy the sequence ident into the output string.
+
+  char *outptr = g->outstring;
+
+  for (char const *x = seq.ident(); *x; )
+    *outptr++ = *x++;
+
+  *outptr++ = '\t';
+
+  //  'outptr' is now where we start adding new info for each kmer,
+  //  and we output the string from 'outroot'.
+
+  uint32  k = kmer::merSize();
+
+  uint64  bgn[g->lookupDBs.size()];
+  for (uint32 ii=0; ii < g->lookupDBs.size(); ii++)
+    bgn[ii] = uint32max;
+
+  for (uint64 p=0; p <= maxP; p++) {
+    for (uint32 dd=0; dd<g->lookupDBs.size(); dd++) {
+      bool   bit = (p < maxP) ? (exist[dd]->getBit(p)) : false;
+      char  *t;
+
+      if (bit == true) {            //  If a true bit, and we aren't in a run
+        if (bgn[dd] == uint32max)   //  already, remember the start of the run.
+          bgn[dd] = p;              //
+        continue;                   //  Then keep on trucking.
+      }
+
+      if (bgn[dd] == uint32max)     //  And if we aren't in a run,
+        continue;                   //  keep on searching.
+
+      //  Otherwise, we've just found the end of a run, so output it.
+
+      t = toDec(bgn[dd], outptr);                          //  Append the begin position.
+
+      bgn[dd] = uint32max;                                 //  Declare that we aren't in a run.
+
+      *t++ = '\t';
+      t = toDec(p + k, t);                                 //  Append the end position.
+
+      if (dd < g->lookupDBlabel.size()) {                  //  If a label exists,
+        *t++ = '\t';                                       //
+        for (char const *x = g->lookupDBlabel[dd]; *x; )   //  append the label.
+          *t++ = *x++;
+      }
+
+      *t++ = '\n';                                         //  Terminate the string.
+      *t   = 0;
+
+      fputs(g->outstring, g->outFile1->file());
+    }
+  }
+}
+
+
+void
 dumpInput::outputWIG(lookupGlobal *g) {
 
   //  Allocate space for the output string - this is fixed length, just an
@@ -349,8 +416,11 @@ outputSequence(void *G, void *S) {
   lookupGlobal     *g      = (lookupGlobal *)G;
   dumpInput        *s      = (dumpInput    *)S;
 
-  if (g->reportType == lookupOp::opBED)
+  if ((g->reportType == lookupOp::opBED) && (g->mergeBedRuns == false))
     s->outputBED(g);
+
+  if ((g->reportType == lookupOp::opBED) && (g->mergeBedRuns == true))
+    s->outputBEDruns(g);
 
   if (g->reportType == lookupOp::opWIGcount)
     s->outputWIG(g);

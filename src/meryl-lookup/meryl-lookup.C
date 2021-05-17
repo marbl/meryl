@@ -191,6 +191,10 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-bed") == 0) {
       G->reportType = lookupOp::opBED;
 
+    } else if (strcmp(argv[arg], "-bed-runs") == 0) {
+      G->reportType = lookupOp::opBED;
+      G->mergeBedRuns   = true;
+
     } else if (strcmp(argv[arg], "-wig-count") == 0) {
       G->reportType = lookupOp::opWIGcount;
 

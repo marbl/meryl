@@ -102,6 +102,7 @@ public:
   lookupOp                          reportType   = lookupOp::opNone;
 
   bool                              is10x        = false;
+  bool                              mergeBedRuns = false;
 
   bool                              doEstimate   = false;
   bool                              showProgress = false;
