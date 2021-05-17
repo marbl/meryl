@@ -203,19 +203,11 @@ processSequence(void *G, void *T, void *S) {
 #ifdef SIMPLE_DEPTH
 
     while (kiter.nextMer()) {
-      kmer    f  = kiter.fmer(), c;
-      kmer    r  = kiter.rmer(), n;
+      kmer    f = kiter.fmer();
+      kmer    r = kiter.rmer();
 
-      if (f < r) {   //  A small optimization; since (hopefully)
-        c = f;       //  the usual use case will be with a
-        n = r;       //  canonical DB, we can test for the
-      } else {       //  canonical and non-canonical kmers,
-        c = r;       //  instead of the f and r kmers.  If we
-        n = n;       //  test the canonical first, we'll skip the
-      }              //  non-canonical lookup.
-
-      if ((L->exists(c) == true) ||
-          (L->exists(n) == true)) {
+      if ((L->exists(f) == true) ||
+          (L->exists(r) == true)) {
         for (uint64 p=kiter.bgnPosition(); p<kiter.endPosition(); p++)
           s->depth[p]++;
 
@@ -226,19 +218,11 @@ processSequence(void *G, void *T, void *S) {
 #else
 
     while (kiter.nextMer()) {
-      kmer    f  = kiter.fmer(), c;
-      kmer    r  = kiter.rmer(), n;
+      kmer    f = kiter.fmer();
+      kmer    r = kiter.rmer();
 
-      if (f < r) {   //  A small optimization; since (hopefully)
-        c = f;       //  the usual use case will be with a
-        n = r;       //  canonical DB, we can test for the
-      } else {       //  canonical and non-canonical kmers,
-        c = r;       //  instead of the f and r kmers.  If we
-        n = n;       //  test the canonical first, we'll skip the
-      }              //  non-canonical lookup.
-
-      if ((L->exists(c) == true) ||
-          (L->exists(n) == true)) {
+      if ((L->exists(f) == true) ||
+          (L->exists(r) == true)) {
         s->depth[kiter.bgnPosition()] += 1;
         s->depth[kiter.endPosition()] -= 1;
 
