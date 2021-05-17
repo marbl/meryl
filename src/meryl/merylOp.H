@@ -147,6 +147,9 @@ public:
   void    setMemoryLimit(uint64 m)             { _maxMemory    = m; };
   void    setThreadLimit(uint32 t)             { _maxThreads   = t; };
 
+  uint64  getMemoryLimit(void)                 { return(_maxMemory);  };
+  uint32  getThreadLimit(void)                 { return(_maxThreads); };
+
   bool    isCounting(void) {
     return((_operation == opCount)        ||
            (_operation == opCountForward) ||
