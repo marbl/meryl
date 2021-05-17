@@ -253,6 +253,11 @@ merylCommandBuilder::processOptions(void) {
 
   //  Kmer size.
   if (strcmp(key, "k") == 0) {
+    if ((kmerTiny::merSize() != 0) &&
+        (kmerTiny::merSize() != val32)) {
+      fprintf(stderr, "ERROR: kmer size mismatch: %u != %u\n", kmerTiny::merSize(), val32);
+      exit(1);
+    }
     kmerTiny::setSize(val32);
     return(true);
   }
