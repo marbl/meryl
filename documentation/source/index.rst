@@ -8,10 +8,18 @@ Meryl
    faq
    tutorial
    reference
+   usage
    history
 
 
-`Meryl <http://github.com/marbl/meryl>`_ is a k-mer counting and processing tool.
+`Meryl <http://github.com/marbl/meryl>`_ is a tool for working with sets of
+kmers.  A set of kmers, when annotated with an integer value (typically the
+number of times the kmer occurs in a set of sequences) and optionally a
+label, is termed a database.
+
+Meryl comprises three (modules), one for generating kmer databases, one for
+filtering and combining databases, and one for searching databases.  A
+simple, but yet to be documented, C++ API to access kmer databases exists.
 
 Publications
 ============
@@ -38,5 +46,6 @@ Learn
 *  :ref:`Quick Start             <quick-start>` - no experience or data required, download and analyze *Escherichia coli* repeats today!
 *  :ref:`Tutorial and Examples   <tutorial>`    - a more in-depth look at the meryl command
 *  :ref:`Parameter Reference     <reference>`   - alphabetical list of meryl actions
+*  :ref:`Usage                   <usage>`       - command line usage cheat sheet
 *  :ref:`History                 <history>`     - the history of meryl
 *  :ref:`FAQ                     <faq>`         - Frequently asked questions
