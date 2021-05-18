@@ -43,8 +43,10 @@ main(int argc, char **argv) {
       exit(0);
     }
 
-    if ((strcmp(argv[arg], "-h")   == 0) ||
-        (strcmp(argv[arg], "help") == 0)) {
+    if ((strcmp(argv[arg], "-h")     == 0) ||
+        (strcmp(argv[arg], "-help")  == 0) ||
+        (strcmp(argv[arg], "--help") == 0) ||
+        (strcmp(argv[arg], "help")   == 0)) {
       err.push_back(NULL);
       continue;
     }
