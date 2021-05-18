@@ -163,7 +163,7 @@ private:
   void             countMultiSetKmers(void);
 public:
   void             countKmers(void);
-  void             dumpCountedKmers(merylBlockWriter *out);
+  void             dumpCountedKmers(merylBlockWriter *out, kmlabl label);
   void             removeCountedKmers(void);
 
 

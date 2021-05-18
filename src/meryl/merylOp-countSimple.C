@@ -71,10 +71,10 @@ merylOperation::countSimple(void) {
 
         //  Figure out if we want the forward or reverse kmer.
 
-        if      (_operation == opCount)
+        if      (_operation == merylOp::opCount)
           kidx = (kiter.fmer() < kiter.rmer()) ? kiter.fmer() : kiter.rmer();
 
-        else if (_operation == opCountForward)
+        else if (_operation == merylOp::opCountForward)
           kidx = kiter.fmer();
 
         else
@@ -238,7 +238,7 @@ merylOperation::countSimple(void) {
       }
 
       //  With the kmers reconstructed, write this block of data to the file.
-      _writer->addBlock(bp, nKmers, sBlock, cBlock);
+      _writer->addCountedBlock(bp, nKmers, sBlock, cBlock, _labelConstant);
     }
 
     delete [] sBlock;

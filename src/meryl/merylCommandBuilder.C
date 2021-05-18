@@ -18,40 +18,10 @@
 
 #include "meryl.H"
 
-#include "runtime.H"
-#include "strings.H"
-#include "system.H"
 
-
-
-//  In meryOp-count.C
+//  In merylOp-count.C
 uint64
 findMaxInputSizeForMemorySize(uint32 kMerSize, uint64 memorySize);
-
-
-
-bool
-isDigit(char c) {
-  return(('0' <= c) && (c <= '9'));
-}
-
-bool
-isNumber(char *s, char dot='.') {
-
-  if ((s    == NULL) ||
-      (s[0] == 0))
-    return(false);
-
-  for (uint32 ii=0; s[ii] != 0; ii++)
-    if ((isDigit(s[ii]) == false) &&
-        (s[ii] != dot))
-      return(false);
-
-  return(true);
-}
-
-
-
 
 
 
@@ -60,7 +30,6 @@ merylCommandBuilder::merylCommandBuilder() {
   _allowedThreads = getMaxThreadsAllowed();   //  Absolute maximum limits on
   _allowedMemory  = getMaxMemoryAllowed();    //  memory= and threads= values
 }
-
 
 
 
@@ -81,8 +50,6 @@ merylCommandBuilder::~merylCommandBuilder() {
 
 
 
-
-
 void
 merylCommandBuilder::terminateOperation(void) {
 
@@ -95,16 +62,26 @@ merylCommandBuilder::terminateOperation(void) {
 
 
 
+void
+merylCommandBuilder::setAllowedMemory(char const *memstr) {
+  _allowedMemory  = (uint64)(strtodouble(memstr) * 1024.0 * 1024.0 * 1024.0);
+}
+
+
+
+void
+merylCommandBuilder::setAllowedThreads(char const *thrstr) {
+  _allowedThreads = strtouint64(thrstr);
+
+  omp_set_num_threads(_allowedThreads);
+}
+
 
 
 //  Initialize, either for a new operation or just for a new option string.
-//
-//  Strip off any leading '['s, and count the number of closing ']'s.
-//
-//  Save some copies of the stripped string, converted to file paths,
-//  for later use.
-//
-//  Make sure there is an operation on the stack.
+//   - Strip off any leading '['s, and count the number of closing ']'s.
+//   - Save some copies of the stripped string, converted to file paths.
+//   - Make sure there is an operation on the stack.
 //
 void
 merylCommandBuilder::initialize(char *opt) {
@@ -184,44 +161,148 @@ merylCommandBuilder::initialize(char *opt) {
 
 
 
+bool
+merylCommandBuilder::processLabel(char const *val, bool failIfBad) {
+  merylLabelAction  action = merylLabelAction::labelNothing;
+  merylLabelFilter  filter = merylLabelFilter::labelNothing;
+  kmlabl            label  = 0;
+
+  //  Decide what label action this is.  
+
+  if      (strncmp(val, "#", 1)           == 0)   { action = merylLabelAction::labelConstant;     label = 0;          }
+  else if (strncmp(val, "@", 1)           == 0)   { action = merylLabelAction::labelSelected;     label = kmvalumax;  }
+
+  else if (strncmp(val, "first", 5)       == 0)   { action = merylLabelAction::labelFirst;        label = 0;          }
+
+  else if (strncmp(val, "and", 3)         == 0)   { action = merylLabelAction::labelAnd;          label = kmvalumax;  }
+  else if (strncmp(val, "or", 2)          == 0)   { action = merylLabelAction::labelOr;           label = 0;          }
+  else if (strncmp(val, "xor", 3)         == 0)   { action = merylLabelAction::labelXor;          label = 0;          }
+  else if (strncmp(val, "difference", 4)  == 0)   { action = merylLabelAction::labelDifference;   label = 0;          }
+  else if (strncmp(val, "lightest", 4)    == 0)   { action = merylLabelAction::labelLightest;     label = kmvalumax;  }
+  else if (strncmp(val, "heaviest", 4)    == 0)   { action = merylLabelAction::labelHeaviest;     label = 0;          }
+
+  else if (strncmp(val, "invert", 6)      == 0)   { action = merylLabelAction::labelInvert;       label = kmvalumax;  }
+  else if (strncmp(val, "shift-left", 7)  == 0)   { action = merylLabelAction::labelShiftLeft;    label = 0;          }
+  else if (strncmp(val, "left-shift", 7)  == 0)   { action = merylLabelAction::labelShiftLeft;    label = 0;          }
+  else if (strncmp(val, "shift-right", 7) == 0)   { action = merylLabelAction::labelShiftRight;   label = 0;          }
+  else if (strncmp(val, "right-shift", 7) == 0)   { action = merylLabelAction::labelShiftRight;   label = 0;          }
+
+  else {
+    if (failIfBad == true) {
+      fprintf(stderr, "ERROR: unknown label action '%s' from option '%s'.\n", val, _optString);
+      exit(1);
+    } else {
+      return(false);
+    }
+  }
+
+  //  Scan the val for any constant and the type of constant.
+  //  If there is a constant, decode it.
+  //
+  //  The constant can be either from a labelSet operation or tacked onto
+  //  the others as a parameter, e.g., and#010010b
+
+  uint32 valLen        = strlen(val);
+  uint32 constPos      = 0;
+  uint32 shiftVal      = 0;
+  bool   invalidNumber = false;
+
+  if (val[valLen-1] == 'b')   shiftVal = 1;
+  if (val[valLen-1] == 'o')   shiftVal = 3;
+  if (val[valLen-1] == 'd')   shiftVal = 10;
+  if (val[valLen-1] == 'h')   shiftVal = 4;
+
+  if (('0' <= val[valLen-1]) &&
+      (val[valLen-1] <= '9'))
+    shiftVal = 10;
+
+  for (uint32 vv=0; vv<valLen; vv++)
+    if (val[vv] == '#')
+      constPos = vv+1;
+
+  //  If we're expecting a value, decode it (or complain).
+
+  if ((constPos > 0) && (shiftVal == 0)) {
+    fprintf(stderr, "ERROR: expected number in option '%s' but didn't find type of number ('b', 'o' or 'h').\n", _optString);
+    exit(1);
+  }
+
+  if ((constPos == 0) && (shiftVal > 0)) {
+    fprintf(stderr, "ERROR: expected number in option '%s' but didn't find '#' marking start of number.\n", _optString);
+    exit(1);
+  }
+
+  if ((constPos > 0) && (shiftVal == 10)) {
+    label = strtouint64(val + constPos);
+    shiftVal = 0;
+  }
+
+  if ((constPos > 0) && (shiftVal > 0)) {
+    uint8  decode[256];
+
+    for (uint32 qq=0; qq<256; qq++)
+      decode[qq] = 0xff;
+
+    if (shiftVal >= 1) {
+      decode['0'] = 0x00;
+      decode['1'] = 0x01;
+    }
+
+    if (shiftVal >= 3) {
+      decode['2'] = 0x02;
+      decode['3'] = 0x03;
+      decode['4'] = 0x04;
+      decode['5'] = 0x05;
+      decode['6'] = 0x06;
+      decode['7'] = 0x07;
+    }
+
+    if (shiftVal >= 4) {
+      decode['8'] = 0x08;
+      decode['9'] = 0x09;
+      decode['a'] = 0x0a;   decode['A'] = 0x0a;
+      decode['b'] = 0x0b;   decode['B'] = 0x0b;
+      decode['c'] = 0x0c;   decode['C'] = 0x0c;
+      decode['d'] = 0x0d;   decode['D'] = 0x0d;
+      decode['e'] = 0x0e;   decode['E'] = 0x0e;
+      decode['f'] = 0x0f;   decode['F'] = 0x0f;
+    }
+
+    for (uint32 vv=constPos; vv<valLen-1; vv++) {
+      uint8 v = decode[val[vv]];
+
+      if (v == 0xff)
+        invalidNumber = true;
+
+      label <<= shiftVal;
+      label  |= v;
+    }
+  }
+
+  //  Set the label action, or complain it's bogus.
+
+  if (invalidNumber == true) {
+    fprintf(stderr, "ERROR: invalid number digits in option '%s'.\n", _optString);
+    exit(1);
+  }
+
+  _opStack.top()->setLabelAction(action, filter, label);
+
+  return(true);
+}
+
 
 bool
 merylCommandBuilder::processOptions(void) {
-  KeyAndValue   kv(_optString);
-  char         *key = kv.key();
-  char         *val = kv.value();
-
-  //  Check for global options.
-
-  if (strncmp(_optString, "-V", 2) == 0) {           //  Anything that starts with -V
-    for (uint32 vv=1; vv<strlen(_optString); vv++)   //  increases verbosity by the
-      merylOperation::increaseVerbosity();           //  number of letters.
-    return(true);
-  }
-
-  if (strncmp(_optString, "-Q", 3) == 0) {
-    merylOperation::beQuiet();
-    return(true);
-  }
-
-  if (strncmp(_optString, "-P", 3) == 0) {
-    merylOperation::showProgress();
-    return(true);
-  }
-
-  if (strncmp(_optString, "-C", 3) == 0) {
-    merylOperation::onlyConfigure();
-    return(true);
-  }
 
   //  If the string is entirely a number, treat it as either a threshold or a
   //  constant, depending on the operation.  This is used for things like
   //  "greater-than 45" and "divide 2".
   //
-  //  If there is no operation, or it doesn't want a number, we fall trhough
+  //  If there is no operation, or it doesn't want a number, we fall through
   //  and return 'false' when key/val is checked below.
 
-  bool  isNum = isNumber(_optString, 0);
+  bool  isNum = isDecNumber(_optString, 0);
 
   if ((_opStack.top()->needsThreshold() == true) && (isNum == true)) {
     _opStack.top()->setThreshold(strtouint64(_optString));
@@ -240,18 +321,45 @@ merylCommandBuilder::processOptions(void) {
     return(true);
   }
 
+  //  If we're a label operation, check for a label, but don't fail if we
+  //  fail to find one.
+
+  //if ((_opStack.top()->getOperation() == merylOp::opLabel) &&
+  //    (_opStack.top()->_labelAction == labelNothing)) {
+  //  if (processLabel(_optString, true) == true)
+  //    return(true);
+  //}
+
+  //  If we get something that looks like a number, fail.
+
+  if (_optString[0] == '#') {
+    fprintf(stderr, "ERROR: suspicious option '%s' encountered; is this part of a 'label' action?\n", _optString);
+    exit(1);
+  }
+
   //  The rest should be in a key=value structure.  If we don't find that,
   //  just return.
+
+  KeyAndValue   kv(_optString);
+  char const   *key = kv.key();
+  char const   *val = kv.value();
 
   if ((key == NULL) ||
       (val == NULL))
     return(false);
 
-  uint32 val32 = strtouint32(val);
-  uint64 val64 = strtouint64(val);
-  double valDB = strtodouble(val);
+  uint32 valLen = strlen(val);
+  uint32 val32  = strtouint32(val);
+  uint64 val64  = strtouint64(val);
+  double valDB  = strtodouble(val);
 
+
+#if 0
   //  Kmer size.
+
+  ////  This is from meryl master.  git merge wanted to put it here, but doesn't
+  ////  seem to belong.
+
   if (strcmp(key, "k") == 0) {
     if ((kmerTiny::merSize() != 0) &&
         (kmerTiny::merSize() != val32)) {
@@ -259,6 +367,20 @@ merylCommandBuilder::processOptions(void) {
       exit(1);
     }
     kmerTiny::setSize(val32);
+#endif
+
+
+  //  Label processing
+  //
+  //  The label constant can be supplied in multiple forms, or not even
+  //  present:
+  //
+  //    label=#00101010b   (or [0-7]o or [0-9A-G]h)
+  //    label=and#00111b
+  //    label=and
+
+  if (strcmp(key, "label") == 0) {
+    processLabel(val, true);
     return(true);
   }
 
@@ -295,24 +417,9 @@ merylCommandBuilder::processOptions(void) {
     return(true);
   }
 
-  //  Memory limit, in GB, either global or per-task.
-
-  if (strcmp(key, "memory") == 0) {
-    _allowedMemory = (uint64)(valDB * 1024 * 1024 * 1024);
-    return(true);
-  }
-
-  //  Thread limit, either global or per-task.
-
-  if (strcmp(key, "threads") == 0) {
-    _allowedThreads = val32;
-    omp_set_num_threads(_allowedThreads);
-    return(true);
-  }
-
   //  Segment of input, for counting from seqStore.  Useless otherwise.
   if ((strcmp(key, "segment") == 0) &&
-      (isNumber(val, '/'))) {
+      (isDecNumber(val, '/'))) {
     decodeRange(val, _segment, _segmentMax);
 #ifndef CANU
     fprintf(stderr, "WARNING: option '%s' ignored, available only with Canu support.\n", _optString);
@@ -328,11 +435,128 @@ merylCommandBuilder::processOptions(void) {
 
 
 
+//  The present-in flag is a bit complicated.  It can accept any number three
+//  different formats, separated by colons.
+//
+//    present-in:@<digits>[:...]
+//              :#<digits>[:...]
+//              :#<digits>-#<digits>[:...]
+//
+//  The parsing uses a state machine to keep track of what it's looking for.
+//  The only non-obvious bit is using the next state variable to decide
+//  if we've got one or two # values - basically checking why we're
+//  here - and either setting a single value or a range of values.
+//
+//  This function parses the option string and sets merylOperation members
+//    _selectedFile
+//    _presentInLen
+//    _presentInMax
+//    _presentIn
+//
+
+void
+setPresentIn(uint32 lo, uint32 hi, uint32 *&pIn, uint32 &pInLen, uint32 &pInMax) {
+  if (pInLen <= hi)
+    resizeArray(pIn, pInLen, pInMax, hi+1, _raAct::copyData | _raAct::clearNew);
+
+  for (uint32 ii=lo; ii<=hi; ii++)
+    pIn[ii] = 1;
+}
+
+void
+merylCommandBuilder::parsePresentIn(void) {
+  uint32 constexpr  EXPECT_NEW = 0x001;
+  uint32      EXPECT_HASH = 0x002;
+  uint32      EXPECT_AT   = 0x004;
+  uint32      EXPECT_DASH = 0x008;
+
+  char   const     *str        = _optString + 10;
+  uint32            expectNext = EXPECT_NEW;
+
+  uint32            presentBgn = 0;
+
+  delete [] _presentIn;
+
+#if 0
+  _presentInLen = 0;
+  _presentInMax = 0;
+  _presentIn    = nullptr;
+
+  _selectedFile = UINT32_MAX;
+#endif
+
+  if (0 != strncmp(_optString, "present-in:", 11))
+    assert(0);
+
+  while (*str) {
+    if ((expectNext & EXPECT_NEW)  && (*str == ':')) {
+      str++;
+      expectNext = EXPECT_HASH | EXPECT_AT;
+    }
+
+    else if ((expectNext & EXPECT_AT) && (*str == '@')) {
+      str = strtonumber(str+1, _selectedFile);
+      expectNext = EXPECT_NEW;
+    }
+
+    else if ((expectNext & EXPECT_HASH) && (*str == '#')) {
+      uint32 number = 0;
+
+      str = strtonumber(str+1, number);
+
+      if (expectNext == EXPECT_HASH) {
+        setPresentIn(presentBgn, number, _presentIn, _presentInLen, _presentInMax);
+      } else {
+        presentBgn = number;
+        setPresentIn(number, number, _presentIn, _presentInLen, _presentInMax);
+      }
+
+      expectNext = EXPECT_DASH | EXPECT_NEW;
+    }
+
+    else if ((expectNext & EXPECT_DASH) && (*str == '-')) {
+      str++;
+      expectNext = EXPECT_HASH;
+    }
+
+    else {
+      char const  *errStr = "(the unexpected)";
+
+      if (expectNext == (EXPECT_HASH | EXPECT_AT))   errStr = "'#' or '@'";
+      if (expectNext == (EXPECT_NEW))                errStr = "':'";
+      if (expectNext == (EXPECT_DASH | EXPECT_NEW))  errStr = "'-' or ':'";
+      if (expectNext == (EXPECT_HASH))               errStr = "'#'";
+
+      fprintf(stderr, "\n");
+      fprintf(stderr, "Unexpected character '%c' found in '%s'; expecting %s.\n", *str, _optString, errStr);
+      fprintf(stderr, "                                   %*s^\n", (int)(str - _optString), "");
+      exit(1);
+    }
+  }
+}
+
+
 
 
 bool
 merylCommandBuilder::processOperation(void) {
-  merylOp     non = opNothing;   //  The new op name.
+  merylOp           nOp  = merylOp::opNothing;
+
+  merylValueAction  vAct = merylValueAction::valueNothing;
+  merylValueFilter  vFil = merylValueFilter::valueNothing;
+  kmvalu            valu = kmvaluzero;
+
+  merylLabelAction  lAct = merylLabelAction::labelNothing;
+  merylLabelFilter  lFil = merylLabelFilter::labelNothing;
+  kmlabl            labl = kmlablzero;
+
+  uint32            presentInLen   = 0;
+  uint32           *presentIn      = nullptr;
+  uint32            foundIn        = UINT32_MAX;
+  bool              presentInAny   = false;         //  Kmer should be present in any input.
+  bool              presentInAll   = false;         //  Kmer should be present in all inputs.
+  bool              presentInFirst = false;         //  Kmer should be present in the first and any other inputs.
+  bool              presentInOnly  = false;         //  Kmer should be present only in the first input.
 
   assert(_opStack.size() > 0);
 
@@ -344,43 +568,67 @@ merylCommandBuilder::processOperation(void) {
 
   //  Check for an operation string.
 
-  if      (0 == strcmp(_optString, "count"))                  non = opCount;
-  else if (0 == strcmp(_optString, "count-forward"))          non = opCountForward;
-  else if (0 == strcmp(_optString, "count-reverse"))          non = opCountReverse;
+  //  Input from fasta, kmer is computed, count is computed, label can be set to a constant.
+  if      (0 == strcmp(_optString, "count"))                  { nOp = merylOp::opCount;        }
+  else if (0 == strcmp(_optString, "count-forward"))          { nOp = merylOp::opCountForward; }
+  else if (0 == strcmp(_optString, "count-reverse"))          { nOp = merylOp::opCountReverse; }
 
-  else if (0 == strcmp(_optString, "less-than"))              non = opLessThan;
-  else if (0 == strcmp(_optString, "greater-than"))           non = opGreaterThan;
-  else if (0 == strcmp(_optString, "at-least"))               non = opAtLeast;
-  else if (0 == strcmp(_optString, "at-most"))                non = opAtMost;
-  else if (0 == strcmp(_optString, "equal-to"))               non = opEqualTo;
-  else if (0 == strcmp(_optString, "not-equal-to"))           non = opNotEqualTo;
+  //  Input from single source, modify the value or count, or filter based on value or count.
+  else if (0 == strcmp(_optString, "modify"))                 { nOp = merylOp::opPresentIn; }
+  else if (0 == strcmp(_optString, "filter"))                 { nOp = merylOp::opPresentIn; }
 
-  else if (0 == strcmp(_optString, "increase"))               non = opIncrease;
-  else if (0 == strcmp(_optString, "decrease"))               non = opDecrease;
-  else if (0 == strcmp(_optString, "multiply"))               non = opMultiply;
-  else if (0 == strcmp(_optString, "divide"))                 non = opDivide;
-  else if (0 == strcmp(_optString, "divide-round"))           non = opDivideRound;
-  else if (0 == strcmp(_optString, "modulo"))                 non = opModulo;
+  //  The generic operation.
+  //    present-in:#1-#4:#6:@1:first
+  //
+  else if (0 == strncmp(_optString, "present-in:", 11)) {
+    parsePresentIn();
+  }
 
-  else if (0 == strcmp(_optString, "union"))                  non = opUnion;
-  else if (0 == strcmp(_optString, "union-min"))              non = opUnionMin;
-  else if (0 == strcmp(_optString, "union-max"))              non = opUnionMax;
-  else if (0 == strcmp(_optString, "union-sum"))              non = opUnionSum;
+  //  Input from multiple sources.  count and label pick from one of the sources.
+  else if (0 == strcmp(_optString, "union"))                  { nOp = merylOp::opPresentIn;  presentInAny = true;  vAct = merylValueAction::valueCount;  lAct = merylLabelAction::labelFirst; }
+  else if (0 == strcmp(_optString, "union-min"))              { nOp = merylOp::opPresentIn;  presentInAny = true;  vAct = merylValueAction::valueMin;    lAct = merylLabelAction::labelMin;   }
+  else if (0 == strcmp(_optString, "union-max"))              { nOp = merylOp::opPresentIn;  presentInAny = true;  vAct = merylValueAction::valueMax;    lAct = merylLabelAction::labelMax;   }
+  else if (0 == strcmp(_optString, "union-sum"))              { nOp = merylOp::opPresentIn;  presentInAny = true;  vAct = merylValueAction::valueSum;    lAct = merylLabelAction::labelOr;    }
 
-  else if (0 == strcmp(_optString, "intersect"))              non = opIntersect;
-  else if (0 == strcmp(_optString, "intersect-min"))          non = opIntersectMin;
-  else if (0 == strcmp(_optString, "intersect-max"))          non = opIntersectMax;
-  else if (0 == strcmp(_optString, "intersect-sum"))          non = opIntersectSum;
+  else if (0 == strcmp(_optString, "intersect"))              { nOp = merylOp::opPresentIn;  presentInAll = true;  vAct = merylValueAction::valueFirst;  lAct = merylLabelAction::labelFirst; }
+  else if (0 == strcmp(_optString, "intersect-min"))          { nOp = merylOp::opPresentIn;  presentInAll = true;  vAct = merylValueAction::valueMin;    lAct = merylLabelAction::labelMin;   }
+  else if (0 == strcmp(_optString, "intersect-max"))          { nOp = merylOp::opPresentIn;  presentInAll = true;  vAct = merylValueAction::valueMax;    lAct = merylLabelAction::labelMax;   }
+  else if (0 == strcmp(_optString, "intersect-sum"))          { nOp = merylOp::opPresentIn;  presentInAll = true;  vAct = merylValueAction::valueSum;    lAct = merylLabelAction::labelAnd;   }
 
-  else if (0 == strcmp(_optString, "subtract"))               non = opSubtract;
-  
-  else if (0 == strcmp(_optString, "difference"))             non = opDifference;
-  else if (0 == strcmp(_optString, "symmetric-difference"))   non = opSymmetricDifference;
 
-  else if (0 == strcmp(_optString, "histogram"))              non = opHistogram;
-  else if (0 == strcmp(_optString, "statistics"))             non = opStatistics;
 
-  else if (0 == strcmp(_optString, "compare"))                non = opCompare;
+
+
+  //  Input from a single source, modify the value.
+  else if (0 == strcmp(_optString, "increase"))               { nOp = merylOp::opPresentIn;  presentInOnly = true;  vAct = merylValueAction::valueIncrease;     }
+  else if (0 == strcmp(_optString, "decrease"))               { nOp = merylOp::opPresentIn;  presentInOnly = true;  vAct = merylValueAction::valueDecrease;     }
+  else if (0 == strcmp(_optString, "multiply"))               { nOp = merylOp::opPresentIn;  presentInOnly = true;  vAct = merylValueAction::valueMultiply;     }
+  else if (0 == strcmp(_optString, "divide"))                 { nOp = merylOp::opPresentIn;  presentInOnly = true;  vAct = merylValueAction::valueDivideTrunc;  }
+  else if (0 == strcmp(_optString, "divide-round"))           { nOp = merylOp::opPresentIn;  presentInOnly = true;  vAct = merylValueAction::valueDivideRound;  }
+  else if (0 == strcmp(_optString, "remainder"))              { nOp = merylOp::opPresentIn;  presentInOnly = true;  vAct = merylValueAction::valueRemainder;    }
+
+  //  Input from a single source, filter based on value.
+  else if (0 == strcmp(_optString, "less-than"))              { nOp = merylOp::opPresentIn;  presentInOnly = true;  vFil = merylValueFilter::valueLessThan;     }
+  else if (0 == strcmp(_optString, "greater-than"))           { nOp = merylOp::opPresentIn;  presentInOnly = true;  vFil = merylValueFilter::valueGreaterThan;  }
+  else if (0 == strcmp(_optString, "at-least"))               { nOp = merylOp::opPresentIn;  presentInOnly = true;  vFil = merylValueFilter::valueAtLeast;      }
+  else if (0 == strcmp(_optString, "at-most"))                { nOp = merylOp::opPresentIn;  presentInOnly = true;  vFil = merylValueFilter::valueAtMost;       }
+  else if (0 == strcmp(_optString, "equal-to"))               { nOp = merylOp::opPresentIn;  presentInOnly = true;  vFil = merylValueFilter::valueEqualTo;      }
+  else if (0 == strcmp(_optString, "not-equal-to"))           { nOp = merylOp::opPresentIn;  presentInOnly = true;  vFil = merylValueFilter::valueNotEqualTo;   }
+
+
+
+  //  subtract   - subtracts [2..n] from the first file, threshold to zero.
+  //  difference - 
+  else if (0 == strcmp(_optString, "subtract"))               { }
+
+  else if (0 == strcmp(_optString, "difference"))             { }
+  else if (0 == strcmp(_optString, "symmetric-difference"))   { }
+
+  //  Input from a single source, output is descriptive statistics not a meryl db.
+  else if (0 == strcmp(_optString, "histogram"))              { nOp = merylOp::opHistogram;  }
+  else if (0 == strcmp(_optString, "statistics"))             { nOp = merylOp::opStatistics; }
+
+  else if (0 == strcmp(_optString, "compare"))                { nOp = merylOp::opCompare;    }
 
   else return(false);   //  optString is not an operation.
 
@@ -409,7 +657,7 @@ merylCommandBuilder::processOperation(void) {
   //  If there is a valid command on the stack, push a new command onto the
   //  stack, and add it to the inputs list.
 
-  if (_opStack.top()->getOperation() != opNothing) {
+  if (_opStack.top()->getOperation() != merylOp::opNothing) {
     merylOperation   *op = new merylOperation();
 
     _opStack.top()->addInputFromOp(op);
@@ -418,16 +666,19 @@ merylCommandBuilder::processOperation(void) {
     _opList.push_back(op);
 
     if (merylOperation::_verbosity >= sayConstruction)
-      fprintf(stderr, "processOp()-  Operation '%s' added to stack at level %zu\n", toString(non), _opStack.size());
+      fprintf(stderr, "processOp()-  Operation '%s' added to stack at level %zu\n",
+              toString(nOp), _opStack.size());
   } else {
     if (merylOperation::_verbosity >= sayConstruction)
       fprintf(stderr, "processOp()-  Operation '%s' replaces '%s' at level %zu\n",
-              toString(non), toString(_opStack.top()->getOperation()), _opStack.size());
+              toString(nOp), toString(_opStack.top()->getOperation()), _opStack.size());
   }
 
-  //  Set the type of this operation.
+  //  Setup this operation.
 
-  _opStack.top()->setOperation(non);
+  _opStack.top()->setOperation(nOp);
+  _opStack.top()->setValueAction(vAct, vFil, valu);
+  _opStack.top()->setLabelAction(lAct, lFil, labl);
 
   return(true);  //  optString was an operation.
 }
@@ -540,8 +791,6 @@ merylCommandBuilder::isSequenceInput(void) {
 
   _opStack.top()->addInputFromSeq(_inoutName, _doCompression);
 
-  _doCompression = false;
-
   return(true);
 }
 
@@ -556,12 +805,14 @@ merylCommandBuilder::finalize(void) {
   terminateOperation();
 
   //  If no operation supplied, assume it's a print, and make it print all kmers.
+#if 0
   if ((_opStack.size() > 0) &&
       (_opStack.top()->getOperation() == opNothing)) {
     if (merylOperation::_verbosity >= sayConstruction)
       fprintf(stderr, "finalize()- Change opNothing to opLessThan at stack level %zu.\n", _opStack.size());
     _opStack.top()->setOperation(opLessThan);
   }
+#endif
 
   //  Clear the stack.
   while (_opStack.size() > 0)
@@ -581,14 +832,32 @@ merylCommandBuilder::printTree(merylOperation *op, uint32 indent) {
 
   fprintf(stderr, "%*s%-s\n", indent, "", toString(op->getOperation()));
 
+  if (op->_valueAction != merylValueAction::valueNothing)
+    fprintf(stderr, "%*slabel=%s constant=%x\n", indent+2, "", toString(op->_valueAction), op->_valueConstant);
+
+  if (op->_valueFilter != merylValueFilter::valueNothing)
+    fprintf(stderr, "%*slabel=%s constant=%x\n", indent+2, "", toString(op->_valueFilter), op->_valueConstant);
+
+  if (op->_labelAction != merylLabelAction::labelNothing)
+    fprintf(stderr, "%*slabel=%s constant=%lx\n", indent+2, "", toString(op->_labelAction), op->_labelConstant);
+
+  if (op->_labelFilter != merylLabelFilter::labelNothing)
+    fprintf(stderr, "%*slabel=%s constant=%lx\n", indent+2, "", toString(op->_labelFilter), op->_labelConstant);
+
+
+#if 0
   if (op->_mathConstant > 0)
     fprintf(stderr, "%*sconstant=%lu\n", indent+2, "", op->_mathConstant);
+
   if (op->_threshold != UINT64_MAX)
     fprintf(stderr, "%*sthreshold=%lu\n", indent+2, "", op->_threshold);
+
   if (op->_fracDist != DBL_MAX)
     fprintf(stderr, "%*sfraction-distinct=%f\n", indent+2, "", op->_fracDist);
+
   if (op->_wordFreq != DBL_MAX)
     fprintf(stderr, "%*sword-frequenct=%f\n", indent+2, "", op->_wordFreq);
+#endif
 
   for (uint32 ii=0; ii<op->_inputs.size(); ii++) {
     merylInput  *in = op->_inputs[ii];

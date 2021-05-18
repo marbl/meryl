@@ -18,12 +18,6 @@
 
 #include "meryl.H"
 
-#include "runtime.H"
-#include "strings.H"
-#include "system.H"
-
-
-
 int
 main(int argc, char **argv) {
   merylCommandBuilder  *B = new merylCommandBuilder;
@@ -56,7 +50,78 @@ main(int argc, char **argv) {
     }
 
     //
+    //  Handle global options.  These are easier to do outside the
+    //  command builder (and besides, they're global options).
     //
+
+    if (strncmp(argv[arg], "-V", 2) == 0) {           //  Anything that starts with -V
+      for (uint32 vv=1; vv<strlen(argv[arg]); vv++)   //  increases verbosity by the
+        merylOperation::increaseVerbosity();          //  number of letters.
+      continue;
+    }
+
+    if (strcmp(argv[arg], "-Q") == 0) {
+      merylOperation::beQuiet();
+      continue;
+    }
+
+    if (strcmp(argv[arg], "-P") == 0) {
+      merylOperation::showProgress();
+      continue;
+    }
+
+    if (strcmp(argv[arg], "-C") == 0) {
+      merylOperation::onlyConfigure();
+      continue;
+    }
+
+    if (strcmp(argv[arg], "-k") == 0) {
+      kmerTiny::setSize(strtouint32(argv[++arg]));
+      continue;
+    }
+
+    if (strcmp(argv[arg], "-l") == 0) {
+      kmerTiny::setLabelSize(strtouint32(argv[++arg]));
+      continue;
+    }
+
+#warning OBSOLETE OPTIONS
+    if (strncmp(argv[arg], "k=", 2) == 0) {
+      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-k %s' instead.\n",
+              argv[arg], argv[arg]+2);
+      kmerTiny::setSize(strtouint32(argv[arg]+2));
+      continue;
+    }
+    if (strncmp(argv[arg], "memory=", 7) == 0) {
+      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-m %s' instead.\n",
+              argv[arg], argv[arg]+7);
+      B->setAllowedMemory(argv[arg]+7);
+      continue;
+    }
+    if (strncmp(argv[arg], "threads=", 8) == 0) {
+      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-t %s' instead.\n",
+              argv[arg], argv[arg]+8);
+      B->setAllowedThreads(argv[arg]+8);
+      continue;
+    }
+
+
+    if ((strcmp(argv[arg],  "-m")      == 0) ||
+        (strcmp(argv[arg],  "-memory") == 0) ||
+        (strcmp(argv[arg], "--memory") == 0)) {
+      B->setAllowedMemory(argv[++arg]);
+      continue;
+    }
+
+    if ((strcmp(argv[arg],  "-t")       == 0) ||
+        (strcmp(argv[arg],  "-threads") == 0) ||
+        (strcmp(argv[arg], "--threads") == 0)) {
+      B->setAllowedThreads(argv[++arg]);
+      continue;
+    }
+
+    //
+    //  Throw the option to merylCommandBuilder and let it figure it out.
     //
 
     B->initialize(argv[arg]);
@@ -68,12 +133,12 @@ main(int argc, char **argv) {
       continue;
 
     if (B->isOutput() == true)             //  Handle 'output' and 'print' flags, and their
-      continue;                           //  (possibly optional) output path.
+      continue;                            //  (possibly optional) output path.
     if (B->isPrinter() == true)
       continue;
 
     if (B->isMerylInput() == true)         //  Last, try to make an input.  These must come
-      continue;                           //  after 'print' so we can do 'print some.meryl'
+      continue;                            //  after 'print' so we can do 'print some.meryl'
     if (B->isCanuInput(err) == true)       //  detect that as an input.
       continue;
     if (B->isSequenceInput() == true)
@@ -191,13 +256,13 @@ main(int argc, char **argv) {
   //
   //  Eventually, maybe, opHistogram will allow input from a kmer stream.
 
-  if (B->getOperation(0)->getOperation() == opHistogram) {
+  if (B->getOperation(0)->getOperation() == merylOp::opHistogram) {
     B->getOperation(0)->initialize();
     B->getOperation(0)->reportHistogram();
     exit(0);
   }
 
-  if (B->getOperation(0)->getOperation() == opStatistics) {
+  if (B->getOperation(0)->getOperation() == merylOp::opStatistics) {
     B->getOperation(0)->initialize();
     B->getOperation(0)->reportStatistics();
     exit(0);
@@ -238,8 +303,8 @@ main(int argc, char **argv) {
   for (uint32 rr=0; rr<B->numRoots(); rr++) {
     merylOperation *root = B->getRoot(rr);
 
-    if (root->getOperation() == opPassThrough)
-      continue;
+    if (root->getOperation() == merylOp::opNothing)   //  Was previously a count operation,
+      continue;                                       //  but it's all done now.
 
     fprintf(stderr, "\n");
     fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, getMaxThreadsAllowed(), getMaxThreadsAllowed() == 1 ? "" : "s");

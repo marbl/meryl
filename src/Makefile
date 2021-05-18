@@ -384,8 +384,8 @@ ifeq "$(strip ${DESTDIR})" ""
   BUILD_DIR    := $(realpath ..)/build/obj
   TARGET_DIR   := $(realpath ..)/build
 else
-  BUILD_DIR    := $(DESTDIR)/canu/build/obj
-  TARGET_DIR   := $(DESTDIR)/canu/build
+  BUILD_DIR    := $(DESTDIR)/$(MODULE)/build/obj
+  TARGET_DIR   := $(DESTDIR)/$(MODULE)/build
 endif
 
 #
@@ -433,6 +433,15 @@ ifeq ($(origin CXXFLAGS), undefined)
   CXXFLAGS += -Wno-deprecated-declarations
   CXXFLAGS += -Wno-format-truncation
   CXXFLAGS += -std=c++11
+
+  CFLAGS += -Wall -Wextra -Wformat
+  CFLAGS += -Wno-char-subscripts
+  CFLAGS += -Wno-sign-compare
+  CFLAGS += -Wno-unused-function
+  CFLAGS += -Wno-unused-parameter
+  CFLAGS += -Wno-unused-variable
+  CFLAGS += -Wno-deprecated-declarations
+  CFLAGS += -Wno-format-truncation
 else
   CXXFLAGSUSER := ${CXXFLAGS}
 endif
@@ -617,13 +626,13 @@ endif
 #  No backtrace support.
 #CXXFLAGS   += -DNOBACKTRACE
 
-#  But, if we we have an old GCC, stack tracing support isn't there.
-#  The second test is because gcc7 (and only gcc7) reports '7' for -dumpversion.
+#  But, if we we have an old GCC, stack tracing support isn't there.  The
+#  second test is because gcc7 (and only gcc7) reports '7' for -dumpversion.
 
 GXX_45 := $(shell expr `${CXX} -dumpversion     | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/'` \>= 40500)
 GXX_VV := $(shell ${CXX} -dumpversion)
 
-ifeq (${GXX_VV}, 7)
+ifneq (,$(filter ${GXX_VV}, 7 8 9))
 GXX_45 := $(shell expr `${CXX} -dumpfullversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/'` \>= 40500)
 GXX_VV := $(shell ${CXX} -dumpfullversion)
 endif
@@ -658,7 +667,7 @@ INCDIRS := $(addprefix -I,$(call CANONICAL_PATH,${INCDIRS}))
 all: $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
 	@echo ""
 	@echo "Success!"
-	@echo "meryl installed in ${TARGET_DIR}/bin/meryl"
+	@echo "${MODULE} installed in ${TARGET_DIR}/bin/${MODULE}"
 
 # Add a new target rule for each user-defined target.
 $(foreach TGT,${ALL_TGTS},\
@@ -688,7 +697,7 @@ $(foreach TGT,${ALL_TGTS},\
 #  Makefile processed.  Regenerate the version number file, make some
 #  directories, and report that we're starting the build.
 
-$(eval $(shell ../scripts/version_update.pl meryl utility/src/utility/version.H))
+$(eval $(shell ../scripts/version_update.pl ${MODULE} utility/src/utility/version.H))
 
 $(shell mkdir -p ${TARGET_DIR}/bin)
 

@@ -72,6 +72,9 @@ merylOperation::merylOperation(merylOperation *op,
   //  Set our operation and basic parameters.
   _operation     = op->_operation;
 
+  _labelAction   = op->_labelAction;
+  _labelConstant = op->_labelConstant;
+
   _mathConstant  = op->_mathConstant;
   _threshold     = op->_threshold;
   _fracDist      = op->_fracDist;
@@ -85,7 +88,8 @@ merylOperation::merylOperation(merylOperation *op,
   _fileNumber    = fileNum;
 
   //  Allocate space for the input buffers.
-  _actCount      = new kmvalu [nInputs];
+  _actValue      = new kmvalu [nInputs];
+  _actLabel      = new kmlabl [nInputs];
   _actIndex      = new uint32 [nInputs];
 
   //  Set pointers to the database output object.
@@ -114,7 +118,8 @@ merylOperation::~merylOperation() {
 
   delete [] _printerName;
 
-  delete [] _actCount;
+  delete [] _actValue;
+  delete [] _actLabel;
   delete [] _actIndex;
 }
 
@@ -137,11 +142,9 @@ merylOperation::clearInputs(void) {
 void
 merylOperation::checkInputs(const char *name) {
 
-  if ((_actLen > 1) && ((_operation == opPassThrough) ||
-                        (_operation == opLessThan)    ||
-                        (_operation == opGreaterThan) ||
-                        (_operation == opEqualTo)     ||
-                        (_operation == opHistogram))) {
+  if ((_actLen > 1) && ((_operation == merylOp::opValue) ||
+                        (_operation == merylOp::opLabel) ||
+                        (_operation == merylOp::opHistogram))) {
     fprintf(stderr, "merylOp::addInput()-- ERROR: can't add input '%s' to operation '%s': only one input supported.\n",
             name, toString(_operation));
     exit(1);
@@ -162,10 +165,10 @@ merylOperation::addInputFromOp(merylOperation *operation) {
   if (_actIndex)
     _actIndex[_actLen++] = _inputs.size() - 1;
 
-  if (operation->_operation == opHistogram)
+  if (operation->_operation == merylOp::opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't be used as an input: it doesn't supply kmers.\n", toString(operation->_operation)), exit(1);
 
-  if (_operation == opHistogram)
+  if (_operation == merylOp::opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't take input from '%s': it can only accept databases.\n", toString(_operation), toString(operation->_operation)), exit(1);
 
   checkInputs(toString(operation->getOperation()));
@@ -173,7 +176,7 @@ merylOperation::addInputFromOp(merylOperation *operation) {
 
 
 void
-merylOperation::addInputFromDB(char *dbName) {
+merylOperation::addInputFromDB(char const *dbName) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
@@ -191,7 +194,7 @@ merylOperation::addInputFromDB(char *dbName) {
 
 
 void
-merylOperation::addInputFromSeq(char *sqName, bool doCompression) {
+merylOperation::addInputFromSeq(char const *sqName, bool doCompression) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
@@ -211,7 +214,7 @@ merylOperation::addInputFromSeq(char *sqName, bool doCompression) {
 
 
 void
-merylOperation::addInputFromCanu(char *sqName, uint32 segment, uint32 segmentMax) {
+merylOperation::addInputFromCanu(char const *sqName, uint32 segment, uint32 segmentMax) {
 
 #ifdef CANU
   if (_verbosity >= sayConstruction)
@@ -234,7 +237,7 @@ merylOperation::addInputFromCanu(char *sqName, uint32 segment, uint32 segmentMax
 
 
 void
-merylOperation::addOutput(char *wrName) {
+merylOperation::addOutput(char const *wrName) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding output to file '%s' from operation '%s'\n",
@@ -243,7 +246,7 @@ merylOperation::addOutput(char *wrName) {
   if (_outputO)
     fprintf(stderr, "ERROR: already have an output set!\n"), exit(1);
 
-  if (_operation == opHistogram)
+  if (_operation == merylOp::opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
 
   _outputO = new merylFileWriter(wrName);
@@ -252,7 +255,7 @@ merylOperation::addOutput(char *wrName) {
 
 
 void
-merylOperation::addPrinter(char *prName, bool ACGTorder) {
+merylOperation::addPrinter(char const *prName, bool ACGTorder) {
 
   if (_verbosity >= sayConstruction)
     fprintf(stderr, "Adding printer to %s from operation '%s'\n",
@@ -262,7 +265,7 @@ merylOperation::addPrinter(char *prName, bool ACGTorder) {
   if (_printerName)
     fprintf(stderr, "ERROR: already have a printer set!\n"), exit(1);
 
-  if (_operation == opHistogram)
+  if (_operation == merylOp::opHistogram)
     fprintf(stderr, "ERROR: operation '%s' can't use 'output' modifier.\n", toString(_operation));
 
   //  For stdout, prFile is defined.  For files, it is nullptr.
@@ -299,49 +302,109 @@ merylOperation::finalize(void) {
 char const *
 toString(merylOp op) {
   switch (op) {
-    case opCount:                return("opCount");                break;
-    case opCountForward:         return("opCountForward");         break;
-    case opCountReverse:         return("opCountReverse");         break;
-    case opPassThrough:          return("opPassThrough");          break;
+    case merylOp::opNothing:       return("opNothing");        break;
 
-    case opLessThan:             return("opLessThan");             break;
-    case opGreaterThan:          return("opGreaterThan");          break;
-    case opAtLeast:              return("opAtLeast");              break;
-    case opAtMost:               return("opAtMost");               break;
-    case opEqualTo:              return("opEqualTo");              break;
-    case opNotEqualTo:           return("opNotEqualTo");           break;
+    case merylOp::opCount:         return("opCount");          break;
+    case merylOp::opCountForward:  return("opCountForward");   break;
+    case merylOp::opCountReverse:  return("opCountReverse");   break;
 
-    case opIncrease:             return("opIncrease");             break;
-    case opDecrease:             return("opDecrease");             break;
-    case opMultiply:             return("opMultiply");             break;
-    case opDivide:               return("opDivide");               break;
-    case opDivideRound:          return("opDivideRound");          break;
-    case opModulo:               return("opModulo");               break;
+    case merylOp::opPresentIn:     return("opPresentIn");      break;
 
-    case opUnion:                return("opUnion");                break;
-    case opUnionMin:             return("opUnionMin");             break;
-    case opUnionMax:             return("opUnionMax");             break;
-    case opUnionSum:             return("opUnionSum");             break;
+    case merylOp::opValue:         return("opValue");          break;
+    case merylOp::opLabel:         return("opLabel");          break;
 
-    case opIntersect:            return("opIntersect");            break;
-    case opIntersectMin:         return("opIntersectMin");         break;
-    case opIntersectMax:         return("opIntersectMax");         break;
-    case opIntersectSum:         return("opIntersectSum");         break;
+    case merylOp::opHistogram:     return("opHistogram");      break;
+    case merylOp::opStatistics:    return("opStatistics");     break;
 
-    case opSubtract:             return("opSubtract");             break;
-
-    case opDifference:           return("opDifference");           break;
-    case opSymmetricDifference:  return("opSymmetricDifference");  break;
-
-    case opHistogram:            return("opHistogram");            break;
-    case opStatistics:           return("opStatistics");           break;
-
-    case opCompare:              return("opCompare");              break;
-
-    case opNothing:              return("opNothing");              break;
+    case merylOp::opCompare:       return("opCompare");        break;
   }
 
   assert(0);
   return(NULL);
 }
 
+
+char const *
+toString(merylValueAction op) {
+  switch (op) {
+    case merylValueAction::valueNothing:      return("valueNothing");      break;
+
+    case merylValueAction::valueConstant:     return("valueConstant");     break;
+    case merylValueAction::valueSelected:     return("valueSelected");     break;
+
+    case merylValueAction::valueMin:          return("valueMin");          break;
+    case merylValueAction::valueMax:          return("valueMax");          break;
+    case merylValueAction::valueSum:          return("valueSum");          break;
+    case merylValueAction::valueSub:          return("valueSub");          break;
+
+    case merylValueAction::valueIncrease:     return("valueIncrease");     break;
+    case merylValueAction::valueDecrease:     return("valueDecrease");     break;
+    case merylValueAction::valueMultiply:     return("valueMultiply");     break;
+    case merylValueAction::valueDivideTrunc:  return("valueDivideTrunc");  break;
+    case merylValueAction::valueDivideRound:  return("valueDivideRound");  break;
+    case merylValueAction::valueRemainder:    return("valueRemainder");    break;
+  }
+
+  assert(0);
+  return(NULL);
+}
+
+
+char const *
+toString(merylValueFilter op) {
+  switch (op) {
+    case merylValueFilter::valueNothing:      return("valueNothing");      break;
+
+    case merylValueFilter::valueLessThan:     return("valueLessThan");     break;
+    case merylValueFilter::valueGreaterThan:  return("valueGreaterThan");  break;
+    case merylValueFilter::valueAtLeast:      return("valueAtLeast");      break;
+    case merylValueFilter::valueAtMost:       return("valueAtMost");       break;
+    case merylValueFilter::valueEqualTo:      return("valueEqualTo");      break;
+    case merylValueFilter::valueNotEqualTo:   return("valueNotEqualTo");   break;
+  }
+
+  assert(0);
+  return(NULL);
+}
+
+
+char const *
+toString(merylLabelAction op) {
+  switch (op) {
+    case merylLabelAction::labelNothing:      return("labelNothing");      break;
+
+    case merylLabelAction::labelConstant:     return("labelConstant");     break;
+    case merylLabelAction::labelSelected:     return("labelSelected");     break;
+
+    case merylLabelAction::labelFirst:        return("labelFirst");        break;
+
+    case merylLabelAction::labelMin:          return("labelMin");          break;
+    case merylLabelAction::labelMax:          return("labelMax");          break;
+
+    case merylLabelAction::labelAnd:          return("labelAnd");          break;
+    case merylLabelAction::labelOr:           return("labelOr");           break;
+    case merylLabelAction::labelXor:          return("labelXor");          break;
+    case merylLabelAction::labelDifference:   return("labelDifference");   break;
+
+    case merylLabelAction::labelLightest:     return("labelLightest");     break;
+    case merylLabelAction::labelHeaviest:     return("labelHeaviest");     break;
+
+    case merylLabelAction::labelInvert:       return("labelInvert");       break;
+    case merylLabelAction::labelShiftLeft:    return("labelShiftLeft");    break;
+    case merylLabelAction::labelShiftRight:   return("labelShiftRight");   break;
+  }
+
+  assert(0);
+  return(NULL);
+}
+
+
+char const *
+toString(merylLabelFilter op) {
+  switch (op) {
+    case merylLabelFilter::labelNothing:      return("labelNothing");      break;
+  }
+
+  assert(0);
+  return(NULL);
+}

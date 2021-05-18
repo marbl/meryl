@@ -87,6 +87,7 @@ public:
 
   kmer                      _kmer;
   kmvalu                    _value;
+  kmlabl                    _label;
   bool                      _valid;
 
   //  For _store, the position we're at in the store.

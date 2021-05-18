@@ -21,6 +21,8 @@
 
 #include "meryl.H"
 
+#include <vector>
+
 //  These would (maybe) be handy, but they change the order of kmers, so we need
 //  to sort again.
 //
@@ -28,49 +30,86 @@
 //  opComplement,          //  Complement the kmer.  Accepts a single input only.
 //  opReverseComplement,   //  Rev-Compl the kmer.   Accepts a single input only.
 
+enum class merylOp {
+  opNothing,
 
-enum merylOp {
   opCount,
   opCountForward,
   opCountReverse,
-  opPassThrough,         //  Internal operation; behaves just like opUnion, but only a single input.
 
-  opLessThan,
-  opGreaterThan,
-  opAtLeast,
-  opAtMost,
-  opEqualTo,
-  opNotEqualTo,
+  opPresentIn,
 
-  opIncrease,
-  opDecrease,
-  opMultiply,
-  opDivide,
-  opDivideRound,
-  opModulo,
-
-  opUnion,
-  opUnionMin,
-  opUnionMax,
-  opUnionSum,
-
-  opIntersect,
-  opIntersectMin,
-  opIntersectMax,
-  opIntersectSum,
-
-  opDifference,
-  opSymmetricDifference,
-
-  opSubtract,	// if count(a) >= count(b), keep count(a)-count(b). else, discard.
+  opValue,
+  opLabel,
 
   opHistogram,
   opStatistics,
 
   opCompare,
-
-  opNothing
 };
+
+enum class merylValueAction {
+  valueNothing,     //  Do absoluately nothing.
+
+  valueConstant,    //  Set to _valueConstant.
+  valueSelected,    //  Set to the value of the selected input file.
+
+  valueCount,       //  Set to the number of files with this kmer.
+  valueFirst,       //  Set to the value of the kmer in the first input file.
+
+  valueMin,         //  Set to the minimum of all values.
+  valueMax,         //  Set to the maximum of all values.
+  valueSum,         //  Set to the sum of all values.
+  valueSub,         //  Set to the first value minus all the rest.
+
+  valueIncrease,    //  Set to _value + _valueConstant (or valumax
+  valueDecrease,    //  Set to _value - _valueConstant (or zero)
+  valueMultiply,    //  Set to _value * _valueConstant (or valumax)
+  valueDivideTrunc, //  Set to _value / _valueConstant, integer division; truncate
+  valueDivideRound, //  Set to _value / _valueConstant, real    division; round
+  valueRemainder,   //  Set to _value % _valueConstant
+};
+
+enum class merylValueFilter {
+  valueNothing,     //  Do absoluately nothing.
+
+  valueLessThan,    //  Output if the value is less than _valueConstant
+  valueGreaterThan, //  (and so on)
+  valueAtLeast,     //  
+  valueAtMost,      //  
+  valueEqualTo,     //  
+  valueNotEqualTo,  //  
+};
+
+enum class merylLabelAction {
+  labelNothing,     //  Do absoluately nothing.
+
+  labelConstant,    //  Set to _labelConstant.
+  labelSelected,    //  Set to the label of the selected input file.
+
+  labelFirst,       //  Set to the label of the kmer in the first input file.
+
+  labelMin,         //  Set to the label of the kmer with the minimum value (e.g., valueMin).
+  labelMax,         //  Set to the label of the kmer with the maximum value (e.g., valueMax).
+
+  labelAnd,         //  AND all labels together along with the labelConstant
+  labelOr,          //  OR  all labels together along with the labelConstant
+  labelXor,         //  XOR all labels together along with the labelConstant
+  labelDifference,  //  Unset any bits set in kmers 2..N (like opDifference)
+
+  labelLightest,    //  Set label to lowest  bit weight label in active set
+  labelHeaviest,    //  Set label to highest bit weight label in active set
+
+  labelInvert,      //  Invert the existing label bits
+  labelShiftLeft,   //  Shift the label left  _labelConstant bits
+  labelShiftRight,  //  Shift the label right _labelConstant bits
+};
+
+enum class merylLabelFilter {
+  labelNothing,     //  Do absoluately nothing.
+};
+
+
 
 
 enum merylVerbosity {
@@ -97,7 +136,7 @@ public:
 
 private:
   void    clearInputs(void);
-  void    checkInputs(const char *name);
+  void    checkInputs(char const *name);
 
   uint64  guesstimateNumberOfkmersInInput_dnaSeqFile(dnaSeqFile *sequence);
   uint64  guesstimateNumberOfkmersInInput_sqStore(sqStore *store, uint32 bgnID, uint32 endID);
@@ -111,14 +150,25 @@ private:
                             uint32  &wData_,             //  Output: Number of bits in kmer data
                             kmdata  &wDataMask_);        //  Output: A mask to return just the data of the mer);
 
+private:
+  void    nextMer_findOutputValue(void);
+  void    nextMer_filterOutputValue(void);
+
+  void    nextMer_findOutputLabel(void);
+  void    nextMer_filterOutputLabel(void);
+
+  void    nextMer_outputKmer(void);
+  void    nextMer_printKmer(void);
+
+
 public:
   void    addInputFromOp  (merylOperation *operation);
-  void    addInputFromDB  (char *dbName);
-  void    addInputFromCanu(char *stName, uint32 segment, uint32 segmentMax);
-  void    addInputFromSeq (char *sqName, bool doCompression);
+  void    addInputFromDB  (char const *dbName);
+  void    addInputFromCanu(char const *stName, uint32 segment, uint32 segmentMax);
+  void    addInputFromSeq (char const *sqName, bool doCompression);
 
-  void    addOutput(char *wrName);
-  void    addPrinter(char *prName, bool ACGTorder);
+  void    addOutput(char const *wrName);
+  void    addPrinter(char const *prName, bool ACGTorder);
 
 
 
@@ -127,6 +177,18 @@ public:
   void    setOperation(merylOp op) { _operation = op;    };
   merylOp getOperation(void)       { return(_operation); };
 
+  void    setValueAction(merylValueAction act, merylValueFilter fil, kmvalu cst) {
+    _valueAction   = act;
+    _valueFilter   = fil;
+    _valueConstant = cst;
+  };
+
+  void    setLabelAction(merylLabelAction act, merylLabelFilter fil, kmlabl cst) {
+    _labelAction   = act;
+    _labelFilter   = fil;
+    _labelConstant = cst;
+  };
+
   void    setConstant(uint64 p)                { _mathConstant = p; };
   void    setThreshold(uint64 p)               { _threshold    = p; };
   void    setFractionDistinct(double p)        { _fracDist     = p; };
@@ -134,7 +196,7 @@ public:
 
   void    setExpectedNumberOfKmers(uint64 n)   { _expNumKmers  = n; };
 
-  void    setCountSuffix(char *s)              {
+  void    setCountSuffix(char const *s)              {
     _countSuffixLength = strlen(s);
 
     for (uint32 ii=0; ii<_countSuffixLength; ii++) {
@@ -151,9 +213,9 @@ public:
   uint32  getThreadLimit(void)                 { return(_maxThreads); };
 
   bool    isCounting(void) {
-    return((_operation == opCount)        ||
-           (_operation == opCountForward) ||
-           (_operation == opCountReverse));
+    return((_operation == merylOp::opCount)        ||
+           (_operation == merylOp::opCountForward) ||
+           (_operation == merylOp::opCountReverse));
   };
 
   bool    isNormal(void) {
@@ -161,21 +223,21 @@ public:
   };
 
   bool    needsThreshold(void) {
-    return((_operation == opLessThan)     ||
-           (_operation == opGreaterThan)  ||
-           (_operation == opAtLeast)      ||
-           (_operation == opAtMost)       ||
-           (_operation == opEqualTo)      ||
-           (_operation == opNotEqualTo));
+    return((_valueFilter == merylValueFilter::valueLessThan)     ||
+           (_valueFilter == merylValueFilter::valueGreaterThan)  ||
+           (_valueFilter == merylValueFilter::valueAtLeast)      ||
+           (_valueFilter == merylValueFilter::valueAtMost)       ||
+           (_valueFilter == merylValueFilter::valueEqualTo)      ||
+           (_valueFilter == merylValueFilter::valueNotEqualTo));
   };
 
   bool    needsConstant(void) {
-    return((_operation == opIncrease)     ||
-           (_operation == opDecrease)     ||
-           (_operation == opMultiply)     ||
-           (_operation == opDivide)       ||
-           (_operation == opDivideRound)  ||
-           (_operation == opModulo));
+    return((_valueAction == merylValueAction::valueIncrease)     ||
+           (_valueAction == merylValueAction::valueDecrease)     ||
+           (_valueAction == merylValueAction::valueMultiply)     ||
+           (_valueAction == merylValueAction::valueDivideTrunc)  ||
+           (_valueAction == merylValueAction::valueDivideRound)  ||
+           (_valueAction == merylValueAction::valueRemainder));
   };
 
   //bool    needsRealParameter(void) {
@@ -186,6 +248,7 @@ public:
 
   kmer   &theFMer(void)            { return(_kmer);       };
   kmvalu  theValue(void)           { return(_value);      };
+  kmlabl  theLabel(void)           { return(_label);      };
 
 public:
   void    doCounting(void);
@@ -239,13 +302,67 @@ private:
   void    findSumCount(void);
   void    subtractCount(void);
 
+  //  Describing the inputs to this operation.
+
   std::vector<merylInput *>      _inputs;
   bool                           _isMultiSet = false;
 
-  merylOp                        _operation = opNothing;
+  //  Describing the operation.
+  //
+  //    presentIn   - the number of files the kmer needs to be present in.
+  //                  presentIn[nFound] == false --> do not output the kmer
+  //                  presentIn[nFound] == true  --> do     output the kmer
+  //
+  //    valueAction - how to combine the values into a single output value.
+  //
+  //    labelAction - how to combine the labels into a single output label.
+
+  uint32                         _presentInLen  = 0;
+  uint32                         _presentInMax  = 0;
+  uint8                         *_presentIn     = nullptr;
+
+
+  merylValueAction               _valueAction   = merylValueAction::valueNothing;
+  merylValueFilter               _valueFilter   = merylValueFilter::valueNothing;
+
+  kmvalu                         _valueConstant = 0;
+  kmvalu                         _valueMin      = 0;            //  Acceptable ranges of values
+  kmvalu                         _valueMax      = kmvalumax;    //  to output/print.
+
+
+  merylLabelAction               _labelAction   = merylLabelAction::labelNothing;
+  merylLabelFilter               _labelFilter   = merylLabelFilter::labelNothing;
+  kmlabl                         _labelConstant = 0;
+
+  //  Where is the kmer present?
+
+  uint32                         _actLen   = 0;
+  kmvalu                        *_actValue = nullptr;   //  Value      of the ith active kmer
+  kmlabl                        *_actLabel = nullptr;   //  Label      of the ith active kmer
+  uint32                        *_actIndex = nullptr;   //  File index of the ith active kmer
+
+  //  If _writeToOutput is not set after various operations, we've decided
+  //  that this kmer should not be output, and we'll skip it.
+
+  bool                           _writeToOutput;
+
+  //  If the kmer is found in input file _selectedFile, these hold the value and
+  //  label of that specific kmer.  If no file is selected by the user,
+  //  _selectedFile will by uint32max, _selected will be false, and _selValue and
+  //  _selLabel will never be used.
+
+  uint32                         _selectedFile = uint32max;
+  bool                           _selected     = false;
+  kmvalu                         _selValue     = 0;
+  kmlabl                         _selLabel     = 0;
+
+  //
+  //
+  
+  merylOp                        _operation   = merylOp::opNothing;
 
   uint64                         _mathConstant = 0;
-  uint64                         _threshold    = UINT64_MAX;
+  uint64                         _threshold    = uint64max;
   double                         _fracDist     = DBL_MAX;
   double                         _wordFreq     = DBL_MAX;
 
@@ -270,14 +387,13 @@ private:
 
   char                           _kmerString[65] = {0};
 
-  uint32                         _fileNumber = UINT32_MAX;
+  uint32                         _fileNumber = uint32max;
 
-  uint32                         _actLen   = 0;
-  kmvalu                        *_actCount = nullptr;
-  uint32                        *_actIndex = nullptr;
 
   kmer                           _kmer;
   kmvalu                         _value = 0;
+  kmlabl                         _label = 0;
+
   bool                           _valid = true;
 
   static bool                    _onlyConfig;
@@ -289,6 +405,10 @@ private:
 
 
 char const *toString(merylOp op);
+char const *toString(merylValueAction op);
+char const *toString(merylValueFilter op);
+char const *toString(merylLabelAction op);
+char const *toString(merylLabelFilter op);
 
 
 #endif  //  MERYLOP_H

@@ -243,9 +243,9 @@ main(int argc, char **argv) {
     //        omp_get_thread_num(), ff, output->firstPrefixInFile(ff), output->lastPrefixInFile(ff));
 
     for (uint64 pp=output->firstPrefixInFile(ff); pp <= output->lastPrefixInFile(ff); pp++) {
-      data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
-      data[pp].dumpCountedKmers(writer);    //  Write that list to disk.
-      data[pp].removeCountedKmers();        //  And remove the in-core data.
+      data[pp].countKmers();                   //  Convert the list of kmers into a list of (kmer, count).
+      data[pp].dumpCountedKmers(writer, 0);    //  Write that list to disk.
+      data[pp].removeCountedKmers();           //  And remove the in-core data.
     }
   }
 

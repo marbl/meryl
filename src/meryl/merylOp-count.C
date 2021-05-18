@@ -324,9 +324,9 @@ merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maxim
   fprintf(stderr, "\n");
   fprintf(stderr, "Counting %lu (estimated)%s %s%s%s " F_U32 "-mers from " F_SIZE_T " input file%s:\n",
           scaledNumber(_expNumKmers), scaledName(_expNumKmers),
-          (_operation == opCount)        ? "canonical" : "",
-          (_operation == opCountForward) ? "forward" : "",
-          (_operation == opCountReverse) ? "reverse" : "",
+          (_operation == merylOp::opCount)        ? "canonical" : "",
+          (_operation == merylOp::opCountForward) ? "forward" : "",
+          (_operation == merylOp::opCountReverse) ? "reverse" : "",
           kmerTiny::merSize(), _inputs.size(), (_inputs.size() == 1) ? "" : "s");
 
   for (uint32 ii=0; ii<_inputs.size(); ii++)
@@ -529,11 +529,11 @@ merylOperation::count(uint32  wPrefix,
       kiter.addSequence(buffer, bufferLen);
 
       while (kiter.nextMer()) {
-        bool    useF = (_operation == opCountForward);
+        bool    useF = (_operation == merylOp::opCountForward);
         kmdata  pp   = 0;
         kmdata  mm   = 0;
 
-        if (_operation == opCount)
+        if (_operation == merylOp::opCount)
           useF = (kiter.fmer() < kiter.rmer());
 
         if (useF == true) {
@@ -582,9 +582,9 @@ merylOperation::count(uint32  wPrefix,
           //        omp_get_thread_num(), ff, _outputO->firstPrefixInFile(ff), _outputO->lastPrefixInFile(ff));
 
           for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
-            data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
-            data[pp].dumpCountedKmers(_writer);   //  Write that list to disk.
-            data[pp].removeCountedKmers();        //  And remove the in-core data.
+            data[pp].countKmers();                                //  Convert the list of kmers into a list of (kmer, count).
+            data[pp].dumpCountedKmers(_writer, _labelConstant);   //  Write that list to disk.
+            data[pp].removeCountedKmers();                        //  And remove the in-core data.
           }
         }
 
@@ -627,9 +627,9 @@ merylOperation::count(uint32  wPrefix,
     //        omp_get_thread_num(), ff, _outputO->firstPrefixInFile(ff), _outputO->lastPrefixInFile(ff));
 
     for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
-      data[pp].countKmers();                //  Convert the list of kmers into a list of (kmer, count).
-      data[pp].dumpCountedKmers(_writer);   //  Write that list to disk.
-      data[pp].removeCountedKmers();        //  And remove the in-core data.
+      data[pp].countKmers();                                //  Convert the list of kmers into a list of (kmer, count).
+      data[pp].dumpCountedKmers(_writer, _labelConstant);   //  Write that list to disk.
+      data[pp].removeCountedKmers();                        //  And remove the in-core data.
     }
   }
 

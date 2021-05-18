@@ -29,6 +29,7 @@ merylInput::merylInput(merylOperation *o) {
   _isMultiSet       = false;  //  set in initialize().
 
   _value            = 0;
+  _label            = 0;
   _valid            = false;
 
   _sqBgn            = 0;
@@ -59,6 +60,7 @@ merylInput::merylInput(const char *n, merylFileReader *s, uint32 threadFile) {
     _stream->enableThreads(threadFile);
 
   _value            = 0;
+  _label            = 0;
   _valid            = false;
 
   _sqBgn            = 0;
@@ -86,6 +88,7 @@ merylInput::merylInput(const char *n, dnaSeqFile *f, bool doCompression) {
   _isMultiSet       = false;
 
   _value            = 0;
+  _label            = 0;
   _valid            = true;    //  Trick nextMer into doing something without a valid mer.
 
   _sqBgn            = 0;
@@ -115,6 +118,7 @@ merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segment
   _isMultiSet       = false;
 
   _value            = 0;
+  _label            = 0;
   _valid            = false;
 
   _sqBgn            = 0;
@@ -135,6 +139,7 @@ merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segment
   _isMultiSet       = false;
 
   _value            = 0;
+  _label            = 0;
   _valid            = true;    //  Trick nextMer into doing something without a valid mer.
 
   _sqBgn            = 1;                                   //  C-style, not the usual
@@ -219,6 +224,7 @@ merylInput::nextMer(void) {
     _valid = _stream->nextMer();
     _kmer  = _stream->theFMer();
     _value = _stream->theValue();
+    _label = _stream->theLabel();
   }
 
   if (_operation) {
@@ -227,10 +233,11 @@ merylInput::nextMer(void) {
     _valid = _operation->nextMer();
     _kmer  = _operation->theFMer();
     _value = _operation->theValue();
+    _label = _operation->theLabel();
   }
 
-  //fprintf(stderr, "merylIn::nextMer(%s)-- now have valid=" F_U32 " kmer %s count " F_U64 "\n",
-  //        _name, _valid, _kmer.toString(kmerString), _value);
+  //fprintf(stderr, "merylIn::nextMer(%s)-- now have valid=" F_U32 " kmer %s count " F_U64 " label 0x%016lx\n",
+  //        _name, _valid, _kmer.toString(kmerString), _value, _label);
   //fprintf(stderr, "\n");
 }
 

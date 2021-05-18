@@ -470,8 +470,8 @@ merylCountArray::countKmers(void) {
 
 
 void
-merylCountArray::dumpCountedKmers(merylBlockWriter *out) {
-  out->addBlock(_prefix, _nKmers, _suffix, _counts);
+merylCountArray::dumpCountedKmers(merylBlockWriter *out, kmlabl label) {
+  out->addCountedBlock(_prefix, _nKmers, _suffix, _counts, label);
 }
 
 

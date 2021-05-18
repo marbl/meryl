@@ -31,6 +31,7 @@ public:
                uint64                     nPrefix,
                uint32                     wData,
                kmdata                     wDataMask,
+               kmvalu                     labelConstant,
                uint64                     maxMemory,
                uint32                     maxThreads,
                uint64                     bufferSize,
@@ -39,6 +40,8 @@ public:
     _nPrefix        = nPrefix;
     _wData          = wData;
     _wDataMask      = wDataMask;
+
+    _labelConstant  = labelConstant;
 
     _dumping        = false;
 
@@ -81,6 +84,8 @@ public:
   uint64                      _nPrefix;
   uint32                      _wData;
   kmdata                      _wDataMask;
+
+  kmlabl                      _labelConstant;
 
   bool                        _dumping;
 
@@ -238,11 +243,11 @@ insertKmers(void *G, void *T, void *S) {
   mcComputation    *s = (mcComputation *)S;
 
   while (s->_kiter.nextMer()) {
-    bool    useF = (g->_operation == opCountForward);
+    bool    useF = (g->_operation == merylOp::opCountForward);
     kmdata  pp   = 0;
     kmdata  mm   = 0;
 
-    if (g->_operation == opCount)
+    if (g->_operation == merylOp::opCount)
       useF = (s->_kiter.fmer() < s->_kiter.rmer());
 
     if (useF == true) {
@@ -353,9 +358,9 @@ writeBatch(void *G, void *S) {
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<g->_output->numberOfFiles(); ff++) {
     for (uint64 pp=g->_output->firstPrefixInFile(ff); pp <= g->_output->lastPrefixInFile(ff); pp++) {
-      g->_data[pp].countKmers();                   //  Convert the list of kmers into a list of (kmer, count).
-      g->_data[pp].dumpCountedKmers(g->_writer);   //  Write that list to disk.
-      g->_data[pp].removeCountedKmers();           //  And remove the in-core data.
+      g->_data[pp].countKmers();                                      //  Convert the list of kmers into a list of (kmer, count).
+      g->_data[pp].dumpCountedKmers(g->_writer, g->_labelConstant);   //  Write that list to disk.
+      g->_data[pp].removeCountedKmers();                              //  And remove the in-core data.
     }
   }
 
@@ -417,6 +422,7 @@ merylOperation::countThreads(uint32  wPrefix,
                                       nPrefix,
                                       wData,
                                       wDataMask,
+                                      _labelConstant,
                                       _maxMemory - inputBufferSize * 4 * _maxThreads,
                                       _maxThreads,
                                       inputBufferSize,
@@ -452,9 +458,9 @@ merylOperation::countThreads(uint32  wPrefix,
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
     for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
-      g->_data[pp].countKmers();                   //  Convert the list of kmers into a list of (kmer, count).
-      g->_data[pp].dumpCountedKmers(g->_writer);   //  Write that list to disk.
-      g->_data[pp].removeCountedKmers();           //  And remove the in-core data.
+      g->_data[pp].countKmers();                                      //  Convert the list of kmers into a list of (kmer, count).
+      g->_data[pp].dumpCountedKmers(g->_writer, g->_labelConstant);   //  Write that list to disk.
+      g->_data[pp].removeCountedKmers();                              //  And remove the in-core data.
     }
   }
 

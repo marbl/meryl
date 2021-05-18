@@ -23,6 +23,7 @@ SOURCES      := utility/src/utility/edlib.C \
                 utility/src/utility/kmers-files.C \
                 utility/src/utility/kmers-histogram.C \
                 utility/src/utility/kmers-reader.C \
+                utility/src/utility/kmers-reader-dump.C \
                 utility/src/utility/kmers-writer-block.C \
                 utility/src/utility/kmers-writer-stream.C \
                 utility/src/utility/kmers-writer.C \
