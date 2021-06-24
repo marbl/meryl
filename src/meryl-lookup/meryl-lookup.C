@@ -236,6 +236,7 @@ main(int argc, char **argv) {
   if (err.size() > 0) {
     switch (G->reportType) {
       case lookupOp::opNone:          help(argv[0]);                 break;
+      case lookupOp::opEstimate:      help(argv[0]);                 break;
       case lookupOp::opBED:           helpBED(argv[0]);              break;
       case lookupOp::opWIGcount:      helpWIGcount(argv[0]);         break;
       case lookupOp::opWIGdepth:      helpWIGdepth(argv[0]);         break;
@@ -265,6 +266,7 @@ main(int argc, char **argv) {
 
   switch (G->reportType) {
     case lookupOp::opNone:                                break;
+    case lookupOp::opEstimate:                            break;
     case lookupOp::opBED:           dumpExistence(G);     break;
     case lookupOp::opWIGcount:      dumpExistence(G);     break;
     case lookupOp::opWIGdepth:      dumpExistence(G);     break;
@@ -292,6 +294,10 @@ lookupGlobal::checkInvalid(std::vector<char const *> &err) {
 
   //  If there is no report type, we can skip all the other checks.
 
+  if ((doEstimate == true) &&
+      (reportType == lookupOp::opNone))
+    reportType = lookupOp::opEstimate;
+
   if (reportType == lookupOp::opNone) {
     err.push_back("No report-type (-bed, -wig-count, -wig-depth, -existence, -include, -exclude) supplied.\n");
     return;
@@ -299,13 +305,15 @@ lookupGlobal::checkInvalid(std::vector<char const *> &err) {
 
   //  Everybody needs at least one input, one database, and one output.
 
-  if (seqName1 == nullptr)
+  if ((reportType != lookupOp::opEstimate) &&
+      (seqName1 == nullptr))
     err.push_back("No input sequences (-sequence) supplied.\n");
 
   if (lookupDBname.size() == 0)
     err.push_back("No meryl database (-mers) supplied.\n");
 
-  if (outName1 == nullptr)
+  if ((reportType != lookupOp::opEstimate) &&
+      (outName1 == nullptr))
     err.push_back("No output file (-output) supplied.\n");
 
   //  Only include/exclude can take a second input.

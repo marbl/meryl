@@ -24,6 +24,7 @@
 
 enum class lookupOp {
   opNone,
+  opEstimate,
   opBED,
   opWIGcount,
   opWIGdepth,
@@ -37,6 +38,7 @@ const char *
 toString(lookupOp op) {
   switch (op) {
     case lookupOp::opNone:       return("(not supplied)");  break;
+    case lookupOp::opEstimate:   return("(estimate)");      break;
     case lookupOp::opBED:        return("-bed");            break;
     case lookupOp::opWIGcount:   return("-wig-count");      break;
     case lookupOp::opWIGdepth:   return("-wig-depth");      break;

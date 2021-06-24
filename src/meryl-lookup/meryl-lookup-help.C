@@ -230,13 +230,15 @@ help(char const *progname) {
   fprintf(stderr, "  Input sequences (-sequence) can be FASTA or FASTQ, uncompressed, or\n");
   fprintf(stderr, "  compressed with gzip, xz, or bzip2.\n");
   fprintf(stderr, "\n");
+  fprintf(stderr, "  To compute and report only estimated memory usage, add option '-estimate'.\n");
+  fprintf(stderr, "\n");
   fprintf(stderr, "  Report types:\n");
+  fprintf(stderr, "    Run `%s <report-type> -help` for details on each method.\n", progname);
+  fprintf(stderr, "\n");
   fprintf(stderr, "\n");
   helpBED();
   helpWIGcount();
   helpWIGdepth();
   helpExistence();
   helpIncludeExclude();
-  fprintf(stderr, "Run `%s <report-type> -help` for details on each method.\n", progname);
-  fprintf(stderr, "\n");
 }
