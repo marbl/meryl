@@ -22,7 +22,10 @@
 
 
 void
-merylOperation::countSimple(void) {
+merylOpCounting::countSimple(std::vector<merylInput *> &inputs,
+                             uint64                     allowedMemory,
+                             uint32                     allowedThreads,
+                             merylFileWriter           *output) {
   uint64          bufferMax  = 1300000;
   uint64          bufferLen  = 0;
   char           *buffer     = new char     [bufferMax];
@@ -56,10 +59,10 @@ merylOperation::countSimple(void) {
 
   //  Load bases, count!
 
-  for (uint32 ii=0; ii<_inputs.size(); ii++) {
-    fprintf(stderr, "Loading kmers from '%s' into buckets.\n", _inputs[ii]->_name);
+  for (uint32 ii=0; ii<inputs.size(); ii++) {
+    fprintf(stderr, "Loading kmers from '%s' into buckets.\n", inputs[ii]->name());
 
-    while (_inputs[ii]->loadBases(buffer, bufferMax, bufferLen, endOfSeq)) {
+    while (inputs[ii]->loadBases(buffer, bufferMax, bufferLen, endOfSeq)) {
       if (bufferLen == 0)
         continue;
 
@@ -71,10 +74,10 @@ merylOperation::countSimple(void) {
 
         //  Figure out if we want the forward or reverse kmer.
 
-        if      (_operation == merylOp::opCount)
+        if      (_countCanonical == true)
           kidx = (kiter.fmer() < kiter.rmer()) ? kiter.fmer() : kiter.rmer();
 
-        else if (_operation == merylOp::opCountForward)
+        else if (_countForward == true)
           kidx = kiter.fmer();
 
         else
@@ -124,8 +127,8 @@ merylOperation::countSimple(void) {
 
     //  Would like some kind of report here on the kmers loaded from this file.
 
-    delete _inputs[ii]->_sequence;
-    _inputs[ii]->_sequence = NULL;
+    delete inputs[ii]->_sequence;
+    inputs[ii]->_sequence = NULL;
   }
 
   //  Finished loading kmers.  Free up some space before dumping.
@@ -177,13 +180,13 @@ merylOperation::countSimple(void) {
   uint64                 sMask      = ((uint64)1 << wSuffix) - 1;
   uint64                 cSuffix    = ((kmdata)_countSuffix);
 
-  _outputO->initialize(wPrefix);
+  output->initialize(wPrefix);
 
-  merylBlockWriter  *_writer = _outputO->getBlockWriter();
+  merylBlockWriter  *writer = output->getBlockWriter();
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Writing results to '%s', using " F_S32 " threads.\n",
-          _outputO->filename(), getMaxThreadsAllowed());
+          output->filename(), getMaxThreadsAllowed());
   fprintf(stderr, "             [ file ][  prefix ][  suffix ][ count-suffix ]\n");
   fprintf(stderr, "   widths    [    6 ][ %7u ][ %7u ][ %12u ]\n", wPrefix - 6, wSuffix, 2 * _countSuffixLength);
   fprintf(stderr, "   number    [   64 ][ %7lu ][ %7lu ][ %12s ]\n", nPrefix / 64, nSuffix, _countSuffixString);
@@ -191,9 +194,9 @@ merylOperation::countSimple(void) {
 
 
 #pragma omp parallel for
-  for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
-    uint64  bStart = (_outputO->firstPrefixInFile(ff));
-    uint64  bEnd   = (_outputO->lastPrefixInFile(ff));
+  for (uint32 ff=0; ff<output->numberOfFiles(); ff++) {
+    uint64  bStart = (output->firstPrefixInFile(ff));
+    uint64  bEnd   = (output->lastPrefixInFile(ff));
 
     kmdata  *sBlock  = new kmdata [nSuffix];   //  Suffixes  -- kk and sMask should properly be kmdata too.
     kmvalu  *cBlock  = new kmvalu [nSuffix];   //  Counts       but we're guaranteed to have small mers here.
@@ -238,7 +241,7 @@ merylOperation::countSimple(void) {
       }
 
       //  With the kmers reconstructed, write this block of data to the file.
-      _writer->addCountedBlock(bp, nKmers, sBlock, cBlock, _labelConstant);
+      writer->addCountedBlock(bp, nKmers, sBlock, cBlock, _lConstant);
     }
 
     delete [] sBlock;
@@ -247,10 +250,9 @@ merylOperation::countSimple(void) {
 
   //  Even though there are no iterations, we still need to finish.
 
-  _writer->finish();
+  writer->finish();
 
-  delete _writer;
-  _writer = NULL;
+  delete writer;
 
   //  Cleanup.
 

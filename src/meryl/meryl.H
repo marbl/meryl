@@ -23,9 +23,62 @@
 #include "strings.H"
 #include "system.H"
 
+
+//  A global (variable 'verbosity') to tell what messages to output.
+//
+class merylVerbosity {
+public:
+  merylVerbosity()  {};
+  ~merylVerbosity() {};
+
+  void   beQuiet(void)               { _v = 0; }
+  void   increaseVerbosity(void)     { _v++;   }
+
+  void   enableProgressReport(void)  { _p = true; }
+
+  bool   showNothing     (void)   { return(_v == 0); }
+  bool   showStandard    (void)   { return(_v >= 1); }
+  bool   showProgress    (void)   { return(_v >= 2); }
+  bool   showConstruction(void)   { return(_v >= 3); }
+  bool   showDetails     (void)   { return(_v >= 4); }
+  bool   showEverything  (void)   { return(_v >= 5); }
+
+private:
+  uint32 _v = 1;       //  Verbosity level.
+  bool   _p = false;   //  Show progress, does nothing yet.
+};
+
+extern merylVerbosity verbosity;
+
+
+//  Each node in the tree is assigned a type.  Most of the nodes will be
+//  opFilter.  The special cases are to make counts, output a histogram, and
+//  so on.
+//
+enum class merylOpType {
+  opNothing,
+  opCounting,
+  opStatistics,
+  opHistogram,
+  opFilter
+};
+
+
+#define MERYLINCLUDE
+
 #include "merylInput.H"
-#include "merylOp.H"
+
+#include "merylModify.H"
+#include "merylFilter.H"
+
+#include "merylOpCounting.H"
+#include "merylOpTemplate.H"
+#include "merylOpCompute.H"
+
 #include "merylCountArray.H"
 #include "merylCommandBuilder.H"
+
+#undef  MERYLINCLUDE
+
 
 #endif  //  MERYL_H

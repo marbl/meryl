@@ -30,27 +30,33 @@ typedef  uint32  sqStore;     //  directly, otherwise,
 typedef  uint32  sqRead;      //  add fake types to reduce
 #endif                        //  the number of ifdef blocks.
 
-class merylOperation;
+class merylOpTemplate;
+class merylOpCompute;
 
 
 class merylInput {
 public:
-  merylInput(merylOperation *o);
-  merylInput(const char *n, merylFileReader *s, uint32 fileNum=UINT32_MAX);
-  merylInput(const char *n, dnaSeqFile *f, bool doCompression);
-  merylInput(const char *n, sqStore *s, uint32 segment, uint32 segmentMax);
+  merylInput(merylOpTemplate *ot);
+  merylInput(merylOpCompute  *oc);
+  merylInput(merylFileReader *s/*, uint32 slice=uint32max*/);
+  merylInput(dnaSeqFile *f, bool doCompression);
+  merylInput(sqStore *s, uint32 segment, uint32 segmentMax);
   ~merylInput();
 
+  char const *name(void);
+
   char const *inputType(void) {
-    if (_operation)   return("meryl-operation");
+    if (_template)    return("meryl-template");
+    if (_compute)     return("meryl-operation");
     if (_stream)      return("meryl-database");
     if (_sequence)    return("sequence-file");
     if (_store)       return("canu-seqStore");
 
     return("invalid-input");
-  };
+  }
 
-  void   initialize(void);
+  //  The 'main' function - load the next kmer from the input source
+  //  and save it internally so it can be returned in _kmer.
   void   nextMer(void);
 
 private:
@@ -65,44 +71,39 @@ public:
                    uint64  &seqLength,
                    bool    &endOfSequence);
 
-  bool   isFromOperation(void)    { return(_operation != NULL); };
-  bool   isFromDatabase(void)     { return(_stream    != NULL); };
-  bool   isFromSequence(void)     { return(_sequence  != NULL); };
-  bool   isFromStore(void)        { return(_store     != NULL); };
+  bool   isFromTemplate(void)     { return(_template  != nullptr); };
+  bool   isFromOperation(void)    { return(_compute   != nullptr); };
+  bool   isFromDatabase(void)     { return(_stream    != nullptr); };
+  bool   isFromSequence(void)     { return(_sequence  != nullptr); };
+  bool   isFromStore(void)        { return(_store     != nullptr); };
 
-  bool   isMultiSet(void)         { return(_isMultiSet);        };
-
-  bool   isCompressedFile(void)   { return((_sequence != NULL) &&
+  bool   isCompressedFile(void)   { return((_sequence != nullptr) &&
                                            (_sequence->isCompressed())); };
 
-  merylOperation           *_operation;
-  merylFileReader          *_stream;
-  dnaSeqFile               *_sequence;
-  sqStore                  *_store;
+  merylOpTemplate          *_template  = nullptr;
+  merylOpCompute           *_compute   = nullptr;
+  merylFileReader          *_stream    = nullptr;
+  dnaSeqFile               *_sequence  = nullptr;
+  sqStore                  *_store     = nullptr;
 
-  char                      _name[FILENAME_MAX+1];
-  bool                      _isMultiSet;
-
-  //  For _operation and _stream, a copy of the 'active' kmer
+  //  For _compute and _stream: a copy of the 'active' kmer.
 
   kmer                      _kmer;
-  kmvalu                    _value;
-  kmlabl                    _label;
-  bool                      _valid;
+  bool                      _valid     = false;
 
-  //  For _store, the position we're at in the store.
+  //  For _store: the position we're at in the store.
 
-  uint32                    _sqBgn;
-  uint32                    _sqEnd;
+  uint32                    _sqBgn     = 0;
+  uint32                    _sqEnd     = 0;
 
-  sqRead                   *_read;
-  uint32                    _readID;
-  uint32                    _readPos;
+  sqRead                   *_read      = nullptr;
+  uint32                    _readID    = 0;
+  uint32                    _readPos   = uint32max;
 
-  //  For homopoly compression, a flag, and the last base read.
+  //  For homopoly compression: a flag, and the last base read.
 
-  bool                      _homopolyCompress;
-  char                      _lastByte;
+  bool                      _homopolyCompress = false;
+  char                      _lastByte         = 0;
 };
 
 #endif  //  MERYLINPUT_H

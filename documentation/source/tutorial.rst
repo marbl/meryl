@@ -254,6 +254,7 @@ For **present-in** and **modify** actions, the value of the kmer is set to:
 
   =============== ===============
   value:#c        constant c
+  value:@f        the value of the kmer in the f'th input file
   =============== ===============
 
   =============== ===============

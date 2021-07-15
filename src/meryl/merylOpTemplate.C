@@ -1,0 +1,278 @@
+
+/******************************************************************************
+ *
+ *  This file is part of meryl, a genomic k-kmer counter with nice features.
+ *
+ *  This software is based on:
+ *    'Canu' v2.0              (https://github.com/marbl/canu)
+ *  which is based on:
+ *    'Celera Assembler' r4587 (http://wgs-assembler.sourceforge.net)
+ *    the 'kmer package' r1994 (http://kmer.sourceforge.net)
+ *
+ *  Except as indicated otherwise, this is a 'United States Government Work',
+ *  and is released in the public domain.
+ *
+ *  File 'README.licenses' in the root directory of this distribution
+ *  contains full conditions and disclaimers.
+ */
+
+#include "meryl.H"
+
+#include <stdarg.h>
+
+
+merylOpTemplate::merylOpTemplate(uint32 ident) {
+  _ident = ident;
+}
+
+merylOpTemplate::~merylOpTemplate() {
+
+  for (uint32 ii=0; ii<_inputs.size(); ii++)
+    delete _inputs[ii];
+
+  _inputs.clear();
+
+  delete    _stats;
+  delete    _output;
+  delete    _printer;
+  delete [] _printerName;
+}
+
+
+
+//how can i do error reporting in here gracefully?
+//passing in vector<char> error is nice, but then i need
+//a function to add stuff to it
+
+void
+addError(std::vector<char const *> &errors, char const *fmt, ...) {
+  char    *err = new char [1024];
+  va_list  ap;
+
+  va_start(ap, fmt);
+  vsnprintf(err, 1024, fmt, ap);
+  va_end(ap);
+
+  errors.push_back(err);
+}
+
+
+
+
+void
+merylOpTemplate::addInputFromOp(merylOpTemplate *otin, std::vector<char const *> &err) {
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "Adding input from operation #%u to operation #%u\n",
+            otin->_ident, _ident);
+
+  _inputs.push_back(new merylInput(otin));
+}
+
+
+void
+merylOpTemplate::addInputFromDB(char const *dbName, std::vector<char const *> &err) {
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "Adding input from file '%s' to operation #%u\n",
+            dbName, _ident);
+
+  _inputs.push_back(new merylInput(new merylFileReader(dbName)));
+}
+
+
+
+//  Probably should go away if we can get rid of the err's on the other addInput methods.
+void
+merylOpTemplate::addInputFromDB(char const *dbName) {
+  _inputs.push_back(new merylInput(new merylFileReader(dbName)));
+}
+
+
+void
+merylOpTemplate::addInputFromSeq(char const *sqName, bool doCompression, std::vector<char const *> &err) {
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "Adding input from file '%s' to operation #%u\n",
+            sqName, _ident);
+
+  _inputs.push_back(new merylInput(new dnaSeqFile(sqName), doCompression));
+}
+
+
+
+void
+merylOpTemplate::addInputFromCanu(char const *sqName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err) {
+
+#ifdef CANU
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "Adding input from sqStore '%s' to operation #%u\n",
+            sqName, _ident);
+
+  _inputs.push_back(new merylInput(new sqStore(sqName), segment, segmentMax));
+
+#endif
+}
+
+
+
+void
+merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "Adding output to file '%s' from operation #%u\n",
+            wrName, _ident);
+
+  if (_output)
+    addError(err, "ERROR: operation #%u already has an output set, can't add output to '%s'!\n", _ident, wrName);
+
+  _output = new merylFileWriter(wrName);
+}
+
+
+
+//  Add a printer to the template command.
+//
+//  Three outcomes:
+//
+//   - The name is '-' and output will go to stdout.
+//
+//   - The name does not contain two or more '#' symbols, and output will
+//     go to a single file with that name.
+//
+//   - The name does contain two or more '#' symbols, and output will
+//     go to 64 files, one per slice, replacing ##'s with digits.
+//
+//  The first two cases both define _printer, while the third does not.
+//  merylOpCompute::addPrinter() uses this to decide if it should open
+//  per-slice output or use the global output.
+void
+merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char const *> &err) {
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "Adding printer to %s from operation #%u\n",
+            (prName == nullptr) ? "(stdout)" : prName,
+            _ident);
+
+  if (_printerName)
+    addError(err, "ERROR: operation #%u already has a printer set, can't add print to '%s'!\n", prName);
+
+  //  Decide if this is to stdout.
+
+  if ((prName == nullptr) || (strcmp("-", prName) == 0)) {
+    _printer        = new compressedFileWriter(prName);
+    _printerName    = duplicateString("(stdout)");
+    _printACGTorder = ACGTorder;
+    return;
+  }
+
+  //  Decide if this is a normal file.
+
+  uint32  len = 0;
+
+  for (char *suf = strchr(prName, '#'); ((suf) && (*suf == '#')); suf++)
+    len++;
+
+  if (len < 2) {
+    _printer        = new compressedFileWriter(prName);
+    _printerName    = duplicateString(prName);
+    _printACGTorder = ACGTorder;
+  }
+  else {
+    _printer        = nullptr;
+    _printerName    = duplicateString(prName);
+    _printACGTorder = ACGTorder;
+  }
+}
+
+
+
+//  This is called by merylCommandBuilder after the entire tree has been
+//  built.
+//
+//  The purpose is to allow the filters a chance to figure out what
+//  'all' means and to fail if there are any errors (like asking for input
+//  4 when there are only 3 available).
+//
+//  It is NOT intended to do any processing, like examining histograms to
+//  choose thresholds.  That is done in initializeTemplate().
+//
+void
+merylOpTemplate::finalizeTemplateInputs(std::vector<char const *> &err) {
+  for (uint32 f1=0; f1<_filter    .size(); f1++)
+    for (uint32 f2=0; f2<_filter[f1].size(); f2++)
+      _filter[f1][f2].finalizeFilterInputs(_inputs.size(), err);
+}
+
+
+
+//  This is called by spawnThreads() just before the template is copied
+//  into (64) merylOpCompute objects.
+//
+//  The purpose is to allow inputs and outputs to be opened before threads
+//  are spawned, and to allow the flters a chance to examine histograms or
+//  anything else on disk.
+//
+void
+merylOpTemplate::finalizeTemplateParameters(void) {
+  for (uint32 ii=0; ii<_inputs.size(); ii++)       //  Forward the request to any inputs
+    if (_inputs[ii]->_template != nullptr)         //  that are actions.
+      _inputs[ii]->_template->finalizeTemplateParameters();
+
+  if (_output)                                   //  Create the master output object.  We'll later
+    _output->initialize(0, false);               //  request per-thread writer objects from this.
+
+  //  Any filters that need to query meryl databases for parameters
+  //  should do so now.
+#warning query of database for filter parameters not implemented
+  //for (uint32 f1=0; f1<_filter    .size(); f1++)
+  //for (uint32 f2=0; f2<_filter[f1].size(); f2++)
+  //  _filter[f1][f2].finalizeFilter();
+
+  //initializeThreshold();
+}
+
+
+
+
+
+void
+merylOpTemplate::doCounting(uint64 allowedMemory,
+                            uint32 allowedThreads) {
+  if (_counting == nullptr)
+    return;
+
+  if (_output == nullptr)
+    return;
+
+  //  Call the counting method.
+  _counting->doCounting(_inputs, allowedMemory, allowedThreads, _output);
+
+  if (_onlyConfig == true)   //  If only configuring, stop now.
+    return;
+
+  //  Convert this op into a pass through
+#warning NEED TO RESET COUNTING OPERATION TO PASS THROUGH
+  //  Fiddle with the operation.
+  //   - remove the output; it's already been written.
+  //   - remove all the inputs
+  //   - convert the operation to a simple 'pass through'
+  //   - add the counted output as an input
+
+  char name[FILENAME_MAX + 1];
+
+  strncpy(name, _output->filename(), FILENAME_MAX + 1);   //  know which input to open later.
+
+  //  Close the output and forget about it.
+  delete _output;
+  _output = nullptr;
+
+  //  Close the inputs and forget about them too.
+  for (uint32 ii=0; ii<_inputs.size(); ii++)
+    delete _inputs[ii];
+  _inputs.clear();
+
+  //  But now remember what that output was and make it an input.
+  addInputFromDB(name);
+};

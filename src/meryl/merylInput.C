@@ -20,133 +20,53 @@
 
 
 
-merylInput::merylInput(merylOperation *o) {
-  _operation        = o;
-  _stream           = NULL;
-  _sequence         = NULL;
-  _store            = NULL;
-
-  _isMultiSet       = false;  //  set in initialize().
-
-  _value            = 0;
-  _label            = 0;
-  _valid            = false;
-
-  _sqBgn            = 0;
-  _sqEnd            = 0;
-
-  _read             = NULL;
-  _readID           = 0;
-  _readPos          = UINT32_MAX;
-
-  _homopolyCompress = false;
-  _lastByte         = 0;
-
-  memset(_name, 0, FILENAME_MAX+1);
-  strncpy(_name, toString(_operation->getOperation()), FILENAME_MAX);
+merylInput::merylInput(merylOpTemplate *ot) {
+  _template = ot;
 }
 
 
 
-merylInput::merylInput(const char *n, merylFileReader *s, uint32 threadFile) {
-  _operation        = NULL;
-  _stream           = s;
-  _sequence         = NULL;
-  _store            = NULL;
-
-  _isMultiSet       = false;  //  set in initialize().
-
-  if (threadFile != UINT32_MAX)
-    _stream->enableThreads(threadFile);
-
-  _value            = 0;
-  _label            = 0;
-  _valid            = false;
-
-  _sqBgn            = 0;
-  _sqEnd            = 0;
-
-  _read             = NULL;
-  _readID           = 0;
-  _readPos          = UINT32_MAX;
-
-  _homopolyCompress = false;
-  _lastByte         = 0;
-
-  memset(_name, 0, FILENAME_MAX+1);
-  strncpy(_name, n, FILENAME_MAX);
+merylInput::merylInput(merylOpCompute *oc) {
+  _compute = oc;
 }
 
 
 
-merylInput::merylInput(const char *n, dnaSeqFile *f, bool doCompression) {
-  _operation        = NULL;
-  _stream           = NULL;
+merylInput::merylInput(merylFileReader *s/*, uint32 slice*/) {
+  _stream = s;
+
+  //if (slice != uint32max)
+  //  _stream->enableThreads(slice);
+
+  //  Grab the first kmer from the input.  Without this
+  //  merylOpCompute::nextMer() doesn't load any data - the active list is
+  //  empty and no inputs get refreshed.
+  //
+  nextMer();
+}
+
+
+
+merylInput::merylInput(dnaSeqFile *f, bool doCompression) {
   _sequence         = f;
-  _store            = NULL;
-
-  _isMultiSet       = false;
-
-  _value            = 0;
-  _label            = 0;
-  _valid            = true;    //  Trick nextMer into doing something without a valid mer.
-
-  _sqBgn            = 0;
-  _sqEnd            = 0;
-
-  _read             = NULL;
-  _readID           = 0;
-  _readPos          = UINT32_MAX;
 
   _homopolyCompress = doCompression;
-  _lastByte         = 0;
-
-  memset(_name, 0, FILENAME_MAX+1);
-  strncpy(_name, n, FILENAME_MAX);
 }
 
 
 
 #ifndef CANU
 
-merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segmentMax) {
-  _operation        = NULL;
-  _stream           = NULL;
-  _sequence         = NULL;
-  _store            = NULL;
-
-  _isMultiSet       = false;
-
-  _value            = 0;
-  _label            = 0;
-  _valid            = false;
-
-  _sqBgn            = 0;
-  _sqEnd            = 0;
-
-  _homopolyCompress = false;
-  _lastByte         = 0;
+merylInput::merylInput(sqStore *s, uint32 segment, uint32 segmentMax) {
 }
 
 #else
 
-merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segmentMax) {
-  _operation        = NULL;
-  _stream           = NULL;
-  _sequence         = NULL;
+merylInput::merylInput(sqStore *s, uint32 segment, uint32 segmentMax) {
   _store            = s;
 
-  _isMultiSet       = false;
-
-  _value            = 0;
-  _label            = 0;
-  _valid            = true;    //  Trick nextMer into doing something without a valid mer.
-
-  _sqBgn            = 1;                                   //  C-style, not the usual
+  _sqBgn            = 1;                                  //  C-style, not the usual
   _sqEnd            = _store->sqStore_lastReadID() + 1;   //  sqStore semantics!
-
-  _homopolyCompress = false;
-  _lastByte         = 0;
 
   if (segmentMax > 1) {
     uint64  nBases = 0;
@@ -172,7 +92,7 @@ merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segment
     }
 
     if (segment == segmentMax)                      //  Annoying special case; if the last segment,
-      _sqEnd = _store->sqStore_lastReadID() + 1;   //  sqEnd is set to the last read, not N+1.
+      _sqEnd = _store->sqStore_lastReadID() + 1;    //  sqEnd is set to the last read, not N+1.
 
     fprintf(stderr, "merylInput-- segment %u/%u picked reads %u-%u out of %u\n",
             segment, segmentMax, _sqBgn, _sqEnd, _store->sqStore_lastReadID());
@@ -180,10 +100,7 @@ merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segment
 
   _read        = new sqRead;
   _readID      = _sqBgn - 1;       //  Incremented before loading the first read
-  _readPos     = UINT32_MAX;
-
-  memset(_name, 0, FILENAME_MAX+1);
-  strncpy(_name, n, FILENAME_MAX);
+  _readPos     = uint32max;
 }
 
 #endif
@@ -192,7 +109,7 @@ merylInput::merylInput(const char *n, sqStore *s, uint32 segment, uint32 segment
 
 merylInput::~merylInput() {
   delete _stream;
-  delete _operation;
+  delete _compute;
   delete _sequence;
   delete _store;
   delete _read;
@@ -201,45 +118,49 @@ merylInput::~merylInput() {
 
 
 void
-merylInput::initialize(void) {
-  if (_operation) {
-    _operation->initialize();
-    _isMultiSet = _operation->isMultiSet();
-  }
-
-  if (_stream) {
-    _isMultiSet = _stream->isMultiSet();
-  }
-}
-
-
-
-void
 merylInput::nextMer(void) {
-  char kmerString[256];
 
   if (_stream) {
-    //fprintf(stderr, "merylIn::nextMer(%s)-- (stream)\n", _name);
-
     _valid = _stream->nextMer();
     _kmer  = _stream->theFMer();
-    _value = _stream->theValue();
-    _label = _stream->theLabel();
   }
 
-  if (_operation) {
-    //fprintf(stderr, "merylIn::nextMer(%s)-- (operation)\n", _name);
-
-    _valid = _operation->nextMer();
-    _kmer  = _operation->theFMer();
-    _value = _operation->theValue();
-    _label = _operation->theLabel();
+  if (_compute) {
+    _valid = _compute->nextMer();
+    _kmer  = _compute->theFMer();
   }
-
-  //fprintf(stderr, "merylIn::nextMer(%s)-- now have valid=" F_U32 " kmer %s count " F_U64 " label 0x%016lx\n",
-  //        _name, _valid, _kmer.toString(kmerString), _value, _label);
-  //fprintf(stderr, "\n");
 }
+
+
+
+char const *
+merylInput::name(void) {
+
+  if (isFromTemplate() == true) {
+    return("no name template");
+  }
+
+  if (isFromOperation() == true) {
+    return("no name compute");
+  }
+
+  if (isFromDatabase() == true) {
+    return(_stream->filename());
+  }
+
+  if (isFromSequence() == true) {
+    return(_sequence->filename());
+  }
+
+#ifdef CANU
+  if (isFromStore() == true) {
+    return(_store->sqStore_path());
+  }
+#endif
+
+  return("no name joe");
+}
+
 
 
 
@@ -323,7 +244,7 @@ merylInput::loadBases(char    *seq,
   endOfSequence = true;
 
   if (_stream)      gotBases = false;
-  if (_operation)   gotBases = false;
+  if (_compute)     gotBases = false;
   if (_sequence)    gotBases = _sequence->loadBases(seq, maxLength, seqLength, endOfSequence);
   if (_store)       gotBases = loadBasesFromCanu(seq, maxLength, seqLength, endOfSequence);
 

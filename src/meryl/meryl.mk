@@ -1,14 +1,25 @@
 TARGET   := meryl
 SOURCES  := meryl.C \
+            merylCommandBuilder-isAlias.C \
+            merylCommandBuilder-isFilter.C \
+            merylCommandBuilder-isOption.C \
+            merylCommandBuilder-labelSelect.C \
+            merylCommandBuilder-processWord.C \
+            merylCommandBuilder-valueSelect.C \
             merylCommandBuilder.C \
             merylCountArray.C \
+            merylFilter.C \
             merylInput.C \
+            merylOp-count-memorySize.C \
             merylOp-count.C \
+            merylOp-countSequential.C \
             merylOp-countSimple.C \
             merylOp-countThreads.C \
             merylOp-histogram.C \
             merylOp-nextMer.C \
-            merylOp.C
+            merylOp.C \
+            merylOpCompute.C \
+            merylOpTemplate.C
 
 SRC_INCDIRS := .
 

@@ -41,6 +41,7 @@ Actions
 
 Meryl processing is built around *actions*.  An action reads kmers (or sequence) from one or many inputs
 and writes kmers to a single output.  There are four basic actions:
+
   :count:       create a meryl database from FASTA or FASTQ inputs
   :filter:      select kmers based on their value of label from a single input
   :modify:      change kmer values or labels in a single input

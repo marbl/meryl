@@ -26,46 +26,83 @@
 
 class merylCommandBuilder {
 public:
-  merylCommandBuilder();
-  ~merylCommandBuilder();
+  merylCommandBuilder()  {
+  }
+  ~merylCommandBuilder() {
+    for (uint32 ss=0; ss<64; ss++)
+      delete [] _thList[ss];
+  }
 
-  void    initialize(char *opt);
-  bool    processLabel(char const *val, bool failIfBad);
-  bool    processOptions(void);
-
+private:
+  void    addNewOperation(void);
   void    terminateOperation(void);
-  bool    processOperation(void);
+
+private:
+  bool    processValueModifier(char const *val, bool failIfBad);
+  bool    processLabelModifier(char const *val, bool failIfBad);
+  bool    processBasesModifier(char const *val, bool failIfBad);
+
+  uint32               isRelation(uint32 bgn);
+  merylFilterRelation  decodeRelation(uint32 bgn);
+
+  void                 decodeFilter(uint32 bgn,
+                                    merylFilter &f);
+
+public:
+  void    printTree(merylOpTemplate *op, uint32 inputNum, uint32 indent);
+
+public:
+  void    processWord(char const *opt);         //  Add a command line word to the builder
+  void    buildTrees(void);                     //  Notify us that all words have been added
+  void    performCounting(uint64 allowedMemory,
+                          uint32 allowedThreads);
+  void    spawnThreads(uint32 allowedThreads);  //  Build 64 trees for processing kmers.
+
+public:
+  void    finishTree(uint32 r);
+
+private:
+  bool    isEmpty(void)      { return(_optString[0] == 0); }
+  bool    isOption(void);
+  bool    isAlias(void);
+
+  bool    isValueSelect(void);
+  bool    isLabelSelect(void);
+
+  bool    isValueFilter(void);
+  bool    isLabelFilter(void);
+  bool    isBasesFilter(void);
+  bool    isInputFilter(void);
+
+  bool    isFilterConnective(void);
+
+  bool    isCount(void);
 
   bool    isOutput(void);
   bool    isPrinter(void);
-
-  bool    isMerylInput(void);
-  bool    isCanuInput(std::vector<char *> &err);
-  bool    isSequenceInput(void);
-
-  void    finalize(void);
-  void    spawnThreads(void);
-
-  void    printTree(merylOperation *op, uint32 indent);
-
-public:
-  void    setAllowedMemory(char const *memstr);
-  void    setAllowedThreads(char const *thrstr);
+  bool    isInput(void);
 
 public:
   uint32           numOperations(void)           { return(_opList.size()); };
-  merylOperation  *getOperation(uint32 i)        { return(_opList[i]);     };
+  merylOpTemplate *getOperation(uint32 i)        { return(_opList[i]);     };
 
-  uint32           numRoots(void)                { return(_opRoot.size()); };
-  merylOperation  *getRoot(uint32 r)             { return(_opList   [ _opRoot[r] ]);  };
-  merylOperation  *getRoot(uint32 r, uint32 t)   { return(_thList[t][ _opRoot[r] ]);  };
+  uint32           numTrees(void)                { return(_opTree.size()); };
+  merylOpTemplate *getTree(uint32 r)             { return(_opList   [ _opTree[r] ]);  };
+  merylOpCompute  *getTree(uint32 r, uint32 t)   { return(_thList[t][ _opTree[r] ]);  };
 
+  merylOpTemplate *getCurrent(void)              { assert(_opStack.size() > 0); return(_opStack.top()); };
+
+  //  Collecting any errors encountered when building the operation tree.
+public:
+  uint32                      numErrors(void)   {  return(_errors.size());  }
+  std::vector<char const *>  &getErrors(void)   {  return(_errors);         }
+
+  void                        addError(char const *fmt, ...);
+
+  std::vector<char const *>  _errors;
+
+  //  Storage and flags we use for processing a command line word.
 private:
-  void             parsePresentIn(void);
-
-private:
-  uint32    _terminating = 0;
-
   uint32    _optStringLen = 0;
   char      _optString[FILENAME_MAX + 1] = {0};
 
@@ -74,43 +111,33 @@ private:
   char      _sqInfName[FILENAME_MAX + 1] = {0};   //  'info' in a Canu seqStore.
   char      _sqRdsName[FILENAME_MAX + 1] = {0};   //  'reads' in a Canu seqStore.
 
-  //  Input from merylDB.
+  uint32    _segment       = 1;             //  for Canu seqStore inputs
+  uint32    _segmentMax    = 1;             //  for Canu seqStore inputs
 
-  //  Input from Canu seqStore.
-  uint32    _segment       = 1;
-  uint32    _segmentMax    = 1;
+  bool      _doCompression = false;         //  for FASTA or FASTQ file inputs
 
-  //  Input from FASTA or FASTQ file.
-  bool      _doCompression     = false;
+  bool      _isOutput      = false;         //  enable output to merylDB
 
-  //  Output to merylDB.
-  bool      _isOutput    = false;
+  bool      _isPrint        = false;        //  enable output to ASCII dump
+  bool      _printACGTorder = false;        //  fix canonical ordering
 
-  //  Output to dump file.
-  bool      _printACGTorder = false;
-  bool      _isPrint        = false;
+  bool      _invertNextFilter = false;
 
+  ////
+  //  present-in action - presentIn[x] = 1 iff the kmer needs to be in x inputs
 
-  uint32    _presentInLen = 0;
-  uint32    _presentInMax = 0;
-  uint32   *_presentIn    = nullptr;
-
-  uint32    _selectedFile = UINT32_MAX;
-
-
-
-  uint64    _allowedMemory;    //  These are set in the constructor,
-  uint32    _allowedThreads;   //  based on what we know at run time.
+  //uint32    _presentInLen = 0;
+  //uint32    _presentInMax = 0;
+  //uint32   *_presentIn    = nullptr;
 
   //  _opStack is a stack of operations, used when constructing the tree of operations.
-  //
   //  _opList is a list of operations.
 
-  std::stack <merylOperation *>   _opStack;
-  std::vector<merylOperation *>   _opList;
-  merylOperation                **_thList[64] = { nullptr };   //  Mirrors opList
+  std::stack <merylOpTemplate *>    _opStack;
+  std::vector<merylOpTemplate *>    _opList;
+  merylOpCompute                  **_thList[64] = { nullptr };   //  Mirrors opList
 
-  std::vector<uint32>             _opRoot;
+  std::vector<uint32>               _opTree;
 };
 
 #endif

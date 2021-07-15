@@ -19,16 +19,18 @@
 #include "meryl.H"
 
 void
-merylOperation::reportHistogram(void) {
+merylOpCompute::reportHistogram(void) {
 
   if (_inputs.size() > 1)
     fprintf(stderr, "ERROR: told to dump a histogram for more than one input!\n"), exit(1);
 
+#if 0
   if (_inputs[0]->_operation)
-    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->_name), exit(1);
+    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->name()), exit(1);
 
   if (_inputs[0]->_sequence)
-    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->_name), exit(1);
+    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->name()), exit(1);
+#endif
 
   //  Tell the stream to load and return the histogram.
 
@@ -45,16 +47,18 @@ merylOperation::reportHistogram(void) {
 
 
 void
-merylOperation::reportStatistics(void) {
+merylOpCompute::reportStatistics(void) {
 
   if (_inputs.size() > 1)
     fprintf(stderr, "ERROR: told to dump a histogram for more than one input!\n"), exit(1);
 
+#if 0
   if (_inputs[0]->_operation)
-    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->_name), exit(1);
+    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->name()), exit(1);
 
   if (_inputs[0]->_sequence)
-    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->_name), exit(1);
+    fprintf(stderr, "ERROR: told to dump a histogram from input '%s'!\n", _inputs[0]->name()), exit(1);
+#endif
 
   //  Tell the stream to load and return the histogram.
 

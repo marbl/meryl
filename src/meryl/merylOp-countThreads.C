@@ -27,26 +27,27 @@
 class mcGlobalData {
 public:
   mcGlobalData(std::vector<merylInput *> &inputs,
-               merylOp                    op,
-               uint64                     nPrefix,
-               uint32                     wData,
-               kmdata                     wDataMask,
-               kmvalu                     labelConstant,
+               merylOpCounting           *params,
+               //uint64                     nPrefix,
+               //uint32                     wData,
+               //kmdata                     wDataMask,
+               //kmvalu                     labelConstant,
                uint64                     maxMemory,
                uint32                     maxThreads,
                uint64                     bufferSize,
                merylFileWriter           *output) : _inputs(inputs) {
-    _operation      = op;
-    _nPrefix        = nPrefix;
-    _wData          = wData;
-    _wDataMask      = wDataMask;
+    _params         = params;
+    //_operation      = op;
+    //_nPrefix        = nPrefix;
+    //_wData          = wData;
+    //_wDataMask      = wDataMask;
 
-    _labelConstant  = labelConstant;
+    //_labelConstant  = labelConstant;
 
     _dumping        = false;
 
-    _lock           = new std::atomic_flag [_nPrefix];
-    _data           = new merylCountArray  [_nPrefix];
+    _lock           = new std::atomic_flag [_params->_nPrefix];
+    _data           = new merylCountArray  [_params->_nPrefix];
     _output         = output;
     _writer         = output->getBlockWriter();
 
@@ -68,9 +69,9 @@ public:
     for (uint32 ii=0; ii<65; ii++)
       _lastBuffer[ii] = 0;
 
-    for (uint32 pp=0; pp<_nPrefix; pp++) {      //  Initialize each bucket.
+    for (uint32 pp=0; pp<_params->_nPrefix; pp++) {      //  Initialize each bucket.
       _lock[pp].clear();
-      _memUsed += _data[pp].initialize(pp, wData);
+      _memUsed += _data[pp].initialize(pp, _params->_wSuffix);
     }
   };
 
@@ -80,12 +81,14 @@ public:
     delete [] _writer;
   };
 
-  merylOp                     _operation;        //  Parameters.
-  uint64                      _nPrefix;
-  uint32                      _wData;
-  kmdata                      _wDataMask;
+  merylOpCounting            *_params;
 
-  kmlabl                      _labelConstant;
+  //merylOp                     _operation;        //  Parameters.
+  //uint64                      _nPrefix;
+  //uint32                      _wData;
+  //kmdata                      _wDataMask;
+
+  //kmlabl                      _labelConstant;
 
   bool                        _dumping;
 
@@ -243,26 +246,26 @@ insertKmers(void *G, void *T, void *S) {
   mcComputation    *s = (mcComputation *)S;
 
   while (s->_kiter.nextMer()) {
-    bool    useF = (g->_operation == merylOp::opCountForward);
+    bool    useF = g->_params->_countForward;
     kmdata  pp   = 0;
     kmdata  mm   = 0;
 
-    if (g->_operation == merylOp::opCount)
+    if (g->_params->_countCanonical == true)
       useF = (s->_kiter.fmer() < s->_kiter.rmer());
 
     if (useF == true) {
-      pp = (kmdata)s->_kiter.fmer() >> g->_wData;
-      mm = (kmdata)s->_kiter.fmer()  & g->_wDataMask;
+      pp = (kmdata)s->_kiter.fmer() >> g->_params->_wSuffix;
+      mm = (kmdata)s->_kiter.fmer()  & g->_params->_wSuffixMask;
       //fprintf(stderr, "useF F=%s R=%s ms=%u pp %llu mm %llu\n", s->_kiter.fmer().toString(fstr), s->_kiter.rmer().toString(rstr), s->_kiter.fmer().merSize(), pp, mm);
     }
 
     else {
-      pp = (kmdata)s->_kiter.rmer() >> g->_wData;
-      mm = (kmdata)s->_kiter.rmer()  & g->_wDataMask;
+      pp = (kmdata)s->_kiter.rmer() >> g->_params->_wSuffix;
+      mm = (kmdata)s->_kiter.rmer()  & g->_params->_wSuffixMask;
       //fprintf(stderr, "useR F=%s R=%s ms=%u pp %llu mm %llu\n", s->_kiter.fmer().toString(fstr), s->_kiter.rmer().toString(rstr), s->_kiter.rmer().merSize(), pp, mm);
     }
 
-    assert(pp < g->_nPrefix);
+    assert(pp < g->_params->_nPrefix);
 
     //  If we're dumping data, stop immediately and sleep until dumping is
     //  finished.
@@ -333,7 +336,7 @@ writeBatch(void *G, void *S) {
 
   g->_dumping = true;
 
-  for (uint32 pp=0; pp<g->_nPrefix; pp++)
+  for (uint32 pp=0; pp<g->_params->_nPrefix; pp++)
     while (g->_lock[pp].test_and_set(std::memory_order_relaxed) == true)
       ;
 
@@ -358,9 +361,9 @@ writeBatch(void *G, void *S) {
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<g->_output->numberOfFiles(); ff++) {
     for (uint64 pp=g->_output->firstPrefixInFile(ff); pp <= g->_output->lastPrefixInFile(ff); pp++) {
-      g->_data[pp].countKmers();                                      //  Convert the list of kmers into a list of (kmer, count).
-      g->_data[pp].dumpCountedKmers(g->_writer, g->_labelConstant);   //  Write that list to disk.
-      g->_data[pp].removeCountedKmers();                              //  And remove the in-core data.
+      g->_data[pp].countKmers();                                           //  Convert the list of kmers into a list of (kmer, count).
+      g->_data[pp].dumpCountedKmers(g->_writer, g->_params->_lConstant);   //  Write that list to disk.
+      g->_data[pp].removeCountedKmers();                                   //  And remove the in-core data.
     }
   }
 
@@ -370,7 +373,7 @@ writeBatch(void *G, void *S) {
 
   g->_memUsed    = g->_memBase;
 
-  for (uint32 pp=0; pp<g->_nPrefix; pp++)
+  for (uint32 pp=0; pp<g->_params->_nPrefix; pp++)
     g->_memUsed += g->_data[pp].usedSize();
 
   g->_kmersAdded    = 0;
@@ -378,7 +381,7 @@ writeBatch(void *G, void *S) {
 
   //  Signal that threads can proceeed.
 
-  for (uint32 pp=0; pp<g->_nPrefix; pp++)
+  for (uint32 pp=0; pp<g->_params->_nPrefix; pp++)
     g->_lock[pp].clear(std::memory_order_relaxed);
 
   g->_dumping = false;
@@ -387,10 +390,10 @@ writeBatch(void *G, void *S) {
 
 
 void
-merylOperation::countThreads(uint32  wPrefix,
-                             uint64  nPrefix,
-                             uint32  wData,
-                             kmdata  wDataMask) {
+merylOpCounting::countThreads(std::vector<merylInput *> &inputs,
+                              uint64                     allowedMemory,
+                              uint32                     allowedThreads,
+                              merylFileWriter           *output) {
 
   //  If we're only configuring, stop now.
 
@@ -399,14 +402,14 @@ merylOperation::countThreads(uint32  wPrefix,
 
   //  Configure the writer for the prefix bits we're counting with.
   //
-  //  We split the kmer into wPrefix and wData (bits) pieces.
+  //  We split the kmer into wPrefix and wSuffix (bits) pieces.
   //  The prefix is used by the filewriter to decide which file to write to, by simply
   //  shifting it to the right to keep the correct number of bits in the file.
   //
-  //           kmer -- [ wPrefix (18) = prefixSize               | wData (36) ]
+  //           kmer -- [ wPrefix (18) = prefixSize               | wSuffix (36) ]
   //           file -- [ numFileBits  | prefixSize - numFileBits ]
 
-  _outputO->initialize(wPrefix);
+  output->initialize(_wPrefix);
 
   //  Initialize the counter.
   //
@@ -417,16 +420,17 @@ merylOperation::countThreads(uint32  wPrefix,
 
   uint64  inputBufferSize = 2 * 1024 * 1024;
 
-  mcGlobalData  *g = new mcGlobalData(_inputs,
-                                      _operation,
-                                      nPrefix,
-                                      wData,
-                                      wDataMask,
-                                      _labelConstant,
-                                      _maxMemory - inputBufferSize * 4 * _maxThreads,
-                                      _maxThreads,
+  mcGlobalData  *g = new mcGlobalData(inputs,
+                                      this,
+                                      //_operation,
+                                      //nPrefix,
+                                      //wData,
+                                      //wDataMask,
+                                      //_labelConstant,
+                                      allowedMemory - inputBufferSize * 4 * allowedThreads,
+                                      allowedThreads,
                                       inputBufferSize,
-                                      _outputO);
+                                      output);
 
   //  Set up a sweatShop and run it.  We'll reserve one thread for input, one
   //  for gzip and use the remaining for counting -- unless there are no
@@ -434,7 +438,7 @@ merylOperation::countThreads(uint32  wPrefix,
 
   sweatShop    *ss = new sweatShop(loadBases, insertKmers, writeBatch);
 
-  uint32 nw = (_maxThreads > 2) ? (_maxThreads - 2) : 1;
+  uint32 nw = (allowedThreads > 2) ? (allowedThreads - 2) : 1;
 
   ss->setLoaderBatchSize(1);            //  Load this many things before appending to input list
   ss->setLoaderQueueSize(nw * 16);      //  Allow this many things on the input list before stalling the input
@@ -451,16 +455,16 @@ merylOperation::countThreads(uint32  wPrefix,
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Input complete.  Writing results to '%s', using %u thread%s.\n",
-          _outputO->filename(), _maxThreads, (_maxThreads == 1) ? "" : "s");
+          output->filename(), allowedThreads, (allowedThreads == 1) ? "" : "s");
 
-  omp_set_num_threads(_maxThreads);
+  omp_set_num_threads(allowedThreads);
 
 #pragma omp parallel for schedule(dynamic, 1)
-  for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {
-    for (uint64 pp=_outputO->firstPrefixInFile(ff); pp <= _outputO->lastPrefixInFile(ff); pp++) {
-      g->_data[pp].countKmers();                                      //  Convert the list of kmers into a list of (kmer, count).
-      g->_data[pp].dumpCountedKmers(g->_writer, g->_labelConstant);   //  Write that list to disk.
-      g->_data[pp].removeCountedKmers();                              //  And remove the in-core data.
+  for (uint32 ff=0; ff<output->numberOfFiles(); ff++) {
+    for (uint64 pp=output->firstPrefixInFile(ff); pp <= output->lastPrefixInFile(ff); pp++) {
+      g->_data[pp].countKmers();                                           //  Convert the list of kmers into a list of (kmer, count).
+      g->_data[pp].dumpCountedKmers(g->_writer, g->_params->_lConstant);   //  Write that list to disk.
+      g->_data[pp].removeCountedKmers();                                   //  And remove the in-core data.
     }
   }
 
