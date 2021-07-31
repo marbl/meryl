@@ -348,7 +348,7 @@ writeBatch(void *G, void *S) {
           lThreads, (lThreads == 1) ? "" : "s");
   fprintf(stderr, "\n");
 
-  omp_set_num_threads(wThreads);
+  setNumThreads(wThreads);
 
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<g->_output->numberOfFiles(); ff++) {
@@ -447,7 +447,7 @@ merylOperation::countThreads(uint32  wPrefix,
   fprintf(stderr, "Input complete.  Writing results to '%s', using %u thread%s.\n",
           _outputO->filename(), _maxThreads, (_maxThreads == 1) ? "" : "s");
 
-  omp_set_num_threads(_maxThreads);
+  setNumThreads(_maxThreads);
 
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<_outputO->numberOfFiles(); ff++) {

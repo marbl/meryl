@@ -37,9 +37,6 @@ main(int argc, char **argv) {
   bool    useC         = true;
   bool    useF         = false;
 
-  uint32  threads      = getMaxThreadsAllowed();
-  //uint64  memory     = 8;
-
   argc = AS_configure(argc, argv);
 
   std::vector<char const *>  err;
@@ -69,7 +66,7 @@ main(int argc, char **argv) {
       useF = false;
 
     } else if (strcmp(argv[arg], "-threads") == 0) {
-      threads = strtouint32(argv[++arg]);
+      setNumThreads(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-memory") == 0) {   //  Not implemented.  If implemented, merylCountArray::initializeValues()
       //memory = strtouint64(argv[++arg]);            //  needs to return a memory size, etc, etc.
@@ -136,8 +133,6 @@ main(int argc, char **argv) {
 
     exit(1);
   }
-
-  omp_set_num_threads(threads);
 
   //  Figure out the kmer size.  We need this to set up encoding parameters.
 

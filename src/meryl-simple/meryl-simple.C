@@ -34,7 +34,7 @@ main(int argc, char **argv) {
   uint64  memLimit = UINT64_MAX;
   uint64  memUsed  = 0;
 
-  argc = AS_configure(argc, argv);
+  argc = AS_configure(argc, argv, 1);
 
   std::vector<char *>  err;
   for (int32 arg=1; arg < argc; arg++) {

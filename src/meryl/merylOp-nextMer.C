@@ -198,7 +198,7 @@ merylOperation::doCounting(void) {
                     wData,
                     wDataMask);
 
-  omp_set_num_threads(_maxThreads);
+  setNumThreads(_maxThreads);
 
   if (doSimple) {
     fprintf(stderr, "Start counting with SIMPLE method.\n");

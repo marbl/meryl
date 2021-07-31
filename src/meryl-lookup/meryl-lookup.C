@@ -255,14 +255,14 @@ main(int argc, char **argv) {
   if (nThreads == 0)   nThreads = getMaxThreadsAllowed();
   if (lThreads == 0)   lThreads = nThreads;
 
-  omp_set_num_threads(lThreads);   //  Enable threads for loading data.
+  setNumThreads(lThreads);   //  Enable threads for loading data.
 
   G->initialize();
   G->loadLookupTables();
   G->openInputs();
   G->openOutputs();
 
-  omp_set_num_threads(nThreads);   //  Enable threads for computing results.
+  setNumThreads(nThreads);   //  Enable threads for computing results.
 
   switch (G->reportType) {
     case lookupOp::opNone:                                break;

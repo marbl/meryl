@@ -306,7 +306,7 @@ merylCommandBuilder::processOptions(void) {
 
   if (strcmp(key, "threads") == 0) {
     _allowedThreads = val32;
-    omp_set_num_threads(_allowedThreads);
+    setNumThreads(_allowedThreads);
     return(true);
   }
 
@@ -628,7 +628,7 @@ void
 merylCommandBuilder::spawnThreads(void) {
   uint32  indent = 0;
 
-  omp_set_num_threads(_allowedThreads);
+  setNumThreads(_allowedThreads);
 
   for (uint32 tt=0; tt<64; tt++) {
 
