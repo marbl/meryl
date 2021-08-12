@@ -204,6 +204,8 @@ merylOpCompute::findOutputKmer(void) {
   for (uint32 ii=0; ii<_inputs.size(); ii++) {
     kmdata kmer = _inputs[ii]->_kmer._mer;
 
+    _actRdx[ii] = uint32max;               //  Wipe the reverse map.
+
     if (_inputs[ii]->_valid == false)      //  No more kmers in the file,
       continue;                            //  skip it.
 
@@ -218,8 +220,9 @@ merylOpCompute::findOutputKmer(void) {
     if (_actLen == 0)                      //  Pick this one if nothing picked yet.
       _kmer._mer = kmer;
 
-    _act[_actLen]    = _inputs[ii]->_kmer; //  Copy the kmer/value/label to the list.
+    _act   [_actLen] = _inputs[ii]->_kmer; //  Copy the kmer/value/label to the list.
     _actIdx[_actLen] = ii;
+    _actRdx[ii]      = _actLen;
 
     _actLen++;
   }

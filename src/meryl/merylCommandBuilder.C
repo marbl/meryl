@@ -333,9 +333,6 @@ merylCommandBuilder::isInput(void) {
 void
 merylCommandBuilder::buildTrees(void) {
 
-  fprintf(stderr, "buildTrees()-- stack: %lu items\n", _opStack.size());
-  fprintf(stderr, "buildTrees()-- list:  %lu items\n", _opList.size());
-
   //  Clear the stack, we're done with it.
   while (_opStack.size() > 0)
     _opStack.pop();

@@ -31,6 +31,7 @@ merylFilter::merylFilter(merylFilterQuantity type, merylFilterRelation rela, cha
 merylFilter::~merylFilter()  {
   delete [] _presentInNum;
   delete [] _presentInIdx;
+  delete [] _presentInList;
 }
 
 
@@ -126,12 +127,13 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
   if (_q == merylFilterQuantity::isIndex) {
     result = _presentInNum[actLen];
 
-    for (uint32 ii=0; (result == true) && (ii<actLen); ii++)
-      result &= (actRdx[ _presentInIdx[ii] ] < uint32max);
+    for (uint32 pp=0; pp<_presentInLen; pp++) {
+      uint32  ai = actRdx[ _presentInList[pp] ];
 
-    fprintf(stderr, "isTrue() isIndex = %s\n", result ? "true" : "false");
+      if (ai == uint32max)
+        result = false;
+    }
   }
-
 
   return(result);
 }
@@ -145,6 +147,8 @@ merylFilter::finalizeFilterInputs(uint32 nInputs, std::vector<char const *> &err
 
   _presentInNum = new bool [nInputs + 1];   //  +1 because we actually access [nInputs].
   _presentInIdx = new bool [nInputs];
+
+  _presentInList = new uint32 [nInputs];
 
   //  Initialize defaults.  If nothing was specified, default to allowing
   //  'any' number of inputs, then set the state of the lookup table to
@@ -182,9 +186,6 @@ merylFilter::finalizeFilterInputs(uint32 nInputs, std::vector<char const *> &err
   for (uint32 ii=0; ii<nInputs; ii++)
     _presentInIdx[ii] = false;
 
-  for (uint32 ii=_input_num_at_least; ii<=nInputs; ii++)
-    _presentInIdx[ii-1] = true;
-
   for (uint32 ii=0; ii<_input_idx.size(); ii++) {
     uint32 a = _input_idx[ii];
 
@@ -192,9 +193,18 @@ merylFilter::finalizeFilterInputs(uint32 nInputs, std::vector<char const *> &err
       addError(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
     else if (a > nInputs)
       addError(err, "filter '%s' invalid: input %u does not exist; there are only %u inputs.\n", _str, a, nInputs);
-    else
+    else {
       _presentInIdx[a-1] = true;
+      _presentInList[_presentInLen++] = a-1;
+    }
   }
+
+  for (uint32 ii=_input_num_at_least; ii<=nInputs; ii++) {
+    _presentInIdx[ii-1] = true;
+    _presentInList[_presentInLen++] = ii-1;
+  }
+
+  std::sort(_presentInList, _presentInList + _presentInLen);
 }
 
 

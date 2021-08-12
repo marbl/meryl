@@ -229,6 +229,9 @@ public:
   //
   bool                          *_presentInNum = nullptr;
   bool                          *_presentInIdx = nullptr;
+
+  uint32                         _presentInLen  = 0;
+  uint32                        *_presentInList = nullptr;
 };
 
 

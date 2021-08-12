@@ -362,21 +362,21 @@ merylCommandBuilder::isInputFilter(void) {
 
     //  Kmer must be present in all input databases.
     if      (strcmp(W[ww], "all") == 0) {
-      fprintf(stderr, "PUSH input_num_all\n");
+      //fprintf(stderr, "PUSH input_num_all\n");
       f._input_num_all = true;
     }
 
     //  Kmer must be present in any number of input databases.
     //  This is the default if nothing else is specified.
     else if (strcmp(W[ww], "any") == 0) {
-      fprintf(stderr, "PUSH input_num_any\n");
+      //fprintf(stderr, "PUSH input_num_any\n");
       f._input_num_any = true;
     }
 
     //  Kmer must be present in the first database.
     //  Equivalent to @1, and implemented as such.
     else if (strcmp(W[ww], "first") == 0) {
-      fprintf(stderr, "PUSH input_idx 1\n");
+      //fprintf(stderr, "PUSH input_idx 1\n");
       f._input_idx.push_back(1);
     }
 
@@ -385,7 +385,7 @@ merylCommandBuilder::isInputFilter(void) {
              (P[0][0] == '@') && (isDecInteger(P[0]+1) == true)) {
       uint32 a = strtouint32(P[0]+1);
 
-      fprintf(stderr, "PUSH input_idx a   <- %u\n", a);
+      //fprintf(stderr, "PUSH input_idx a   <- %u\n", a);
       f._input_idx.push_back(a);
     }
 
@@ -397,7 +397,7 @@ merylCommandBuilder::isInputFilter(void) {
       uint32 b = strtouint32(P[1]+1);
 
       for (uint32 x=a; x<=b; x++) {
-        fprintf(stderr, "PUSH input_idx a-b <- %u\n", x);
+        //fprintf(stderr, "PUSH input_idx a-b <- %u\n", x);
         f._input_idx.push_back(x);
       }
     }
@@ -407,7 +407,7 @@ merylCommandBuilder::isInputFilter(void) {
              (isDecInteger(P[0]) == true)) {
       uint32 a = strtouint32(P[0]);
 
-      fprintf(stderr, "PUSH a   input_num <- %u\n", a);
+      //fprintf(stderr, "PUSH a   input_num <- %u\n", a);
       f._input_num.push_back(a);
     }
 
@@ -419,7 +419,7 @@ merylCommandBuilder::isInputFilter(void) {
       uint32 b = strtouint32(P[1]);
 
       for (uint32 x=a; x<=b; x++) {
-        fprintf(stderr, "PUSH a-b input_num <- %u\n", x);
+        //fprintf(stderr, "PUSH a-b input_num <- %u\n", x);
         f._input_num.push_back(x);
       }
     }
@@ -430,7 +430,7 @@ merylCommandBuilder::isInputFilter(void) {
              (strcmp(P[1], "all") == 0)) {
       uint32 a = strtouint32(P[0]);
 
-      fprintf(stderr, "PUSH input_num_at_least <- u\n", a);
+      //fprintf(stderr, "PUSH input_num_at_least <- u\n", a);
       f._input_num_at_least = std::min(a, f._input_num_at_least);
     }
 
