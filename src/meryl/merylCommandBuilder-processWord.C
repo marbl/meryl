@@ -42,6 +42,7 @@ merylCommandBuilder::processWord(char const *opt) {
   //  remove the bracket from the string.
 
   if (_optString[0] == '[') {
+    fprintf(stderr, "processWord()- Add new op for '['.\n");
     addNewOperation();
 
     for (uint32 ii=0; ii<_optStringLen; ii++)
@@ -106,6 +107,8 @@ merylCommandBuilder::processWord(char const *opt) {
       (isCount()            == false) &&   //  Consumes 'count', 'count-forward', 'count-reverse'
       (isOutput()           == false) &&   //  Consumes 'output' and related database name
       (isPrinter()          == false) &&   //  Consumes 'print' and related output name
+      (isHistogram()        == false) &&   //  Consumes 'histogram' and related output name
+      (isStatistics()       == false) &&   //  Consumes 'statistics' and related output name
       (isInput()            == false))     //  Consumes inputs
     addError("Can't interpret '%s': not a meryl command, option, or recognized input file.", _optString);
 
@@ -124,10 +127,11 @@ merylCommandBuilder::processWord(char const *opt) {
   if (verbosity.showConstruction() == true)
     fprintf(stderr, "\n");
 
-
+#if 0
   if (verbosity.showConstruction() == true)
     for (uint32 rr=0; rr<numTrees(); rr++)
       printTree(getTree(rr), 0, 0);
+#endif
 }
 
 

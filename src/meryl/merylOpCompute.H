@@ -57,13 +57,9 @@ public:
   void    addInputFromOp  (merylOpCompute *operation);
   void    addInputFromDB  (char const *dbName, uint32 slice);
 
-  void    addOutput (merylOpTemplate *ot, uint32 slice);
-  void    addPrinter(merylOpTemplate *ot, uint32 slice);
-
-  //  Specialized output operators.
-public:
-  void    reportHistogram(void);
-  void    reportStatistics(void);
+  void    addOutput    (merylOpTemplate *ot, uint32 slice);
+  void    addPrinter   (merylOpTemplate *ot, uint32 slice);
+  void    addStatistics(merylOpTemplate *ot, uint32 slice);
 
   //
   //  Pointer back to the template, so we can get other useful bits instead
@@ -106,8 +102,7 @@ public:
 
   bool   isKmerFilteredOut(void);
 
-  std::vector< std::vector<merylFilter> >  _filter;
-
+  //  std::vector< std::vector<merylFilter> >  _filter;
 
   friend class merylCommandBuilder;
 };
@@ -119,14 +114,14 @@ bool
 merylOpCompute::isKmerFilteredOut(void) {
   bool   r = false;
 
-  if (_filter.size() == 0)
+  if (_ot->_filter.size() == 0)
     return(false);
 
-  for (uint32 ii=0; ii<_filter.size(); ii++) {
+  for (uint32 ii=0; ii<_ot->_filter.size(); ii++) {
     bool t = true;
 
-    for (uint32 tt=0; tt<_filter[ii].size(); tt++)
-      t &= _filter[ii][tt].isTrue(_kmer, _actLen, _act, _actIdx, _actRdx);
+    for (uint32 tt=0; tt<_ot->_filter[ii].size(); tt++)
+      t &= _ot->_filter[ii][tt].isTrue(_kmer, _actLen, _act, _actIdx, _actRdx);
 
     r |= t;
   }

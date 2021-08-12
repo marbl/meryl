@@ -21,16 +21,9 @@
 
 
 
-
-
-
-
-
-
-
-
 bool
 merylOpCompute::nextMer(void) {
+  bool   isEmpty = false;
 
  nextMerAgain:
 
@@ -74,7 +67,6 @@ merylOpCompute::nextMer(void) {
   if (_actLen == 0) {
     if (verbosity.showDetails() == true) {
       fprintf(stderr, "merylOp::nextMer()-- No inputs found, all done here.\n");
-      fprintf(stderr, "\n");
     }
     return(false);
   }
@@ -90,13 +82,20 @@ merylOpCompute::nextMer(void) {
 
   //  Figure out the value/label of the output kmer.
 
-  nextMer_findOutputValue();
-  nextMer_findOutputLabel();
+  findOutputValue();
+  findOutputLabel();
 
   //  Decide if we really want to output.
 
-  if (isKmerFilteredOut() == true)
+  if (isKmerFilteredOut() == true) {
+    if (verbosity.showDetails() == true) {
+      char  kmerString[256];
+      fprintf(stderr, "merylOp::nextMer()-- FILTERED for operation #%u with kmer %s count %u label %016lx%s\n",
+              _ot->_ident, _kmer.toString(kmerString), _kmer._val, _kmer._lab, ((_writerSlice != nullptr) && (_kmer._val != 0)) ? " OUTPUT" : "");
+      fprintf(stderr, "\n");
+    }
     goto nextMerAgain;
+  }
 
   //  Output the fully processed kmer to whatever outputs exist.
 
@@ -109,6 +108,9 @@ merylOpCompute::nextMer(void) {
 
   outputKmer();
   printKmer();
+
+  if (_stats)
+    _stats->addValue(_kmer._val);
 
   //  We have now loaded the nextMer; return and let our clients query us.
 

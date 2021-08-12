@@ -276,6 +276,12 @@ main(int argc, char **argv) {
   fprintf(stderr, "\n");
   fprintf(stderr, "Found %u command tree%s.\n", B->numTrees(), (B->numTrees() == 1) ? "" : "s");
 
+  for (uint32 ii=0; ii<B->numTrees(); ii++) {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "TREE %u:\n", ii);
+    B->printTree(B->getTree(ii), 0, 0);
+  }
+
   //  opHistogram is limited to showing only histograms already stored in a database.
   //  opHistogram cannot take input from anything but a database.
   //  opHistogram does not generate kmer outputs.
@@ -330,44 +336,44 @@ main(int argc, char **argv) {
 #endif
 
   for (uint32 rr=0; rr<B->numTrees(); rr++) {
-    merylOpTemplate *root = B->getTree(rr);
+    merylOpTemplate *tpl = B->getTree(rr);
 
-    if (root->_type == merylOpType::opNothing)   //  Was previously a count, histo or stats
-      continue;                                  //  operation, but it's all done now.
+    //  Actions that were previously a count or a histo/stats on a database
+    //  are all done and do not need to process their inputs.
+    //
+    //  Better - just remove the inputs from them?  But then we need to know
+    //  if it supplies input to anything else.
+    //
+    //if (tpl->_type == merylOpType::opNothing) { //  Was previously a count, histo or stats
+    //  continue;                                 //  operation, but it's all done now.
+    //}
 
     fprintf(stderr, "\n");
     fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, getMaxThreadsAllowed(), getMaxThreadsAllowed() == 1 ? "" : "s");
-    B->printTree(root, 0, 11);
+    //B->printTree(tpl, 0, 11);
 
 #ifdef WITH_THREADS
 #pragma omp parallel for schedule(dynamic, 1)
 #endif
 
     for (uint32 ff=0; ff<64; ff++) {
-      merylOpCompute *tree = B->getTree(rr, ff);
+      merylOpCompute *cpu = B->getTree(rr, ff);
 
-      //  Not sure if this does anything useful.
-      //op->beginCompute();
-
-      while (tree->nextMer() == true)
+      while (cpu->nextMer() == true)
         ;
-
-      //  This definitely doesn't do anything - it can all be
-      //  moved to the destructor.
-      //
-      //  destrictor vs nextMer_finish() ???
-      //
-      //  Any summary data (histograms) are computed in the thread objects
-      //  then coalesced into a single output here.
-      //
-      //tree->finishCompute();
     }
 
-    //  Processing of kmers in this tree is complete and we can remove it and
-    //  close any open databases, etc.  This removes both the 64 thread
-    //  objects and the template object.
+    //  Signal that we're done processing.  This will (recursively) collect
+    //  any statistics the user has requested be generated.
+
+    tpl->finishAction();
+
+    //  Simply deleting the root template node is enough to delete the entire
+    //  tree, including the compute nodes.
     //
-    B->finishTree(rr);
+    //  NOTE that the pointers in merylCommandBuilder are all dangling.
+    //
+    delete tpl;
   }
 
   //  Now that everything is done, delete!

@@ -350,19 +350,6 @@ merylCommandBuilder::isInputFilter(void) {
   //    '@n'     = in the nth input file
   //    '@n-@m'  = in input files n-m inclusive
   //
-  //  Absolute or relative database numbering?
-  //
-  //    Absolute numbers are just as they're listed on the command line
-  //    (starting at 1) and are as described above (@1, etc).
-  //
-  //    Relative numbering is howmeryl stores selected kmers internally - the
-  //    next smallest kmer in all databases is some 'k', and it occurs in
-  //    databases 2, 4 and 5; the relative numbering would denote db1 as @2,
-  //    db2 as @4 and db3 as @5.  I'm not sure how this could be useful.
-  //
-  //
-  //  The rest of the filter can only be set-up after we know all input files
-  //  for this operation.  This is performed in merylOpTemplate::finalize().
 
   for (uint32 ii=0; ii<_optStringLen; ii++)
     if (_optString[ii] == ',')
@@ -370,23 +357,26 @@ merylCommandBuilder::isInputFilter(void) {
 
   splitToWords  W(_optString, splitLetter, ':');
 
-  for (uint32 ww=0; ww<W.numWords(); ww++) {
+  for (uint32 ww=1; ww<W.numWords(); ww++) {     //  Skip the first word; it is 'input'.
     splitToWords  P(W[ww], splitLetter, '-');
 
     //  Kmer must be present in all input databases.
     if      (strcmp(W[ww], "all") == 0) {
-      f._presentInAll = true;
+      fprintf(stderr, "PUSH input_num_all\n");
+      f._input_num_all = true;
     }
 
     //  Kmer must be present in any number of input databases.
     //  This is the default if nothing else is specified.
     else if (strcmp(W[ww], "any") == 0) {
-      f._presentInAny = true;
+      fprintf(stderr, "PUSH input_num_any\n");
+      f._input_num_any = true;
     }
 
     //  Kmer must be present in the first database.
     //  Equivalent to @1, and implemented as such.
     else if (strcmp(W[ww], "first") == 0) {
+      fprintf(stderr, "PUSH input_idx 1\n");
       f._input_idx.push_back(1);
     }
 
@@ -395,6 +385,7 @@ merylCommandBuilder::isInputFilter(void) {
              (P[0][0] == '@') && (isDecInteger(P[0]+1) == true)) {
       uint32 a = strtouint32(P[0]+1);
 
+      fprintf(stderr, "PUSH input_idx a   <- %u\n", a);
       f._input_idx.push_back(a);
     }
 
@@ -405,8 +396,10 @@ merylCommandBuilder::isInputFilter(void) {
       uint32 a = strtouint32(P[0]+1);
       uint32 b = strtouint32(P[1]+1);
 
-      for (uint32 x=a; x<=b; x++)
+      for (uint32 x=a; x<=b; x++) {
+        fprintf(stderr, "PUSH input_idx a-b <- %u\n", x);
         f._input_idx.push_back(x);
+      }
     }
 
     //  a:  Kmer must occur in a input files.
@@ -414,6 +407,7 @@ merylCommandBuilder::isInputFilter(void) {
              (isDecInteger(P[0]) == true)) {
       uint32 a = strtouint32(P[0]);
 
+      fprintf(stderr, "PUSH a   input_num <- %u\n", a);
       f._input_num.push_back(a);
     }
 
@@ -421,11 +415,13 @@ merylCommandBuilder::isInputFilter(void) {
     else if ((P.numWords() == 2) &&
              (isDecInteger(P[0]) == true) &&
              (isDecInteger(P[1]) == true)) {
-      uint32 a = strtouint32(P[0]+1);
-      uint32 b = strtouint32(P[1]+1);
+      uint32 a = strtouint32(P[0]);
+      uint32 b = strtouint32(P[1]);
 
-      for (uint32 x=a; x<=b; x++)
+      for (uint32 x=a; x<=b; x++) {
+        fprintf(stderr, "PUSH a-b input_num <- %u\n", x);
         f._input_num.push_back(x);
+      }
     }
 
     //  a-all:  Kmer must occur in at least a input files.
@@ -434,17 +430,18 @@ merylCommandBuilder::isInputFilter(void) {
              (strcmp(P[1], "all") == 0)) {
       uint32 a = strtouint32(P[0]);
 
-      f._input_all_after = std::min(a, f._input_all_after);
+      fprintf(stderr, "PUSH input_num_at_least <- u\n", a);
+      f._input_num_at_least = std::min(a, f._input_num_at_least);
     }
 
     else {
-      addError("filter '%s' cannot be decoded.\n", _optString);
+      addError("filter '%s' cannot be decoded: unknown word '%s'.\n", _optString, W[ww]);
     }
   }
 
   getCurrent()->addFilterToProduct(f);
 
-  return(false);
+  return(true);
 }
 
 

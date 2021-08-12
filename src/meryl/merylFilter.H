@@ -81,7 +81,7 @@ public:
 private:
   template<typename X>
   bool
-  compare(X x, X y) {
+  compare(X x, X y) const {
     switch (_r) {
       case merylFilterRelation::isNOP:   assert(0);        break;
       case merylFilterRelation::isEq:    return(x == y);   break;
@@ -96,7 +96,7 @@ private:
   }
 
 private:
-  uint32 countNonZeroBases(kmdata k, uint64 cvt) {   //  See above for docs.
+  uint32 countNonZeroBases(kmdata k, uint64 cvt) const {   //  See above for docs.
     uint32   c = kmer::merSize();
     uint64  bh = k >> 64;                 //  Save the right-most 32 bases
     uint64  bl = k;                       //  Save the  left-most 32 bases
@@ -115,16 +115,16 @@ private:
   }
 
 private:
-  uint32 countA(kmer k) { return(kmer::merSize() - countNonZeroBases(k, 0x0000000000000000llu)); }
-  uint32 countC(kmer k) { return(kmer::merSize() - countNonZeroBases(k, 0x5555555555555555llu)); }
-  uint32 countT(kmer k) { return(kmer::merSize() - countNonZeroBases(k, 0xaaaaaaaaaaaaaaaallu)); }
-  uint32 countG(kmer k) { return(kmer::merSize() - countNonZeroBases(k, 0xffffffffffffffffllu)); }
+  uint32 countA(kmer k) const { return(kmer::merSize() - countNonZeroBases(k, 0x0000000000000000llu)); }
+  uint32 countC(kmer k) const { return(kmer::merSize() - countNonZeroBases(k, 0x5555555555555555llu)); }
+  uint32 countT(kmer k) const { return(kmer::merSize() - countNonZeroBases(k, 0xaaaaaaaaaaaaaaaallu)); }
+  uint32 countG(kmer k) const { return(kmer::merSize() - countNonZeroBases(k, 0xffffffffffffffffllu)); }
 
   //  Evaluate the filter on kmer k, comparing against the constants saved in
   //  this filter object and the other kmer instances in the 'act' list.
 public:
   bool
-  isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *actRdx);
+  isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *actRdx) const;
 
 
   //  finalizeFilterInputs() is used to let the filter decide if its
@@ -149,7 +149,7 @@ public:
   merylFilterQuantity  _q = merylFilterQuantity::isNOP;  //  Quantity we're comparing against.
 
   //  A copy of the command line string, for reporting errors.
-  char                           _str[FILENAME_MAX + 1] = {0};
+  char                           _str[FILENAME_MAX + 1] = { 0 };
 
   //  Source for left side of comparison:
   //
@@ -182,7 +182,7 @@ public:
   //  command tree is constructed so that it can figure out what 'all inputs'
   //  means.
   //
-  //  The final filter tests one of two things:
+  //  The 'input' filter tests one of two things:
   //    is the kmer present in a certin number of input databases?
   //    is the kmer present in a set of specific input databases?
   //
@@ -193,16 +193,39 @@ public:
   //  Testing this is expensive, and a bit mask would be quicker (for up to
   //  64 inputs).
 
-  std::vector<uint32>            _input_num;   //  List of the number of DBs a kmer must occur in
-  std::vector<uint32>            _input_idx;   //  List of specific DB input indexes kmer must occur in
+  //  While parsing the command line, we store the filter specification in two
+  //  vectors:
+  //    _input_num - a list of the number of inputs a kmer must occur in
+  //               - 'n', 'n-m', 'all', 'any', 'n-all'
+  //
+  //    If _input_num_at_least if not uint32max then this specifies that the
+  //    kmer must occur in at least this many inputs -- 'n-all' above.
+  //
+  //    If _input_num_all is true, then the kmer must occur in all inputs.
+  //
+  //    If _input_num_any is true, then there are no requirements for
+  //    how many databases the kmer must occur in.
+  //
+  //    _input_idx - a list of specific input indexes a kmer must occur in
+  //               - 'first', '@a', '@a-@b'
+  //
+  std::vector<uint32>            _input_num;
+  uint32                         _input_num_at_least = uint32max;
+  uint32                         _input_num_all      = false;
+  uint32                         _input_num_any      = false;
 
-  uint32                         _input_all_after = uint32max;
+  std::vector<uint32>            _input_idx;
 
-  bool                           _presentInAny   = false;
-  bool                           _presentInAll   = false;
-
-  //  The filter fails if _presentInNum[_actLen]    == false
-  //  The filter fails if _presentInIdx[_actIdx[i]] == false (for 0 <= i < _actLen)
+  //  After the command line is parsed, finalizeFilterInputs() converts the
+  //  above into convenient lookup structures.
+  //
+  //  The filter fails if:
+  //       _presentInNum[_actLen]    == false
+  //       _presentInIdx[_actIdx[i]] == false (for 0 <= i < _actLen)
+  //
+  //  The first condition tests if the kmer is present in the specified number of inputs.
+  //
+  //  The second condition tests if the kmer is present in all of the specified inputs.
   //
   bool                          *_presentInNum = nullptr;
   bool                          *_presentInIdx = nullptr;

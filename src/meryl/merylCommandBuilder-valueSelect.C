@@ -81,6 +81,8 @@ merylCommandBuilder::isValueSelect(void) {
   else if (strncmp(str, "mod",  3)        == 0)   { select = merylModifyValue::valueMod;        constant = 0;         }
   else if (strncmp(str, "rem",  3)        == 0)   { select = merylModifyValue::valueMod;        constant = 0;         }
 
+  else if (strncmp(str, "count",  5)      == 0)   { select = merylModifyValue::valueCount;      constant = 0;         }
+
   //  Nope, don't know what this is.
 
   else {

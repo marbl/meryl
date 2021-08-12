@@ -54,65 +54,88 @@ public:
 
 public:
   void    addInputFromOp  (merylOpTemplate *operation, std::vector<char const *> &err);
+
   void    addInputFromDB  (char const *dbName, std::vector<char const *> &err);
-private:
   void    addInputFromDB  (char const *dbName);
-public:
+
   void    addInputFromCanu(char const *stName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err);
+
   void    addInputFromSeq (char const *sqName, bool doCompression, std::vector<char const *> &err);
 
-  void    addOutput(char const *wrName, std::vector<char const *> &err);
-  void    addPrinter(char const *prName, bool ACGTorder, std::vector<char const *> &err);
-
+  void    addOutput    (char const *wrName,                 std::vector<char const *> &err);
+  void    addPrinter   (char const *prName, bool ACGTorder, std::vector<char const *> &err);
+  void    addHistogram (char const *hiName, bool asStats,   std::vector<char const *> &err);
 
   void    finalizeTemplateInputs(std::vector<char const *> &err);
   void    finalizeTemplateParameters(void);
 
+  void    finishAction(void);
+
+  //
   //  Counting operations.
+  //
+
   void    doCounting(uint64 allowedMemory,
                      uint32 allowedThreads);
 
   merylOpCounting               *_counting = nullptr;
 
-  //  Type of this operation.
-  merylOpType                    _type      = merylOpType::opNothing;
-  uint32                         _ident     =  0;
-  //char                           _label[32] = {0};
+  //
+  //  Inputs.  The minimum and maximum are set by the action or filter:
+  //    Histograms must have exactly one input
+  //    Subtract needs two
+  //
 
-  bool                           _onlyConfig = false;
-
-  //  Inputs and a minimum/maximum number of inputs allowed.
   std::vector<merylInput *>      _inputs;
 
   uint32                         _inputsMin = 0;
   uint32                         _inputsMax = uint32max;
 
-  //  Outputs.
-  merylHistogram                *_stats   = nullptr;    //  For collecting stats on input kmers
-  merylFileWriter               *_output  = nullptr;    //  Main output object
+  //
+  //  Action parameters, a description of how to generate output values/labels.
+  //
 
-  compressedFileWriter          *_printer        = nullptr;
-  char                          *_printerName    = nullptr;
-  bool                           _printACGTorder = false;
+  merylOpType                    _type          = merylOpType::opNothing;
+  uint32                         _ident         = 0;
 
-  //  A description of how to generate output values/labels.
+  bool                           _onlyConfig    = false;
+
+  merylOpCompute                *_computes[64]  = { nullptr };
+
   merylModifyValue               _valueSelect   = merylModifyValue::valueNOP;
   kmvalu                         _valueConstant = 0;
 
   merylModifyLabel               _labelSelect   = merylModifyLabel::labelNOP;
   kmlabl                         _labelConstant = 0;
 
+  //
   //  Filters.
-  void   addNewFilterProduct(void);
-  void   addFilterToProduct(merylFilter const f);
+  //
 
-  //  
+  void          addNewFilterProduct(void);
+  void          addFilterToProduct(merylFilter const f);
+  merylFilter  &getFilter(uint32 p, uint32 t);
 
 private:
   std::vector< std::vector<merylFilter> >  _filter;
 
+  //
+  //  Outputs.
+  //
+
+public:
+  compressedFileWriter          *_statsFile      = nullptr;
+  compressedFileWriter          *_histoFile      = nullptr;
+
+  merylFileWriter               *_writer         = nullptr;
+  compressedFileWriter          *_printer        = nullptr;
+  char                          *_printerName    = nullptr;
+  bool                           _printACGTorder = false;
+
+
   //  Only so it can access _filter when displaying the command tree.
   friend class merylCommandBuilder;
+  friend class merylOpCompute;
 };
 
 
@@ -123,10 +146,8 @@ private:
 inline
 void
 merylOpTemplate::addNewFilterProduct(void) {
-  _filter.emplace_back();
+    _filter.emplace_back();
 }
-
-
 
 inline
 void
@@ -138,6 +159,12 @@ merylOpTemplate::addFilterToProduct(merylFilter const f) {
     addNewFilterProduct();         //  add a new product term.
 
   _filter.back().emplace_back(f);  //  Add 'f' to the last product term.
+}
+
+inline
+merylFilter &
+merylOpTemplate::getFilter(uint32 p, uint32 t) {
+  return(_filter[p][t]);
 }
 
 

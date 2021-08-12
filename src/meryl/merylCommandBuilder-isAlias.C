@@ -51,7 +51,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "union");
 
-    f._presentInAny     = true;
+    f._input_num_any    = true;
 
     op->addFilterToProduct(f);
   }
@@ -63,7 +63,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "union");
 
-    f._presentInAny     = true;
+    f._input_num_any    = true;
 
     op->addFilterToProduct(f);
   }
@@ -75,7 +75,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "union");
 
-    f._presentInAny     = true;
+    f._input_num_any    = true;
 
     op->addFilterToProduct(f);
   }
@@ -87,7 +87,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "union");
 
-    f._presentInAny     = true;
+    f._input_num_any    = true;
 
     op->addFilterToProduct(f);
   }
@@ -100,7 +100,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "intersect");
 
-    f._presentInAll     = true;
+    f._input_num_all    = true;
 
     op->addFilterToProduct(f);
   }
@@ -112,7 +112,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "intersect");
 
-    f._presentInAll     = true;
+    f._input_num_all    = true;
 
     op->addFilterToProduct(f);
   }
@@ -124,7 +124,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "intersect");
 
-    f._presentInAll     = true;
+    f._input_num_all    = true;
 
     op->addFilterToProduct(f);
   }
@@ -136,7 +136,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "intersect");
 
-    f._presentInAll     = true;
+    f._input_num_all    = true;
 
     op->addFilterToProduct(f);
   }
@@ -150,7 +150,7 @@ merylCommandBuilder::isAlias(void) {
     merylFilter  f(merylFilterQuantity::isIndex,
                    merylFilterRelation::isNOP, "subtract");
 
-    f._presentInAny     = true;
+    f._input_num_any    = true;
     f._input_idx.push_back(1);
 
     op->addFilterToProduct(f);

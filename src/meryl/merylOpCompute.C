@@ -33,6 +33,7 @@ merylOpCompute::merylOpCompute(merylOpTemplate *ot, uint32 dbSlice, uint32 nInpu
 
 
 merylOpCompute::~merylOpCompute() {
+
   for (uint32 ii=0; ii<_inputs.size(); ii++)   //  Destroy the inputs, which will recursively destroy
     delete _inputs[ii];                        //  any merylOpCompute objects we have as inputs.
 
@@ -73,8 +74,8 @@ merylOpCompute::addInputFromDB(char const *dbName, uint32 slice) {
 //
 void
 merylOpCompute::addOutput(merylOpTemplate *ot, uint32 slice) {
-  if (ot->_output != nullptr)
-    _writerSlice = ot->_output->getStreamWriter(slice);
+  if (ot->_writer != nullptr)
+    _writerSlice = ot->_writer->getStreamWriter(slice);
 }
 
 void
@@ -122,7 +123,7 @@ merylOpCompute::addPrinter(merylOpTemplate *ot, uint32 slice) {
 
 
 void
-merylOpCompute::nextMer_printKmer(void) {
+merylOpCompute::printKmer(void) {
   char   outstr[256] = {0};
   char  *outptr = outstr;
   kmer   pk     = _kmer;
@@ -158,6 +159,26 @@ merylOpCompute::nextMer_printKmer(void) {
 
 #pragma omp critical (printLock)           //  fputs() is not thread safe and will
   fputs(outstr, f);                        //  happily intermix on e.g. Linux.
+}
+
+
+
+////////////////////////////////////////
+//
+//  STATISTICS of kmer values.
+//
+//  Each thread will allocate a histogram, and this can get rather large.
+//  Storing the first million values in an array will take
+//    64 threads * 8 bytes/val * 1048576 values = 512 MB
+//
+void
+merylOpCompute::addStatistics(merylOpTemplate *ot, uint32 slice) {
+
+  if ((ot->_statsFile == nullptr) &&
+      (ot->_histoFile == nullptr))
+    return;
+
+  _stats = new merylHistogram(1048576);
 }
 
 

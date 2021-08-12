@@ -24,6 +24,27 @@
 #include "system.H"
 
 
+
+
+#include <stdarg.h>
+inline
+void
+addError(std::vector<char const *> &ev, char const *fmt, ...) {
+  char    *str = new char [1024];
+  va_list  ap;
+
+  va_start(ap, fmt);
+  vsnprintf(str, 1024, fmt, ap);
+  va_end(ap);
+
+  ev.push_back(str);
+}
+
+
+
+
+
+
 //  A global (variable 'verbosity') to tell what messages to output.
 //
 class merylVerbosity {
@@ -55,13 +76,34 @@ extern merylVerbosity verbosity;
 //  opFilter.  The special cases are to make counts, output a histogram, and
 //  so on.
 //
+//  opPrint is used for commands like 'meryl print input.meryl', where the
+//  action never gets set up because we never see any action specification.
+//
 enum class merylOpType {
   opNothing,
   opCounting,
   opStatistics,
   opHistogram,
+  opPrint,
   opFilter
 };
+
+inline
+char const *
+toString(merylOpType t) {
+  switch (t) {
+    case merylOpType::opNothing:     return("opNothing");     break;
+    case merylOpType::opCounting:    return("opCounting");    break;
+    case merylOpType::opStatistics:  return("opStatistics");  break;
+    case merylOpType::opHistogram:   return("opHistogram");   break;
+    case merylOpType::opPrint:       return("opPrint");       break;
+    case merylOpType::opFilter:      return("opFilter");      break;
+    default:
+      break;
+  }
+  assert(0);
+  return(nullptr);
+}
 
 
 #define MERYLINCLUDE

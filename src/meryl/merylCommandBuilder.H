@@ -29,8 +29,8 @@ public:
   merylCommandBuilder()  {
   }
   ~merylCommandBuilder() {
-    for (uint32 ss=0; ss<64; ss++)
-      delete [] _thList[ss];
+    for (uint32 ss=0; ss<64; ss++)   //  Delete the arrays of pointers to compute
+      delete [] _thList[ss];         //  objects; the objects are deleted elsewhere
   }
 
 private:
@@ -58,9 +58,6 @@ public:
                           uint32 allowedThreads);
   void    spawnThreads(uint32 allowedThreads);  //  Build 64 trees for processing kmers.
 
-public:
-  void    finishTree(uint32 r);
-
 private:
   bool    isEmpty(void)      { return(_optString[0] == 0); }
   bool    isOption(void);
@@ -80,7 +77,12 @@ private:
 
   bool    isOutput(void);
   bool    isPrinter(void);
+
+  bool    isHistogram(void);
+  bool    isStatistics(void);
+
   bool    isInput(void);
+
 
 public:
   uint32           numOperations(void)           { return(_opList.size()); };
@@ -120,6 +122,9 @@ private:
 
   bool      _isPrint        = false;        //  enable output to ASCII dump
   bool      _printACGTorder = false;        //  fix canonical ordering
+
+  bool      _isHistogram    = false;        //  enable histogram output
+  bool      _isStatistics   = false;        //  enable statistics output
 
   bool      _invertNextFilter = false;
 

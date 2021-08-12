@@ -21,47 +21,6 @@
 #include <stdarg.h>
 
 
-
-
-//  All the compute actions are finished and cleaned up.  The template action
-//  need to harvest any summary statistics from them.
-void
-merylCommandBuilder::finishTree(uint32 rr) {
-  uint32  tt = _opTree[rr];
-
-  //  Harvest summary statistics from all the slices.
-
-#warning collectStatistics()
-  //for (uint32 ss=0; ss<64; ss++)
-  //  _opList[tt]->collectStatistics(_thList[ss][tt]);
-
-  //  Remove the slice computes.  This will close any open output database
-  //  and delete the input objects which will propagate the delete/close to
-  //  the rest of the objects in the tree.
-  //
-  //  Beware that the pointers in _thList[] are dangling now.
-  //
-  for (uint32 ss=0; ss<64; ss++)
-    delete _thList[ss][tt];
-
-  //  Emit statistics
-
-  //if (_ot->_type == merylOpType::opHistogram)
-  //  reportHistogram();
-  //if (_ot->_type == merylOpType::opStatistics)
-  //  reportStatistics();
-
-  //_opList[tt]->emitStatistics();
-  //_opList[tt]->emitHistogram();
-
-  //  Delete the template.
-
-  delete _opList[tt];
-}
-
-
-
-
 void
 merylCommandBuilder::addError(char const *fmt, ...) {
   char    *err = new char [1024];
@@ -79,31 +38,49 @@ merylCommandBuilder::addError(char const *fmt, ...) {
 //  This is called by processWord() when an '[' is encountered in the input.
 //  It will _always_ push a new operation onto the stack.  Depending on the
 //  stack contents, there are two variants:
-//    empty - add the new op to the list of root operations
-//    not   - add the new op to the list of inputs for the current top op
+//    stack empty - add the new op to the list of root operations
+//    stack not   - add the new op to the list of inputs for the current top op
 //
 void
 merylCommandBuilder::addNewOperation(void) {
-  merylOpTemplate *op = new merylOpTemplate(_opList.size() + 1);
+  merylOpTemplate *nop = new merylOpTemplate(_opList.size() + 1);
 
   if (_opStack.size() == 0) {
     if (verbosity.showConstruction() == true)
       fprintf(stderr, "addOperation()- Add new operation as root operation.\n");
 
-    _opStack.push(op);
-    _opList.push_back(op);
+    _opStack.push(nop);
+    _opList.push_back(nop);
     _opTree.push_back(_opList.size() - 1);
   }
 
   else {
-    if (verbosity.showConstruction() == true)
-      fprintf(stderr, "addOperation()- Add new operation to stack at position %ld.\n",
+    merylOpTemplate *eop = getCurrent();
+
+    if (verbosity.showConstruction() == true) {
+      fprintf(stderr, "addOperation()- Existing op: type '%s' ident %u value %s/%u label %s/%lu\n",
+              toString(eop->_type),        eop->_ident,
+              toString(eop->_valueSelect), eop->_valueConstant,
+              toString(eop->_labelSelect), eop->_labelConstant);
+    }
+
+    if (eop->_type == merylOpType::opNothing) {
+      fprintf(stderr, "addOperation()- Reuse existing empty operation at position %ld.\n",
               _opStack.size());
 
-    getCurrent()->addInputFromOp(op, _errors);
+      delete nop;
+    }
 
-    _opStack.push(op);
-    _opList.push_back(op);
+    else {
+      if (verbosity.showConstruction() == true)
+        fprintf(stderr, "addOperation()- Add new operation to stack at position %ld.\n",
+                _opStack.size());
+
+      eop->addInputFromOp(nop, _errors);
+
+      _opStack.push(nop);
+      _opList.push_back(nop);
+    }
   }
 }
 
@@ -131,6 +108,7 @@ merylCommandBuilder::isCount(void) {
 
 bool
 merylCommandBuilder::isOutput(void) {
+  merylOpTemplate  *op = getCurrent();
 
   //  If we see 'output' remember that the next arg is expected to be the
   //  database or filename.
@@ -151,7 +129,7 @@ merylCommandBuilder::isOutput(void) {
 
   _isOutput = false;
 
-  getCurrent()->addOutput(_inoutName, _errors);
+  op->addOutput(_inoutName, _errors);
 
   return(true);
 }
@@ -205,6 +183,83 @@ merylCommandBuilder::isPrinter(void) {
 
   return(true);
 }
+
+
+
+bool
+merylCommandBuilder::isHistogram(void) {
+  merylOpTemplate  *op = getCurrent();
+
+  //  If we see 'histogram' remember that the next arg is expected to be the
+  //  database or filename.
+
+  if (strcasecmp(_optString, "histogram") == 0) {
+    _isHistogram       = true;
+    return(true);
+  }
+
+  //  If not expecting an output filename in this word, return that we didn't
+  //  consume the word.
+
+  if (_isHistogram == false)
+    return(false);
+
+  //  Otherwise, we're expecting an output filename.  Add it to the
+  //  operation and return that we consumed the word.
+  //
+  //  See isPrinter() for comments on the fileExists() call.
+
+  _isHistogram = false;
+
+  if (fileExists(_indexName) == true) {
+    op->addHistogram("-", false, _errors);
+    return(false);
+  }
+
+  op->addHistogram(_inoutName, false, _errors);
+
+  return(true);
+}
+
+
+
+bool
+merylCommandBuilder::isStatistics(void) {
+  merylOpTemplate  *op = getCurrent();
+
+  //  If we see 'statistics' remember that the next arg is expected to be the
+  //  database or filename.
+
+  if (strcasecmp(_optString, "statistics") == 0) {
+    _isStatistics       = true;
+    return(true);
+  }
+
+  //  If not expecting an output filename in this word, return that we didn't
+  //  consume the word.
+
+  if (_isStatistics == false)
+    return(false);
+
+  //  Otherwise, we're expecting an output filename.  Add it to the
+  //  operation and return that we consumed the word.
+  //
+  //  See isPrinter() for comments on the fileExists() call.
+
+  _isStatistics = false;
+
+  if (fileExists(_indexName) == true) {
+    op->addHistogram("-", true, _errors);
+    return(false);
+  }
+
+  op->addHistogram(_inoutName, true, _errors);
+
+  return(true);
+}
+
+
+
 
 
 
@@ -278,6 +333,9 @@ merylCommandBuilder::isInput(void) {
 void
 merylCommandBuilder::buildTrees(void) {
 
+  fprintf(stderr, "buildTrees()-- stack: %lu items\n", _opStack.size());
+  fprintf(stderr, "buildTrees()-- list:  %lu items\n", _opList.size());
+
   //  Clear the stack, we're done with it.
   while (_opStack.size() > 0)
     _opStack.pop();
@@ -313,7 +371,7 @@ merylCommandBuilder::buildTrees(void) {
     if (kmer::merSize() == 0)  //  ERROR: Kmer size not supplied with modifier k=<kmer-size>
       addError("counting operation at position %u doesn't have a mer size set\n", oo);
 
-    if (ot->_output == nullptr)
+    if (ot->_writer == nullptr)
       addError("counting operation at position %u must have an output database\n", oo);
 
     for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
@@ -573,8 +631,8 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
 
   //  Report outputs
 
-  if (op->_output != nullptr) {
-    fprintf(stderr, "%*s-> database '%s'\n", indent+3, "", op->_output->filename());
+  if (op->_writer != nullptr) {
+    fprintf(stderr, "%*s-> database '%s'\n", indent+3, "", op->_writer->filename());
   }
 
   //  Report printing
@@ -616,6 +674,15 @@ merylCommandBuilder::spawnThreads(uint32 allowedThreads) {
       _thList[ss][oo] = new merylOpCompute(_opList[oo], ss, _opList[oo]->_inputs.size());
   }
 
+  //  Save pointers to all the compute objects in each template.  This is
+  //  used to collect statistics when we're done.  The arrays are annoyingly
+  //  perpendicular to each other and so we need to save each of the 64
+  //  pointers, instead of just pointing to an array of 64 elements.
+
+  for (uint32 oo=0; oo<_opList.size(); oo++)
+    for (uint32 ss=0; ss<64; ss++)
+      _opList[oo]->_computes[ss] = _thList[ss][oo];
+
   //  Update all the input/output objects to be per-thread.
 
   for (uint32 ss=0; ss<64; ss++) {
@@ -644,7 +711,6 @@ merylCommandBuilder::spawnThreads(uint32 allowedThreads) {
           if (inidx == UINT32_MAX)
             fprintf(stderr, "Failed to find corresponding operation.\n"), exit(1);
 
-          fprintf(stderr, "addInputFromOp oo %d ss %d inidx %d\n", oo, ss, inidx);
           cpu->addInputFromOp(_thList[ss][inidx]);
         }
 
@@ -664,8 +730,9 @@ merylCommandBuilder::spawnThreads(uint32 allowedThreads) {
 
       //  Add a writer or printer (if needed) for the slice we're operating on.
       //
-      cpu->addOutput(tpl, ss);
-      cpu->addPrinter(tpl, ss);
+      cpu->addOutput    (tpl, ss);
+      cpu->addPrinter   (tpl, ss);
+      cpu->addStatistics(tpl, ss);
     }
   }
 }

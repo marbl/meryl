@@ -36,11 +36,16 @@ merylFilter::~merylFilter()  {
 
 
 bool
-merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *actRdx) {
+merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *actRdx) const {
   bool   result = false;
 
-  assert(_r != merylFilterRelation::isNOP);
-  assert(_q != merylFilterQuantity::isNOP);
+  //  compare() will fail, on purpose, if _r is merylFilterRelation::isNOP.
+  //  For filters that never call compare() we don't care what _r is.
+
+  if (_q == merylFilterQuantity::isNOP) {
+    assert(0);
+  }
+
 
   if (_q == merylFilterQuantity::isValue) {
     kmvalu  rhs;
@@ -59,7 +64,10 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
     else                                       return(false);
 
     result = compare(rhs, lhs);
+
+    //fprintf(stderr, "isTrue() isValue = %s\n", result ? "true" : "false");
   }
+
 
   if (_q == merylFilterQuantity::isLabel) {
     kmlabl  rhs;
@@ -78,7 +86,10 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
     else                                       return(false);
 
     result = compare(rhs, lhs);
+
+    //fprintf(stderr, "isTrue() isLabel = %s\n", result ? "true" : "false");
   }
+
 
   if (_q == merylFilterQuantity::isBases) {             //  The two nonsense cases below
     uint32 c = (((_countA == false) ? 0 : countA(k)) +  //  should be caught by isBasesFilter().
@@ -97,12 +108,30 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
 
     else                                            //  Nonsense, comparing self  ! see comment
       result = compare(c, c);                       //  to self!                  ! above
+
+    //fprintf(stderr, "isTrue() isBases = %s\n", result ? "true" : "false");
   }
 
+
+  //  The index filter checks two things:
+  //    does the kmer appear in the correct number of inputs
+  //    does the kmer appear in ALL specified inputs
+  //
+  //  The first is a simple array lookup.
+  //
+  //  The second needs to iterate over _presentInIdx and check that the kmer
+  //  is present in each of those inputs.  actRdx[] maps an input index to
+  //  an act[] index, or uint32max if that input didn't supply a kmer.
+
   if (_q == merylFilterQuantity::isIndex) {
-    result = false;
-    assert(0);
+    result = _presentInNum[actLen];
+
+    for (uint32 ii=0; (result == true) && (ii<actLen); ii++)
+      result &= (actRdx[ _presentInIdx[ii] ] < uint32max);
+
+    fprintf(stderr, "isTrue() isIndex = %s\n", result ? "true" : "false");
   }
+
 
   return(result);
 }
@@ -112,76 +141,59 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
 void
 merylFilter::finalizeFilterInputs(uint32 nInputs, std::vector<char const *> &err) {
 
-  //  If nothing has been said about the number of DBs the kmer should be
-  //  present in, default to 'any', then initialize to true/false as
-  //  appropriate and set any requirement to true.
+  //  Allocate space for the lookup tables.
 
-  _presentInNum = new bool [nInputs + 1];
+  _presentInNum = new bool [nInputs + 1];   //  +1 because we actually access [nInputs].
+  _presentInIdx = new bool [nInputs];
 
-  if ((_input_num.size() == 0) && (_presentInAll == false))
-    _presentInAny = true;
+  //  Initialize defaults.  If nothing was specified, default to allowing
+  //  'any' number of inputs, then set the state of the lookup table to
+  //  'true' if 'any' is specified or 'false' otherwise.  Finally, if 'all'
+  //  was specified, now that we know the number of inputs, we can set that
+  //  to 'true'.
 
-  for (uint32 ii=0; ii<nInputs; ii++)
-    _presentInNum[ii] = (_presentInAny == true) ? true : false;
+  if ((_input_num.size() == 0) && (_input_num_all == false))
+    _input_num_any = true;
 
-  if (_presentInAll == true)
+  for (uint32 ii=0; ii<=nInputs; ii++)
+    _presentInNum[ii] = (_input_num_any == true) ? true : false;
+
+  if (_input_num_all == true)
     _presentInNum[nInputs] = true;
+
+  //  Check each of the entries in _input_num and set the flag for each to true.
 
   for (uint32 ii=0; ii<_input_num.size(); ii++) {
     uint32  a = _input_num[ii];
 
-    if (a == 0) {
-      char *s = new char [1024];
-      snprintf(s, 1024, "filter '%s' invalid; there is no 0th input database.\n", _str);
-      err.push_back(s);
-    }
-
-    else if (a <= nInputs) {
+    if (a == 0)
+      addError(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
+    else if (a > nInputs)
+      addError(err, "filter '%s' invalid: cannot occur in %u inputs; there are only %u inputs.\n", _str, a, nInputs);
+    else
       _presentInNum[a] = true;
-    }
-
-    else {
-      char *s = new char [1024];
-      snprintf(s, 1024, "filter '%s' invalid: cannot occur in %u inputs; there are only %u inputs.\n", _str, a, nInputs);
-      err.push_back(s);
-    }
   }
 
   //  Build a lookup table for the databases that the kmer must be present in.
+  //   - initialize everything to false.
+  //   - if '@a-all' was supplied, set all those to true.
+  //   - set any explicitly specified index to true.
 
-  _presentInIdx = new bool [nInputs];
-    
   for (uint32 ii=0; ii<nInputs; ii++)
     _presentInIdx[ii] = false;
 
-  if (_input_all_after != uint32max) {
-    if (_input_all_after > nInputs) {
-    }
-
-    for (uint32 ii=_input_all_after; ii<=nInputs; ii++)
-      _presentInIdx[ii-1] = true;
-  }
+  for (uint32 ii=_input_num_at_least; ii<=nInputs; ii++)
+    _presentInIdx[ii-1] = true;
 
   for (uint32 ii=0; ii<_input_idx.size(); ii++) {
     uint32 a = _input_idx[ii];
 
-    if (a == 0) {
-      char *s = new char [1024];
-      snprintf(s, 1024, "filter '%s' invalid; there is no 0th input database.\n", _str);
-      err.push_back(s);
-    }
-
-    else if (a <= nInputs) {
+    if (a == 0)
+      addError(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
+    else if (a > nInputs)
+      addError(err, "filter '%s' invalid: input %u does not exist; there are only %u inputs.\n", _str, a, nInputs);
+    else
       _presentInIdx[a-1] = true;
-    }
-
-    else {
-      char *s = new char [1024];
-      snprintf(s, 1024, "filter '%s' invalid: input %u does not exist; there are only %u inputs.\n", _str, a, nInputs);
-      err.push_back(s);
-    }
-
-    _presentInIdx[ii-1] = true;
   }
 }
 

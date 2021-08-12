@@ -18,8 +18,6 @@
 
 #include "meryl.H"
 
-#include <stdarg.h>
-
 
 merylOpTemplate::merylOpTemplate(uint32 ident) {
   _ident = ident;
@@ -32,30 +30,16 @@ merylOpTemplate::~merylOpTemplate() {
 
   _inputs.clear();
 
-  delete    _stats;
-  delete    _output;
+  for (uint32 ii=0; ii<64; ii++)
+    delete _computes[ii];
+
+  delete    _writer;
   delete    _printer;
   delete [] _printerName;
+
+  delete    _statsFile;
+  delete    _histoFile;
 }
-
-
-
-//how can i do error reporting in here gracefully?
-//passing in vector<char> error is nice, but then i need
-//a function to add stuff to it
-
-void
-addError(std::vector<char const *> &errors, char const *fmt, ...) {
-  char    *err = new char [1024];
-  va_list  ap;
-
-  va_start(ap, fmt);
-  vsnprintf(err, 1024, fmt, ap);
-  va_end(ap);
-
-  errors.push_back(err);
-}
-
 
 
 
@@ -124,10 +108,10 @@ merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
     fprintf(stderr, "Adding output to file '%s' from operation #%u\n",
             wrName, _ident);
 
-  if (_output)
+  if (_writer)
     addError(err, "ERROR: operation #%u already has an output set, can't add output to '%s'!\n", _ident, wrName);
 
-  _output = new merylFileWriter(wrName);
+  _writer = new merylFileWriter(wrName);
 }
 
 
@@ -149,6 +133,12 @@ merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
 //  per-slice output or use the global output.
 void
 merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char const *> &err) {
+
+  if (_type == merylOpType::opNothing) {   //  If no filter is added, we need something
+    _type        = merylOpType::opPrint;   //  to say this action is doing something.
+    _valueSelect = merylModifyValue::valueFirst;
+    _labelSelect = merylModifyLabel::labelFirst;
+  }
 
   if (verbosity.showConstruction() == true)
     fprintf(stderr, "Adding printer to %s from operation #%u\n",
@@ -188,6 +178,28 @@ merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char
 
 
 
+void
+merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char const *> &err) {
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "Adding %s output to file '%s' from operation #%u\n",
+            (asStats == true) ? "statistics" : "histogram", hiName, _ident);
+
+  if (asStats == true) {
+    if (_statsFile != nullptr)
+      addError(err, "ERROR: operation #%u already has 'statistics' output set, can't add output to '%s'!\n", _ident, hiName);
+    _statsFile = new compressedFileWriter(hiName);
+  }
+
+  if (asStats == false) {
+    if (_histoFile != nullptr)
+      addError(err, "ERROR: operation #%u already has 'histogram' output set, can't add output to '%s'!\n", _ident, hiName);
+    _histoFile = new compressedFileWriter(hiName);
+  }
+}
+
+
+
 //  This is called by merylCommandBuilder after the entire tree has been
 //  built.
 //
@@ -200,6 +212,7 @@ merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char
 //
 void
 merylOpTemplate::finalizeTemplateInputs(std::vector<char const *> &err) {
+
   for (uint32 f1=0; f1<_filter    .size(); f1++)
     for (uint32 f2=0; f2<_filter[f1].size(); f2++)
       _filter[f1][f2].finalizeFilterInputs(_inputs.size(), err);
@@ -216,12 +229,13 @@ merylOpTemplate::finalizeTemplateInputs(std::vector<char const *> &err) {
 //
 void
 merylOpTemplate::finalizeTemplateParameters(void) {
+
   for (uint32 ii=0; ii<_inputs.size(); ii++)       //  Forward the request to any inputs
     if (_inputs[ii]->_template != nullptr)         //  that are actions.
       _inputs[ii]->_template->finalizeTemplateParameters();
 
-  if (_output)                                   //  Create the master output object.  We'll later
-    _output->initialize(0, false);               //  request per-thread writer objects from this.
+  if (_writer)                                   //  Create the master output object.  We'll later
+    _writer->initialize(0, false);               //  request per-thread writer objects from this.
 
   //  Any filters that need to query meryl databases for parameters
   //  should do so now.
@@ -235,6 +249,40 @@ merylOpTemplate::finalizeTemplateParameters(void) {
 
 
 
+void
+merylOpTemplate::finishAction(void) {
+
+  //  Forward the request to any inputs that are actions.
+
+  for (uint32 ii=0; ii<_inputs.size(); ii++)
+    if (_inputs[ii]->_template != nullptr)
+      _inputs[ii]->_template->finishAction();
+
+  //  Gather stats from the compute threads then output.
+
+  if ((_statsFile != nullptr) ||
+      (_histoFile != nullptr)) {
+    merylHistogram  stats;
+
+    fprintf(stderr, "stats.\n");
+
+    for (uint32 ss=0; ss<64; ss++)
+      stats.insert( _computes[ss]->_stats );
+
+    if (_statsFile != nullptr)
+      stats.reportStatistics(_statsFile->file());
+
+    if (_histoFile != nullptr)
+      stats.reportHistogram(_histoFile->file());
+  }
+
+  //  Delete the compute objets.
+
+  //  Anything else should be done in the various destructors.
+}
+
+
+
 
 
 void
@@ -243,11 +291,11 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
   if (_counting == nullptr)
     return;
 
-  if (_output == nullptr)
+  if (_writer == nullptr)
     return;
 
   //  Call the counting method.
-  _counting->doCounting(_inputs, allowedMemory, allowedThreads, _output);
+  _counting->doCounting(_inputs, allowedMemory, allowedThreads, _writer);
 
   if (_onlyConfig == true)   //  If only configuring, stop now.
     return;
@@ -262,11 +310,11 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
 
   char name[FILENAME_MAX + 1];
 
-  strncpy(name, _output->filename(), FILENAME_MAX + 1);   //  know which input to open later.
+  strncpy(name, _writer->filename(), FILENAME_MAX + 1);   //  know which input to open later.
 
   //  Close the output and forget about it.
-  delete _output;
-  _output = nullptr;
+  delete _writer;
+  _writer = nullptr;
 
   //  Close the inputs and forget about them too.
   for (uint32 ii=0; ii<_inputs.size(); ii++)
