@@ -45,6 +45,8 @@ void
 merylCommandBuilder::addNewOperation(void) {
   merylOpTemplate *nop = new merylOpTemplate(_opList.size() + 1);
 
+  //  If the stack is empty, just add 'nop' to it as a root node.
+
   if (_opStack.size() == 0) {
     if (verbosity.showConstruction() == true)
       fprintf(stderr, "addOperation()- Add new operation as root operation.\n");
@@ -52,36 +54,94 @@ merylCommandBuilder::addNewOperation(void) {
     _opStack.push(nop);
     _opList.push_back(nop);
     _opTree.push_back(_opList.size() - 1);
+
+    return;
   }
 
-  else {
-    merylOpTemplate *eop = getCurrent();
+  //  Otherwise, an operation exists on the stack.
 
-    if (verbosity.showConstruction() == true) {
-      fprintf(stderr, "addOperation()- Existing op: type '%s' ident %u value %s/%u label %s/%lu\n",
-              toString(eop->_type),        eop->_ident,
-              toString(eop->_valueSelect), eop->_valueConstant,
-              toString(eop->_labelSelect), eop->_labelConstant);
-    }
+  merylOpTemplate *eop = getCurrent();
 
-    if (eop->_type == merylOpType::opNothing) {
-      fprintf(stderr, "addOperation()- Reuse existing empty operation at position %ld.\n",
-              _opStack.size());
-
-      delete nop;
-    }
-
-    else {
-      if (verbosity.showConstruction() == true)
-        fprintf(stderr, "addOperation()- Add new operation to stack at position %ld.\n",
-                _opStack.size());
-
-      eop->addInputFromOp(nop, _errors);
-
-      _opStack.push(nop);
-      _opList.push_back(nop);
-    }
+  if (verbosity.showConstruction() == true) {
+    fprintf(stderr, "addOperation()- Existing op: type '%s' ident %u value %s/%u label %s/%lu\n",
+            toString(eop->_type),        eop->_ident,
+            toString(eop->_valueSelect), eop->_valueConstant,
+            toString(eop->_labelSelect), eop->_labelConstant);
   }
+
+  //  If tht operation hasn't been used yet, do not add a new operation, just
+  //  reuse what is there.
+
+  if (eop->_type == merylOpType::opNothing) {
+    fprintf(stderr, "addOperation()- Reuse existing empty operation at position %ld.\n",
+            _opStack.size()-1);
+
+    delete nop;
+
+    return;
+  }
+
+  //  Finally, push 'nop' onto the stack as a child of the current operation.
+
+  eop->addInputFromOp(nop, _errors);
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "addOperation()- Add new operation to stack at position %ld.\n",
+            _opStack.size());
+
+  _opStack.push(nop);
+  _opList.push_back(nop);
+}
+
+
+
+//  Finish setting up the operation, but leave it on the stack.
+void
+merylCommandBuilder::terminateOperation(void) {
+
+  if (_opStack.size() == 0)
+    return;
+
+  merylOpTemplate  *op = getCurrent();
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "terminateOperation()- Terminate operation #%u at stack position %ld.\n",
+            op->_ident, _opStack.size()-1);
+
+  if (op->_type == merylOpType::opNothing) {
+    if (verbosity.showConstruction() == true)
+      fprintf(stderr, "terminateOperation()-- action #%u <- opPrint\n", op->_ident);
+    op->_type        = merylOpType::opFilter;
+  }
+
+  if (op->_valueSelect == merylModifyValue::valueNOP) {
+    if (verbosity.showConstruction() == true)
+      fprintf(stderr, "termiateOperation()-- action #%u <- valueFirst\n", op->_ident);
+    op->_valueSelect = merylModifyValue::valueFirst;
+  }
+
+  if (op->_labelSelect == merylModifyLabel::labelNOP) {
+    if (verbosity.showConstruction() == true)
+      fprintf(stderr, "terminateOperation()-- action #%u <- labelFirst\n", op->_ident);
+    op->_labelSelect = merylModifyLabel::labelFirst;
+  }
+
+  if (_isPrint) {
+    op->addPrinter(nullptr, _printACGTorder, _errors);
+  }
+
+  if (_isHistogram) {
+    op->addHistogram("-", false, _errors);
+  }
+
+  if (_isStatistics) {
+    op->addHistogram("-", true, _errors);
+  }
+
+  _isPrint        = false;
+  _printACGTorder = false;
+  _isHistogram    = false;
+  _isStatistics   = false;
 }
 
 
@@ -146,12 +206,22 @@ merylCommandBuilder::isPrinter(void) {
   if (strcasecmp(_optString, "print") == 0) {
     _printACGTorder = false;
     _isPrint        = true;
+
+    if (verbosity.showConstruction() == true)
+      fprintf(stderr, "isPrinter()-- action #%u -> print (phase 1)\n",
+              getCurrent()->_ident);
+
     return(true);
   }
 
   if (strcasecmp(_optString, "printACGT") == 0) {
     _printACGTorder = true;
     _isPrint        = true;
+
+    if (verbosity.showConstruction() == true)
+      fprintf(stderr, "isPrinter()-- action #%u -> printACGT (phase 1)\n",
+              getCurrent()->_ident);
+
     return(true);
   }
 
@@ -160,6 +230,12 @@ merylCommandBuilder::isPrinter(void) {
 
   if (_isPrint == false)
     return(false);
+
+  _isPrint        = false;
+
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "isPrinter()-- action #%u -> print (phase 2)\n",
+            getCurrent()->_ident);
 
   //  Otherwise, we're expecting a printer name.  This is complicated by
   //  wanting to allow 'print database.meryl' (to print the kmers to stdout),
@@ -170,9 +246,6 @@ merylCommandBuilder::isPrinter(void) {
   //  let merylInput() catch the db and add it to the command as normal.
   //
   //  The latter simply adds the output name as a printer output.
-
-  _printACGTorder = false;
-  _isPrint        = false;
 
   if (fileExists(_indexName) == true) {
     op->addPrinter(nullptr, _printACGTorder, _errors);
@@ -204,12 +277,12 @@ merylCommandBuilder::isHistogram(void) {
   if (_isHistogram == false)
     return(false);
 
+  _isHistogram = false;
+
   //  Otherwise, we're expecting an output filename.  Add it to the
   //  operation and return that we consumed the word.
   //
   //  See isPrinter() for comments on the fileExists() call.
-
-  _isHistogram = false;
 
   if (fileExists(_indexName) == true) {
     op->addHistogram("-", false, _errors);
@@ -241,12 +314,12 @@ merylCommandBuilder::isStatistics(void) {
   if (_isStatistics == false)
     return(false);
 
+  _isStatistics = false;
+
   //  Otherwise, we're expecting an output filename.  Add it to the
   //  operation and return that we consumed the word.
   //
   //  See isPrinter() for comments on the fileExists() call.
-
-  _isStatistics = false;
 
   if (fileExists(_indexName) == true) {
     op->addHistogram("-", true, _errors);
@@ -334,8 +407,10 @@ void
 merylCommandBuilder::buildTrees(void) {
 
   //  Clear the stack, we're done with it.
-  while (_opStack.size() > 0)
+  while (_opStack.size() > 0) {
+    terminateOperation();
     _opStack.pop();
+  }
 
   //  Tell each action that it has all the inputs it is going to get,
   //  and add errors if there are too many or too few of them.
@@ -441,18 +516,24 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
   //  ignored) or is an input to some other action.
 
   if (isTree == true) {
-    if (op->_type == merylOpType::opNothing)      fprintf(stderr, "%*s|- TREE %u: action #%u <empty>\n",           indent, "", rootNum, op->_ident);
-    if (op->_type == merylOpType::opCounting)     fprintf(stderr, "%*s|- TREE %u: action #%u count kmers\n",       indent, "", rootNum, op->_ident);
-    if (op->_type == merylOpType::opStatistics)   fprintf(stderr, "%*s|- TREE %u: action #%u report statistics\n", indent, "", rootNum, op->_ident);
-    if (op->_type == merylOpType::opHistogram)    fprintf(stderr, "%*s|- TREE %u: action #%u report histogram\n",  indent, "", rootNum, op->_ident);
-    if (op->_type == merylOpType::opFilter)       fprintf(stderr, "%*s|- TREE %u: action #%u filter kmers\n",      indent, "", rootNum, op->_ident);
+    switch (op->_type) {
+      case merylOpType::opNothing:      fprintf(stderr, "\n%*s|- TREE %u: action #%u <empty>\n",           indent, "", rootNum, op->_ident);   break;
+      case merylOpType::opCounting:     fprintf(stderr, "\n%*s|- TREE %u: action #%u count kmers\n",       indent, "", rootNum, op->_ident);   break;
+      case merylOpType::opStatistics:   fprintf(stderr, "\n%*s|- TREE %u: action #%u report statistics\n", indent, "", rootNum, op->_ident);   break;
+      case merylOpType::opHistogram:    fprintf(stderr, "\n%*s|- TREE %u: action #%u report histogram\n",  indent, "", rootNum, op->_ident);   break;
+      case merylOpType::opPrint:        fprintf(stderr, "\n%*s|- TREE %u: action #%u print kmers\n",       indent, "", rootNum, op->_ident);   break;
+      case merylOpType::opFilter:       fprintf(stderr, "\n%*s|- TREE %u: action #%u filter kmers\n",      indent, "", rootNum, op->_ident);   break;
+    }
   }
   else {
-    if (op->_type == merylOpType::opNothing)      fprintf(stderr, "%*s<- INPUT @%u: action #%u <empty>\n",           indent, "", inputNum, op->_ident);
-    if (op->_type == merylOpType::opCounting)     fprintf(stderr, "%*s<- INPUT @%u: action #%u count kmers\n",       indent, "", inputNum, op->_ident);
-    if (op->_type == merylOpType::opStatistics)   fprintf(stderr, "%*s<- INPUT @%u: action #%u report statistics\n", indent, "", inputNum, op->_ident);
-    if (op->_type == merylOpType::opHistogram)    fprintf(stderr, "%*s<- INPUT @%u: action #%u report histogram\n",  indent, "", inputNum, op->_ident);
-    if (op->_type == merylOpType::opFilter)       fprintf(stderr, "%*s<- INPUT @%u: action #%u filter kmers\n",      indent, "", inputNum, op->_ident);
+    switch (op->_type) {
+      case merylOpType::opNothing:      fprintf(stderr, "%*s<- INPUT @%u: action #%u <empty>\n",           indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opCounting:     fprintf(stderr, "%*s<- INPUT @%u: action #%u count kmers\n",       indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opStatistics:   fprintf(stderr, "%*s<- INPUT @%u: action #%u report statistics\n", indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opHistogram:    fprintf(stderr, "%*s<- INPUT @%u: action #%u report histogram\n",  indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opPrint:        fprintf(stderr, "%*s<- INPUT @%u: action #%u print kmers\n",       indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opFilter:       fprintf(stderr, "%*s<- INPUT @%u: action #%u filter kmers\n",      indent, "", inputNum, op->_ident);   break;
+    }
   }
 
   //  SELECTION
@@ -609,7 +690,8 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
     merylInput  *in = op->_inputs[ii];
 
     if (in->isFromTemplate() == true) {
-      fprintf(stderr, "%*s<- INPUT @%u: action #%u\n", indent+3, "", ii+1, in->_template->_ident);
+      //  The following line is printed by the recursive call to printTree().
+      //fprintf(stderr, "%*s<- INPUT @%u: action #%u\n", indent+3, "", ii+1, in->_template->_ident);
       printTree(in->_template, ii+1, indent+3);
     }
 
@@ -639,7 +721,7 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
   }
 
   if (isTree == true) {
-    fprintf(stderr, "TREE %u ends.\n", rootNum);
+    fprintf(stderr, "%*s|- TREE %u ends.\n", indent, "", rootNum);
     fprintf(stderr, "\n");
   }
 }

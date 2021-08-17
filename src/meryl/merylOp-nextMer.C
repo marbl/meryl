@@ -29,27 +29,31 @@ merylOpCompute::nextMer(void) {
 
   //  Get some logging out of the way.
 
-  if (verbosity.showDetails() == true) {
+  if (verbosity.showEverything() == true) {
+    char  kmerString[256];
+
     fprintf(stderr, "\n");
     fprintf(stderr, "merylOp::nextMer()-- STARTING for operation #%u\n", _ot->_ident);
 
-    if (verbosity.showEverything() == true) {
-      char  kmerString[256];
-
-      for (uint32 ii=0; ii<_inputs.size(); ii++)
-        if (_inputs[ii]->_valid == true)
-          fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count %u\n",
-                  _inputs[ii]->name(),
-                  _inputs[ii]->_kmer.toString(kmerString),
-                  _inputs[ii]->_kmer._val);
-        else
-          fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s <empty>\n",
-                  _inputs[ii]->name());
-    }
+    for (uint32 ii=0; ii<_inputs.size(); ii++)
+      if (_inputs[ii]->_valid == true)
+        fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count %u\n",
+                _inputs[ii]->name(),
+                _inputs[ii]->_kmer.toString(kmerString),
+                _inputs[ii]->_kmer._val);
+      else
+        fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s <empty>\n",
+                _inputs[ii]->name());
   }
 
   //  Grab the next mer for every input that was active in the last
   //  iteration.  (on the first call, all inputs were 'active' last time)
+
+  //if ((verbosity.showDetails()    == true) &&
+  //    (verbosity.showEverything() == false)) {
+  //  fprintf(stderr, "\n");
+  //  fprintf(stderr, "merylOp::nextMer()-- STARTING for operation #%u\n", _ot->_ident);
+  //}
 
   for (uint32 ii=0; ii<_actLen; ii++) {
     if (verbosity.showDetails() == true)
@@ -65,9 +69,9 @@ merylOpCompute::nextMer(void) {
   //  If no active kmers, we're done.  There are no kmers left in any input.
 
   if (_actLen == 0) {
-    if (verbosity.showDetails() == true) {
-      fprintf(stderr, "merylOp::nextMer()-- No inputs found, all done here.\n");
-    }
+    //if (verbosity.showDetails() == true) {
+    //  fprintf(stderr, "merylOp::nextMer()-- No inputs found, all done here.\n");
+    //}
     return(false);
   }
 

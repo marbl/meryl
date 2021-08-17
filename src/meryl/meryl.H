@@ -98,8 +98,6 @@ toString(merylOpType t) {
     case merylOpType::opHistogram:   return("opHistogram");   break;
     case merylOpType::opPrint:       return("opPrint");       break;
     case merylOpType::opFilter:      return("opFilter");      break;
-    default:
-      break;
   }
   assert(0);
   return(nullptr);

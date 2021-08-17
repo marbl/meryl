@@ -277,8 +277,6 @@ main(int argc, char **argv) {
   fprintf(stderr, "Found %u command tree%s.\n", B->numTrees(), (B->numTrees() == 1) ? "" : "s");
 
   for (uint32 ii=0; ii<B->numTrees(); ii++) {
-    fprintf(stderr, "\n");
-    fprintf(stderr, "TREE %u:\n", ii);
     B->printTree(B->getTree(ii), 0, 0);
   }
 

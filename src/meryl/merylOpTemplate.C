@@ -47,8 +47,8 @@ void
 merylOpTemplate::addInputFromOp(merylOpTemplate *otin, std::vector<char const *> &err) {
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "Adding input from operation #%u to operation #%u\n",
-            otin->_ident, _ident);
+    fprintf(stderr, "addInputFromOp()-- action #%u <- input from action #%u\n",
+            _ident, otin->_ident);
 
   _inputs.push_back(new merylInput(otin));
 }
@@ -58,8 +58,8 @@ void
 merylOpTemplate::addInputFromDB(char const *dbName, std::vector<char const *> &err) {
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "Adding input from file '%s' to operation #%u\n",
-            dbName, _ident);
+    fprintf(stderr, "addInputFromOp()-- action #%u <- input from file '%s'\n",
+            _ident, dbName);
 
   _inputs.push_back(new merylInput(new merylFileReader(dbName)));
 }
@@ -77,8 +77,8 @@ void
 merylOpTemplate::addInputFromSeq(char const *sqName, bool doCompression, std::vector<char const *> &err) {
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "Adding input from file '%s' to operation #%u\n",
-            sqName, _ident);
+    fprintf(stderr, "addInputFromOp()-- action #%u <- input from file '%s'\n",
+            _ident, sqName);
 
   _inputs.push_back(new merylInput(new dnaSeqFile(sqName), doCompression));
 }
@@ -91,8 +91,8 @@ merylOpTemplate::addInputFromCanu(char const *sqName, uint32 segment, uint32 seg
 #ifdef CANU
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "Adding input from sqStore '%s' to operation #%u\n",
-            sqName, _ident);
+    fprintf(stderr, "addInputFromOp()-- action #%u <- input from sqStore '%s'\n",
+            _ident, sqName);
 
   _inputs.push_back(new merylInput(new sqStore(sqName), segment, segmentMax));
 
@@ -105,8 +105,8 @@ void
 merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "Adding output to file '%s' from operation #%u\n",
-            wrName, _ident);
+    fprintf(stderr, "addOutput()-- action #%u -> output to database '%s'\n",
+            _ident, wrName);
 
   if (_writer)
     addError(err, "ERROR: operation #%u already has an output set, can't add output to '%s'!\n", _ident, wrName);
@@ -134,16 +134,32 @@ merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
 void
 merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char const *> &err) {
 
-  if (_type == merylOpType::opNothing) {   //  If no filter is added, we need something
-    _type        = merylOpType::opPrint;   //  to say this action is doing something.
-    _valueSelect = merylModifyValue::valueFirst;
-    _labelSelect = merylModifyLabel::labelFirst;
+  if (verbosity.showConstruction() == true)
+    fprintf(stderr, "addOutput()-- action #%u -> print to '%s'\n",
+            _ident, (prName == nullptr) ? "(stdout)" : prName);
+
+  //  If no filter has been added yet, we need something to say
+  //  this action is doing something.  Likewise,something to
+  //  tell which value/label to output.
+
+#if 0
+  if (_type == merylOpType::opNothing) {
+    fprintf(stderr, "addOutput()-- action #%u <- opPrint\n", _ident);
+    _type        = merylOpType::opPrint;
   }
 
-  if (verbosity.showConstruction() == true)
-    fprintf(stderr, "Adding printer to %s from operation #%u\n",
-            (prName == nullptr) ? "(stdout)" : prName,
-            _ident);
+  if (_valueSelect == merylModifyValue::valueNOP) {
+    fprintf(stderr, "addOutput()-- action #%u <- valueFirst\n", _ident);
+    _valueSelect = merylModifyValue::valueFirst;
+  }
+
+  if (_labelSelect == merylModifyLabel::labelNOP) {
+    fprintf(stderr, "addOutput()-- action #%u <- labelFirst\n", _ident);
+    _labelSelect = merylModifyLabel::labelFirst;
+  }
+#endif
+
+  //  Fail if we've already got a printer assigned.
 
   if (_printerName)
     addError(err, "ERROR: operation #%u already has a printer set, can't add print to '%s'!\n", prName);
@@ -182,8 +198,8 @@ void
 merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char const *> &err) {
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "Adding %s output to file '%s' from operation #%u\n",
-            (asStats == true) ? "statistics" : "histogram", hiName, _ident);
+    fprintf(stderr, "addOutput()-- action #%u -> %s to '%s'\n",
+            _ident, (asStats == true) ? "statistics" : "histogram", hiName);
 
   if (asStats == true) {
     if (_statsFile != nullptr)
@@ -263,8 +279,6 @@ merylOpTemplate::finishAction(void) {
   if ((_statsFile != nullptr) ||
       (_histoFile != nullptr)) {
     merylHistogram  stats;
-
-    fprintf(stderr, "stats.\n");
 
     for (uint32 ss=0; ss<64; ss++)
       stats.insert( _computes[ss]->_stats );

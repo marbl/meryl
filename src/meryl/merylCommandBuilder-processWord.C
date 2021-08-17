@@ -38,11 +38,19 @@ merylCommandBuilder::processWord(char const *opt) {
 
   _optString[_optStringLen] = 0;
 
+  //  Clear the name strings.  This is just so that we can call isPrinter()
+  //  etc below without them 'finding' a file to output to.
+
+  _inoutName[0] = 0;
+  _indexName[0] = 0;
+  _sqInfName[0] = 0;
+  _sqRdsName[0] = 0;
+
   //  If there is a '[' at the start of the string, push on a new operation and
   //  remove the bracket from the string.
 
   if (_optString[0] == '[') {
-    fprintf(stderr, "processWord()- Add new op for '['.\n");
+    terminateOperation();
     addNewOperation();
 
     for (uint32 ii=0; ii<_optStringLen; ii++)
@@ -118,14 +126,17 @@ merylCommandBuilder::processWord(char const *opt) {
   for (; terminate > 0; terminate--) {
     if (verbosity.showConstruction() == true)
       fprintf(stderr, "processWord()- Pop operation from top of stack.\n");
-    if (_opStack.size() > 0)
+
+    if (_opStack.size() > 0) {
+      terminateOperation();
       _opStack.pop();
-    else
+    } else {
       addError("processWord()- Extra ']' encountered in command line.\n");
+    }
   }
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "\n");
+    fprintf(stderr, "----------\n");
 
 #if 0
   if (verbosity.showConstruction() == true)

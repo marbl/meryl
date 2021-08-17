@@ -28,12 +28,14 @@ merylInput::merylInput(merylOpTemplate *ot) {
 
 merylInput::merylInput(merylOpCompute *oc) {
   _compute = oc;
+  //_valid   = true;
 }
 
 
 
 merylInput::merylInput(merylFileReader *s/*, uint32 slice*/) {
   _stream = s;
+  //_valid  = true;
 
   //if (slice != uint32max)
   //  _stream->enableThreads(slice);
@@ -42,7 +44,7 @@ merylInput::merylInput(merylFileReader *s/*, uint32 slice*/) {
   //  merylOpCompute::nextMer() doesn't load any data - the active list is
   //  empty and no inputs get refreshed.
   //
-  nextMer();
+  //nextMer();
 }
 
 

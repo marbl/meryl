@@ -28,6 +28,16 @@ merylOpCompute::merylOpCompute(merylOpTemplate *ot, uint32 dbSlice, uint32 nInpu
   _act           = new kmer   [nInputs];   //  We know how many inputs there are,
   _actIdx        = new uint32 [nInputs];   //  and can allocate these now.  The actual
   _actRdx        = new uint32 [nInputs];   //  inputs are added later.
+
+  //  Initialize _act so that each input is listed.  This forces
+  //  merylOpCompute::nextMer() to call nextMer() on the first iteration.
+
+  for (uint32 ii=0; ii<nInputs; ii++) {
+    _actIdx[ii] = ii;
+    _actRdx[ii] = ii;
+  }
+
+  _actLen = nInputs;
 }
 
 
@@ -232,6 +242,8 @@ merylOpCompute::findOutputKmer(void) {
 
 void
 merylOpCompute::findOutputValue(void) {
+  kmvalu  q = 0;
+  kmvalu  r = 0;
 
   switch (_ot->_valueSelect) {
     case merylModifyValue::valueNOP:
@@ -247,7 +259,6 @@ merylOpCompute::findOutputValue(void) {
       break;
 
     case merylModifyValue::valueFirst:
-#warning wrong
       _kmer._val = _act[0]._val;  //  Or do we need to verify that actIdx[0] is 0?
       break;
 
@@ -273,13 +284,19 @@ merylOpCompute::findOutputValue(void) {
       break;
 
     case merylModifyValue::valueSub:
-#warning wrong
-      _kmer._val = _ot->_valueConstant + _ot->_valueConstant;
-      for (uint32 ii=0; ii<_actLen; ii++)
+      _kmer._val = _act[0]._val;
+
+      for (uint32 ii=1; ii<_actLen; ii++)
         if (_kmer._val > _act[ii]._val)
           _kmer._val -= _act[ii]._val;
         else
           _kmer._val = 0;
+
+      if (_kmer._val > _ot->_valueConstant)
+        _kmer._val -= _ot->_valueConstant;
+      else
+        _kmer._val = 0;
+
       break;
 
     case merylModifyValue::valueMul:
@@ -292,29 +309,77 @@ merylOpCompute::findOutputValue(void) {
       break;
 
 
-#warning wrong
     case merylModifyValue::valueDiv:
-      if (_ot->_valueConstant == 0)
-        _kmer._val = 0;
+      _kmer._val = _act[0]._val;
+
+      for (uint32 ii=1; ii<_actLen; ii++)
+        if (_act[ii]._val > 0)
+          _kmer._val /= _act[ii]._val;
+        else
+          _kmer._val = 0;
+
+      if (_ot->_valueConstant > 0)
+        _kmer._val /= _ot->_valueConstant;
       else
-        _kmer._val = _kmer._val / _ot->_valueConstant;
+        _kmer._val = 0;
+
       break;
 
+
+      //  Division, but with rounding instead of truncation.
+      //  Additionally, values between 0 and 0.5 are rounded up to 1.
+      //
+      //  However, division by zero results in a 0 output.
     case merylModifyValue::valueDivZ:
+      _kmer._val = _act[0]._val;
+
+      for (uint32 ii=1; ii<_actLen; ii++)
+        if (_act[ii]._val == 0)
+          _kmer._val = 0;
+        else if (_kmer._val < _act[ii]._val)
+          _kmer._val = 1;
+        else
+          _kmer._val = round(_kmer._val / (double)_act[ii]._val);
+
       if (_ot->_valueConstant == 0)
         _kmer._val = 0;
       else if (_kmer._val < _ot->_valueConstant)
         _kmer._val = 1;
       else
-        _kmer._val = (kmvalu)round(_kmer._val / (double)_ot->_valueConstant);
+        _kmer._val = round(_kmer._val / (double)_ot->_valueConstant);
+
       break;
 
+
     case merylModifyValue::valueMod:
-      if (_ot->_valueConstant == 0)
-        _kmer._val = 0;
-      else
-        _kmer._val = _kmer._val % _ot->_valueConstant;
+      q = _act[0]._val;
+      r = 0;
+
+      for (uint32 ii=1; ii<_actLen; ii++)
+        if (_act[ii]._val > 0) {
+          kmvalu  qt = q / _act[ii]._val;
+
+          r += q - qt * _act[ii]._val;
+          q  = qt;
+        } else {
+          r += q;
+          q  = 0;
+        }
+
+      if (_ot->_valueConstant > 0) {
+        kmvalu  qt = q / _ot->_valueConstant;
+
+        r += q - qt * _ot->_valueConstant;
+        q  = qt;
+      } else {
+        r += q;
+        q  = 0;
+      }
+
+      _kmer._val = r;
+
       break;
+
 
     case merylModifyValue::valueCount:
       _kmer._val = _actLen;

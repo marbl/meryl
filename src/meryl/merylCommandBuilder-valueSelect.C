@@ -48,7 +48,7 @@ merylCommandBuilder::isValueSelect(void) {
   else if (strncmp(str, "sum#", 4)        == 0)   { select = merylModifyValue::valueAdd;        constant = decodeInteger(_optString, 6+4, 0, constant, _errors); }
 
   else if (strncmp(str, "sub#", 4)        == 0)   { select = merylModifyValue::valueSub;        constant = decodeInteger(_optString, 6+4, 0, constant, _errors); }
-  else if (strncmp(str, "dif#", 3)        == 0)   { select = merylModifyValue::valueSub;        constant = decodeInteger(_optString, 6+3, 0, constant, _errors); }
+  else if (strncmp(str, "dif#", 4)        == 0)   { select = merylModifyValue::valueSub;        constant = decodeInteger(_optString, 6+3, 0, constant, _errors); }
 
   else if (strncmp(str, "mul#", 4)        == 0)   { select = merylModifyValue::valueMul;        constant = decodeInteger(_optString, 6+4, 0, constant, _errors); }
 
@@ -61,27 +61,27 @@ merylCommandBuilder::isValueSelect(void) {
   //  Check for modifiers without constants.  Set the constant to whatever
   //  the identity is for the given modifier.
 
-  else if (strncmp(str, "first",  5)      == 0)   { select = merylModifyValue::valueSelected;   constant = 0;         }
-  else if (strncmp(str, "selected",  8)   == 0)   { select = merylModifyValue::valueSelected;   constant = kmvalumax; }
+  else if (strncmp(str, "first",  6)      == 0)   { select = merylModifyValue::valueSelected;   constant = 0;         }
+  else if (strncmp(str, "selected",  9)   == 0)   { select = merylModifyValue::valueSelected;   constant = kmvalumax; }
 
-  else if (strncmp(str, "min",  3)        == 0)   { select = merylModifyValue::valueMin;        constant = kmvalumax; }
-  else if (strncmp(str, "max",  3)        == 0)   { select = merylModifyValue::valueMax;        constant = 0;         }
+  else if (strncmp(str, "min",  4)        == 0)   { select = merylModifyValue::valueMin;        constant = kmvalumax; }
+  else if (strncmp(str, "max",  4)        == 0)   { select = merylModifyValue::valueMax;        constant = 0;         }
 
-  else if (strncmp(str, "add",  3)        == 0)   { select = merylModifyValue::valueAdd;        constant = 0;         }
-  else if (strncmp(str, "sum",  3)        == 0)   { select = merylModifyValue::valueAdd;        constant = 0;         }
+  else if (strncmp(str, "add",  4)        == 0)   { select = merylModifyValue::valueAdd;        constant = 0;         }
+  else if (strncmp(str, "sum",  4)        == 0)   { select = merylModifyValue::valueAdd;        constant = 0;         }
 
-  else if (strncmp(str, "sub",  3)        == 0)   { select = merylModifyValue::valueSub;        constant = 0;         }
-  else if (strncmp(str, "dif",  2)        == 0)   { select = merylModifyValue::valueSub;        constant = 0;         }
+  else if (strncmp(str, "sub",  4)        == 0)   { select = merylModifyValue::valueSub;        constant = 0;         }
+  else if (strncmp(str, "dif",  4)        == 0)   { select = merylModifyValue::valueSub;        constant = 0;         }
 
-  else if (strncmp(str, "mul",  3)        == 0)   { select = merylModifyValue::valueMul;        constant = 1;         }
+  else if (strncmp(str, "mul",  4)        == 0)   { select = merylModifyValue::valueMul;        constant = 1;         }
 
-  else if (strncmp(str, "div",  3)        == 0)   { select = merylModifyValue::valueDiv;        constant = 0;         }
-  else if (strncmp(str, "divzero",  7)    == 0)   { select = merylModifyValue::valueDivZ;       constant = 0;         }
+  else if (strncmp(str, "div",  4)        == 0)   { select = merylModifyValue::valueDiv;        constant = 1;         }
+  else if (strncmp(str, "divzero",  8)    == 0)   { select = merylModifyValue::valueDivZ;       constant = 1;         }
 
-  else if (strncmp(str, "mod",  3)        == 0)   { select = merylModifyValue::valueMod;        constant = 0;         }
-  else if (strncmp(str, "rem",  3)        == 0)   { select = merylModifyValue::valueMod;        constant = 0;         }
+  else if (strncmp(str, "mod",  4)        == 0)   { select = merylModifyValue::valueMod;        constant = 0;         }
+  else if (strncmp(str, "rem",  4)        == 0)   { select = merylModifyValue::valueMod;        constant = 0;         }
 
-  else if (strncmp(str, "count",  5)      == 0)   { select = merylModifyValue::valueCount;      constant = 0;         }
+  else if (strncmp(str, "count",  6)      == 0)   { select = merylModifyValue::valueCount;      constant = 0;         }
 
   //  Nope, don't know what this is.
 
@@ -90,6 +90,8 @@ merylCommandBuilder::isValueSelect(void) {
   }
 
   //  Copy the decoded modifier to the select.
+
+  //fprintf(stderr, "VALUE select '%s' constant %u\n", toString(select), constant);
 
   getCurrent()->_valueSelect   = select;
   getCurrent()->_valueConstant = constant;
