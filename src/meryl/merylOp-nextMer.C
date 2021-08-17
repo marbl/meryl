@@ -21,45 +21,68 @@
 
 
 
+void
+printKmer(FILE *f, kmer pk, bool printACGTorder) {
+  char   outstr[256];
+  char  *outptr = outstr;
+
+  if (printACGTorder == true)              //  If requested, recompute the canonical
+    pk.recanonicalizeACGTorder();          //  mer in ACGT order.  Yuck.
+
+  pk.toString(outptr);                     //  Convert the kmer to ASCII, then
+  while (*outptr)                          //  advance to the end of the string.
+    outptr++;
+
+  *outptr++ = '\t';                        //  Add the value.  There is always
+  outptr = toDec(pk._val, outptr);         //  a value to add.
+
+#warning need to print label as binary or hex, user supplied
+  if (kmer::labelSize() > 0) {             //  If a label exists, add it too.
+    *outptr++ = '\t';
+    outptr = toBin(pk._lab, outptr, kmer::labelSize());
+  }
+
+  *outptr++ = '\n';                        //  Terminate the string and
+  *outptr++ = 0;                           //  emit it.
+
+#pragma omp critical (printLock)           //  fputs() is not thread safe and will
+  fputs(outstr, f);                        //  happily intermix on e.g. Linux.
+}
+
+
+
+bool
+merylOpCompute::isKmerFilteredOut(void) {
+  bool   r = false;
+
+  if (_ot->_filter.size() == 0)
+    return(false);
+
+  for (uint32 ii=0; ii<_ot->_filter.size(); ii++) {
+    bool t = true;
+
+    for (uint32 tt=0; tt<_ot->_filter[ii].size(); tt++)
+      t &= _ot->_filter[ii][tt].isTrue(_kmer, _actLen, _act, _actIdx, _actRdx);
+
+    r |= t;
+  }
+
+  return(r == false);
+}
+
+
+
 bool
 merylOpCompute::nextMer(void) {
   bool   isEmpty = false;
 
  nextMerAgain:
 
-  //  Get some logging out of the way.
-
-  if (verbosity.showEverything() == true) {
-    char  kmerString[256];
-
-    fprintf(stderr, "\n");
-    fprintf(stderr, "merylOp::nextMer()-- STARTING for operation #%u\n", _ot->_ident);
-
-    for (uint32 ii=0; ii<_inputs.size(); ii++)
-      if (_inputs[ii]->_valid == true)
-        fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s kmer %s count %u\n",
-                _inputs[ii]->name(),
-                _inputs[ii]->_kmer.toString(kmerString),
-                _inputs[ii]->_kmer._val);
-      else
-        fprintf(stderr, "merylOp::nextMer()--   CURRENT STATE: input %s <empty>\n",
-                _inputs[ii]->name());
-  }
-
   //  Grab the next mer for every input that was active in the last
   //  iteration.  (on the first call, all inputs were 'active' last time)
 
-  //if ((verbosity.showDetails()    == true) &&
-  //    (verbosity.showEverything() == false)) {
-  //  fprintf(stderr, "\n");
-  //  fprintf(stderr, "merylOp::nextMer()-- STARTING for operation #%u\n", _ot->_ident);
-  //}
-
-  for (uint32 ii=0; ii<_actLen; ii++) {
-    if (verbosity.showDetails() == true)
-      fprintf(stderr, "merylOp::nextMer()-- CALL NEXTMER on input actIdx " F_U32 "\n", _actIdx[ii]);
+  for (uint32 ii=0; ii<_actLen; ii++)
     _inputs[_actIdx[ii]]->nextMer();
-  }
 
   //  Find the smallest kmer in any input, and remember the values and labels
   //  of the kmer in each input file.
@@ -68,50 +91,26 @@ merylOpCompute::nextMer(void) {
 
   //  If no active kmers, we're done.  There are no kmers left in any input.
 
-  if (_actLen == 0) {
-    //if (verbosity.showDetails() == true) {
-    //  fprintf(stderr, "merylOp::nextMer()-- No inputs found, all done here.\n");
-    //}
+  if (_actLen == 0)
     return(false);
-  }
-
-  //  The findOutputKmer() functions will decide, based on present-in, if we
-  //  should skip this kmer.  If we're told to skip it, do it right now;
-  //  there is no need to do any processing on values or labels.
-
-  if (verbosity.showDetails() == true) {
-    char  kmerString[256];
-    fprintf(stderr, "merylOp::nextMer()-- op #%u activeLen " F_U32 " kmer %s\n", _ot->_ident, _actLen, _kmer.toString(kmerString));
-  }
 
   //  Figure out the value/label of the output kmer.
 
   findOutputValue();
   findOutputLabel();
 
-  //  Decide if we really want to output.
+  //  If this kmer is filtered, go back and get another kmer from the inputs.
 
-  if (isKmerFilteredOut() == true) {
-    if (verbosity.showDetails() == true) {
-      char  kmerString[256];
-      fprintf(stderr, "merylOp::nextMer()-- FILTERED for operation #%u with kmer %s count %u label %016lx%s\n",
-              _ot->_ident, _kmer.toString(kmerString), _kmer._val, _kmer._lab, ((_writerSlice != nullptr) && (_kmer._val != 0)) ? " OUTPUT" : "");
-      fprintf(stderr, "\n");
-    }
+  if (isKmerFilteredOut() == true)
     goto nextMerAgain;
-  }
 
   //  Output the fully processed kmer to whatever outputs exist.
 
-  if (verbosity.showDetails() == true) {
-    char  kmerString[256];
-    fprintf(stderr, "merylOp::nextMer()-- FINISHED for operation #%u with kmer %s count %u label %016lx%s\n",
-            _ot->_ident, _kmer.toString(kmerString), _kmer._val, _kmer._lab, ((_writerSlice != nullptr) && (_kmer._val != 0)) ? " OUTPUT" : "");
-    fprintf(stderr, "\n");
-  }
+  if (_writerSlice != nullptr)
+    _writerSlice->addMer(_kmer);
 
-  outputKmer();
-  printKmer();
+  if (_printer != nullptr)
+    printKmer(_printer->file(), _kmer, _ot->_printACGTorder);
 
   if (_stats)
     _stats->addValue(_kmer._val);

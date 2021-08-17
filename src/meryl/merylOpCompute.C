@@ -88,12 +88,6 @@ merylOpCompute::addOutput(merylOpTemplate *ot, uint32 slice) {
     _writerSlice = ot->_writer->getStreamWriter(slice);
 }
 
-void
-merylOpCompute::outputKmer(void) {
-  if (_writerSlice != nullptr)
-    _writerSlice->addMer(_kmer);
-}
-
 
 
 ////////////////////////////////////////
@@ -108,8 +102,10 @@ merylOpCompute::addPrinter(merylOpTemplate *ot, uint32 slice) {
   if (ot->_printerName == nullptr)    //  If no name defined, no
     return;                           //  print output requested.
 
-  if (ot->_printer != nullptr)        //  If defined, we're to a single file
-    return;                           //  and use _ot->_printer.
+  if (ot->_printer != nullptr) {      //  If defined, we're to a single file
+    _printer = ot->_printer;          //  and use _ot->_printer.
+    return;
+  }
 
   else {                              //  Otherwise, open a per-thread output.
     strncpy(T, ot->_printerName, FILENAME_MAX);
@@ -127,48 +123,8 @@ merylOpCompute::addPrinter(merylOpTemplate *ot, uint32 slice) {
     snprintf(N, FILENAME_MAX, "%s%0*d%s", pre, len, slice, suf);
 
     _printerSlice = new compressedFileWriter(N);
+    _printer      = _printerSlice;
   }
-}
-
-
-
-void
-merylOpCompute::printKmer(void) {
-  char   outstr[256] = {0};
-  char  *outptr = outstr;
-  kmer   pk     = _kmer;
-  FILE   *f     = nullptr;
-
-#warning this should be cached
-  if      (_ot->_printer != nullptr)       //  Only one of these is ever set, but
-    f = _ot->_printer->file();             //  we still need to figure out which
-  else if (_printerSlice != nullptr)       //  one to use.
-    f = _printerSlice->file();
-
-  if (f == nullptr)                        //  If neither is set, no print is
-    return;                                //  requested for this action.
-
-  if (_ot->_printACGTorder == true)        //  If requested, recompute the canonical
-    pk.recanonicalizeACGTorder();          //  mer in ACGT order.  Yuck.
-
-  pk.toString(outptr);                     //  Convert the kmer to ASCII, then
-  while (*outptr)                          //  advance to the end of the string.
-    outptr++;
-
-  *outptr++ = '\t';                        //  Add the value.  There is always
-  outptr = toDec(_kmer._val, outptr);      //  a value to add.
-
-#warning need to print label as binary or hex, user supplied
-  if (kmer::labelSize() > 0) {             //  If a label exists, add it too.
-    *outptr++ = '\t';
-    outptr = toBin(_kmer._lab, outptr, kmer::labelSize());
-  }
-
-  *outptr++ = '\n';                        //  Terminate the string and
-  *outptr++ = 0;                           //  emit it.
-
-#pragma omp critical (printLock)           //  fputs() is not thread safe and will
-  fputs(outstr, f);                        //  happily intermix on e.g. Linux.
 }
 
 

@@ -47,9 +47,6 @@ private:
   void    findOutputValue(void);
   void    findOutputLabel(void);
 
-  void    outputKmer(void);
-  void    printKmer(void);
-
 public:
   kmer    theFMer(void)            { return(_kmer);   };
 
@@ -84,6 +81,7 @@ public:
   merylHistogram                *_stats          = nullptr;    //  Per-thread stats
   merylStreamWriter             *_writerSlice    = nullptr;    //  Per-thread output
   compressedFileWriter          *_printerSlice   = nullptr;    //  Per-thread output
+  compressedFileWriter          *_printer        = nullptr;    //  Either _printerSlice or ot->_printer
 
   //
   //  Data used to compute the action.
@@ -106,28 +104,6 @@ public:
 
   friend class merylCommandBuilder;
 };
-
-
-
-inline
-bool
-merylOpCompute::isKmerFilteredOut(void) {
-  bool   r = false;
-
-  if (_ot->_filter.size() == 0)
-    return(false);
-
-  for (uint32 ii=0; ii<_ot->_filter.size(); ii++) {
-    bool t = true;
-
-    for (uint32 tt=0; tt<_ot->_filter[ii].size(); tt++)
-      t &= _ot->_filter[ii][tt].isTrue(_kmer, _actLen, _act, _actIdx, _actRdx);
-
-    r |= t;
-  }
-
-  return(r == false);
-}
 
 
 #endif  //  MERYLOPCOMPUTE_H
