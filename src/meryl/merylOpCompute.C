@@ -347,11 +347,11 @@ merylOpCompute::findOutputValue(void) {
 
 void
 merylOpCompute::findOutputLabel(void) {
+  kmlabl  l;
+  kmvalu  v;
 
   switch (_ot->_labelSelect) {
     case merylModifyLabel::labelNOP:
-      //assert(_actLen == 1);
-      _kmer._lab = _act[0]._lab;
       break;
 
     case merylModifyLabel::labelSet:
@@ -363,16 +363,23 @@ merylOpCompute::findOutputLabel(void) {
       _kmer._lab = _act[0]._lab;
       break;
 
-#warning wrong
     case merylModifyLabel::labelFirst:
       _kmer._lab = _act[0]._lab;
       break;
 
     case merylModifyLabel::labelMin:
-      _kmer._lab = _ot->_labelConstant;
+      l = _ot->_labelConstant;
+      v = kmvalumax;
+
       for (uint32 ll=0; ll<_actLen; ll++)
-        _kmer._lab = std::min(_kmer._lab, _act[ll]._lab);
+        if (_act[ll]._val < v) {
+          l = _act[ll]._lab;
+          v = _act[ll]._val;
+        }
+
+      _kmer._lab = l;
       break;
+
     case merylModifyLabel::labelMax:
       _kmer._lab = _ot->_labelConstant;
       for (uint32 ll=0; ll<_actLen; ll++)
