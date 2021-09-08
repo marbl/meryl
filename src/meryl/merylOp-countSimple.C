@@ -241,7 +241,7 @@ merylOpCounting::countSimple(std::vector<merylInput *> &inputs,
       }
 
       //  With the kmers reconstructed, write this block of data to the file.
-      writer->addCountedBlock(bp, nKmers, sBlock, cBlock, _lConstant);
+      writer->addCountedBlock(bp, nKmers, sBlock, cBlock, nullptr, _lConstant);
     }
 
     delete [] sBlock;

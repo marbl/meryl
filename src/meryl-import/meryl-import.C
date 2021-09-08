@@ -28,17 +28,19 @@
 
 int
 main(int argc, char **argv) {
-  char   *inputName    = NULL;
-  char   *outputDBname = NULL;
+  char   *inputName    = nullptr;
+  char   *outputDBname = nullptr;
   uint32  kLen         = 0;
-  uint64  maxValue     = 0;
+
+  uint32  valueWidth   = 0;
+  uint32  labelWidth   = 0;
+
   bool    doMultiSet   = false;
 
   bool    useC         = true;
   bool    useF         = false;
 
   uint32  threads      = getMaxThreadsAllowed();
-  //uint64  memory     = 8;
 
   argc = AS_configure(argc, argv);
 
@@ -55,7 +57,14 @@ main(int argc, char **argv) {
       kLen = strtouint32(argv[++arg]);
 
     } else if (strcmp(argv[arg], "-maxvalue") == 0) {
-      maxValue = strtouint64(argv[++arg]);
+      valueWidth = countNumberOfBits64(strtouint64(argv[++arg]));
+
+    } else if (strcmp(argv[arg], "-valuewidth") == 0) {
+      valueWidth =strtouint32(argv[++arg]);
+
+    } else if (strcmp(argv[arg], "-labelwidth") == 0) {
+      labelWidth = strtouint32(argv[++arg]);
+      kmerTiny::setLabelSize(labelWidth);
 
     } else if (strcmp(argv[arg], "-multiset") == 0) {
       doMultiSet = true;
@@ -71,9 +80,6 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-threads") == 0) {
       threads = strtouint32(argv[++arg]);
 
-    } else if (strcmp(argv[arg], "-memory") == 0) {   //  Not implemented.  If implemented, merylCountArray::initializeValues()
-      //memory = strtouint64(argv[++arg]);            //  needs to return a memory size, etc, etc.
-
     } else {
       char *s = new char [1024];
       snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
@@ -83,9 +89,9 @@ main(int argc, char **argv) {
     arg++;
   }
 
-  if (inputName == NULL)
+  if (inputName == nullptr)
     err.push_back("No input kmer file (-kmers) supplied.\n");
-  if (outputDBname == NULL)
+  if (outputDBname == nullptr)
     err.push_back("No output database name (-output) supplied.\n");
   if (kLen == 0)
     err.push_back("No kmer size (-k) supplied.\n");
@@ -119,15 +125,19 @@ main(int argc, char **argv) {
     fprintf(stderr, "  -maxvalue <value>     An optional memory and time optimization, useful if your values\n");
     fprintf(stderr, "                        are randomly distributed and below some known maximum value.\n");
     fprintf(stderr, "                        For data whose values are the counts from actual data, it is\n");
-    fprintf(stderr, "                        probably best to not set this option.\n");
+    fprintf(stderr, "                        probably best to not use this option.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "  -valuewidth <vw>      Explicitly set the width (in bits) of values/labels to store\n");
+    fprintf(stderr, "  -labelwidth <lw>      with each kmer.  If vw is zero, values are stored using the default\n");
+    fprintf(stderr, "                        encoding (recommended); if lw is zero, labels are NOT stored.\n");
+    fprintf(stderr, "                        The default value for both is zero.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  -forward              By default, the canonical kmer is loaded into the database.  These\n");
     fprintf(stderr, "  -reverse              options force either the forward or reverse-complement kmer to be\n");
     fprintf(stderr, "                        loaded instead.  These options are mutually exclusive.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "  -threads <t>          Use <t> compute threads when sorting and writing data.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  -memory <m>           (accepted, but not implemented, sorry)\n");
+    fprintf(stderr, "                        (most of the time is NOT spent here though)\n");
     fprintf(stderr, "\n");
 
     for (uint32 ii=0; ii<err.size(); ii++)
@@ -145,7 +155,7 @@ main(int argc, char **argv) {
 
   //  Decide on some parameters.
 
-  uint32  wPrefix   = 10;
+  uint32  wPrefix   = 6;
   uint32  nPrefix   = 1 << wPrefix;
 
   uint32  wData     = 2 * kmerTiny::merSize() - wPrefix;
@@ -163,62 +173,89 @@ main(int argc, char **argv) {
   kmerTiny      kmerF;
   kmerTiny      kmerR;
 
+  kmvalu        val, pval;
+  kmlabl        lab, plab;
+
   uint64        nKmers = 0;
 
   //  Allocate a bunch of counting arrays.  The naming here follows merylOp-count.C.
+
+  fprintf(stderr, "Allocating %u count arrays.\n", nPrefix);
 
   merylCountArray  *data  = new merylCountArray [nPrefix];
 
   for (uint32 pp=0; pp<nPrefix; pp++) {
     data[pp].initialize(pp, wData);
-    data[pp].initializeValues(maxValue);
+    data[pp].initializeValues(valueWidth, labelWidth);
+
     data[pp].enableMultiSet(doMultiSet);
   }
 
-  //  Read each kmer and value, stuff into a merylCountArray, writing when the array is full.
+  //  Read each kmer/value/label, stuff into a merylCountArray, writing when the array is full.
 
-  uint64  persistentValue = 1;
 
   while (AS_UTL_readLine(L, Llen, Lmax, K) == true) {
-    W.split(L);
+    splitToWords   W(L);
+    char const    *word = W[0];
 
-    if (W.numWords() == 0)
+    //  If an empty line, continue.
+
+    if (word == nullptr)
       continue;
 
-    //  Decode the line, make a kmer.
+    //  Got a line.  Set any persistent value or label, then continue.
 
-    char   *kstr = W[0];
-    uint64  vv   = persistentValue;
-
-    if (kstr[0] == '#') {
-      persistentValue = strtouint64(kstr + 1);
+    if (strncmp(word, "value=", 6) == 0) {
+      pval = decodeInteger(W[0], 6, 0, pval, err);
       continue;
     }
+
+    if (strncmp(word, "label=", 6) == 0) {
+      plab = decodeInteger(W[0], 6, 0, plab, err);
+      continue;
+    }
+
+    //  Make a kmer.  Decode the value/label and encode the kmer.
+
+    for (uint32 ii=0; word[ii]; ii++)
+      kmerF.addR(word[ii]);
 
     if (W.numWords() > 1)
-      vv = W.touint64(1);
+      kmerF._val = decodeInteger(W[1], 0, 0, kmerF._val, err);
+    else
+      kmerF._val = pval;
 
-    for (uint32 ii=0; kstr[ii]; ii++)
-      kmerF.addR(kstr[ii]);
+    if (W.numWords() > 2)
+      kmerF._lab = decodeInteger(W[2], 0, 0, kmerF._lab, err);
+    else
+      kmerF._lab = plab;
 
-    kmerR = kmerF;
-    kmerR.reverseComplement();
+    //  Add the kmer - canonical, forward or reverse as per -forward/-reverse switches.
 
-    //  Decide to use the F or the R kmer.
-
-    if (useC == true) {
-      useF = (kmerF < kmerR) ? true : false;
+    if ((useC == true) || (useF == false)) {
+      kmerR = kmerF;
+      kmerR.reverseComplement();
     }
 
-    //  And use it.
+    if (useC == true)
+      useF = (kmerF < kmerR) ? true : false;
 
     kmdata  pp = (useF == true) ? ((kmdata)kmerF >> wData)     : ((kmdata)kmerR >> wData);
     kmdata  mm = (useF == true) ? ((kmdata)kmerF  & wDataMask) : ((kmdata)kmerR  & wDataMask);
 
     assert(pp < nPrefix);
 
-    data[pp].add(mm);
-    data[pp].addValue(vv);
+    uint64 ak = data[pp].add(mm);
+    uint64 av = data[pp].addValue(kmerF._val);
+    uint64 al = data[pp].addLabel(kmerF._lab);
+
+    if ((kmerF._val > 0) && (av == 0)) {
+      fprintf(stderr, "ERROR: kmer '%s' failed to add value %u\n", word, kmerF._val);
+    }
+
+    if ((kmerF._lab > 0) && (al == 0)) {
+      fprintf(stderr, "ERROR: kmer '%s' failed to add label %lu\n", word, kmerF._lab);
+    }
 
     nKmers++;
   }
@@ -226,8 +263,6 @@ main(int argc, char **argv) {
   //  All data loaded, cleanup.
 
   fprintf(stderr, "Found %lu kmers in the input.\n", nKmers);
-
-
 
   //  And dump to the output.
 

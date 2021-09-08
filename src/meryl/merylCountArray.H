@@ -54,7 +54,7 @@ public:
 
   uint64    initialize(uint64 prefix, uint32 width);
 
-  uint64    initializeValues(kmvalu maxValue=0);
+  void      initializeValues(uint32 valueWidth, uint32 labelWidth);
 
   void      enableMultiSet(bool enable)    {  _multiSet = enable;  };
 
@@ -82,6 +82,7 @@ public:
 public:
   uint64    add(kmdata suffix);
   uint64    addValue(kmvalu value);
+  uint64    addLabel(kmlabl label);
 
 private:
   kmdata   *unpackSuffixes(uint64 nSuffixes);
@@ -170,10 +171,12 @@ public:
 private:
   uint32           _sWidth;       //  Size of the suffix we're storing
   uint32           _vWidth;       //  Size of the values we're storing
+  uint32           _lWidth;       //  Size of the labels we're storing
 
   uint64           _prefix;       //  The kmer prefix we're storing data for
   kmdata          *_suffix;       //  After sorting, the suffix of each kmer
   kmvalu          *_counts;       //  After sorting, the number of times we've seen this kmer
+  kmlabl          *_labels;       //  After sorting, the label associated with this kmer
 
   uint64           _nKmers;       //  Number of kmers.
 
@@ -185,7 +188,8 @@ private:
   uint32           _segAlloc;     //  Number of segments we're allowed to allocate  (size of the array below).
   uint64         **_segments;     //  An array of blocks of data.
 
-  stuffedBits     *_vals;         //  An array of compressed values.
+  stuffedBits     *_vals;         //  An array of values.
+  stuffedBits     *_labs;         //  An array of labels.
 
   uint64           _nBits;        //  Number of bits stored.
   uint64           _nBitsTrigger; //  Number of bits we need to store for a size recalculation to occur.

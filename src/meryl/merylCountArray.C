@@ -22,19 +22,22 @@
 
 
 //  A suffix-with-value.  It's whole point is to store a 128-bit kmer, a
-//  32-bit count, and a 64-bit color in something that can be 32-bit aligned.
+//  32-bit count, and a 64-bit label in something that can be 32-bit aligned.
 //
 //  This is used to sort the bit-packed input kmers.
 
 class swv {
 public:
-  void      set(kmdata suffix, kmvalu value) {
+  void      set(kmdata suffix, kmvalu value, kmlabl label) {
     _s[0] = (uint32)(suffix >> 96);
     _s[1] = (uint32)(suffix >> 64);
     _s[2] = (uint32)(suffix >> 32);
     _s[3] = (uint32)(suffix);
 
-    _v  = value;
+    _v    = value;
+
+    _l[0] = (uint32)(label >> 32);
+    _l[1] = (uint32)(label);
   };
 
   kmdata    getSuffix(void) const {
@@ -52,18 +55,37 @@ public:
     return(_v);
   };
 
+  kmvalu    getLabel(void) const {
+    kmlabl   l;
+
+    l  = _l[0];   l <<= 32;
+    l |= _l[1];
+
+    return(l);
+  };
+
 private:
   uint32   _s[4];   //  This bit of ugly is splitting the suffix into multiple 32-bit words, so
   kmvalu   _v;      //  an swv can be aligned to 4-byte boundaries for 32-bit kmvalu.
+  uint32   _l[2];   //
 };
 
 
 bool
 lessThan(swv const &a, swv const &b) {
-  kmdata  as = a.getSuffix();
-  kmdata  bs = b.getSuffix();
+  kmdata  as = a.getSuffix();   kmvalu av = a.getValue();   kmlabl al = a.getLabel();
+  kmdata  bs = b.getSuffix();   kmvalu bv = b.getValue();   kmlabl bl = b.getLabel();
 
-  return((as < bs) || ((as == bs) && (a.getValue() < b.getValue())));
+  if (as < bs)   return(true);
+  if (as > bs)   return(false);
+
+  if (av < bv)   return(true);
+  if (av > bv)   return(false);
+
+  if (al < bl)   return(true);
+  if (al > bl)   return(false);
+
+  return(false);
 }
 
 
@@ -75,8 +97,8 @@ merylCountArray::merylCountArray(void) {
   _vWidth       = 0;
 
   _prefix       = 0;
-  _suffix       = NULL;
-  _counts       = NULL;
+  _suffix       = nullptr;
+  _counts       = nullptr;
 
   _nKmers       = 0;
 
@@ -85,9 +107,10 @@ merylCountArray::merylCountArray(void) {
 
   _segSize      = 0;
   _segAlloc     = 0;
-  _segments     = NULL;
+  _segments     = nullptr;
 
-  _vals         = NULL;
+  _vals         = nullptr;
+  _labs         = nullptr;
 
   _nBits        = 0;
   _nBitsTrigger = 0;
@@ -103,8 +126,8 @@ merylCountArray::initialize(uint64 prefix, uint32 width) {
   _sWidth       = width;
 
   _prefix       = prefix;
-  _suffix       = NULL;
-  _counts       = NULL;
+  _suffix       = nullptr;
+  _counts       = nullptr;
 
   _nKmers       = 0;
 
@@ -116,7 +139,7 @@ merylCountArray::initialize(uint64 prefix, uint32 width) {
   //  64).
   _segSize      = pagesPerSegment() * _bitsPerPage - 8 * 64;
   _segAlloc     = 0;
-  _segments     = NULL;
+  _segments     = nullptr;
 
   _nBits        = 0;
   _nBitsTrigger = 0;
@@ -127,18 +150,12 @@ merylCountArray::initialize(uint64 prefix, uint32 width) {
 
 
 
-uint64
-merylCountArray::initializeValues(kmvalu maxValue) {
-
-  if (maxValue == 0)
-    _vWidth = 0;
-  else
-    _vWidth = countNumberOfBits64(maxValue);
-
-  _vals = new stuffedBits();
-
-  return(_nBitsOldSize);
+void
+merylCountArray::initializeValues(uint32 valueWidth, uint32 labelWidth) {
+  _vWidth = std::min(32u, valueWidth);   _vals = new stuffedBits();
+  _lWidth = std::min(64u, labelWidth);   _labs = new stuffedBits();
 }
+
 
 
 void
@@ -148,8 +165,8 @@ merylCountArray::initializeForTesting(uint32 width, uint32 nwords) {
   assert(_sWidth > 0);
 
   _prefix       = 0;
-  _suffix       = NULL;
-  _counts       = NULL;
+  _suffix       = nullptr;
+  _counts       = nullptr;
 
   _nKmers       = 0;
 
@@ -158,7 +175,7 @@ merylCountArray::initializeForTesting(uint32 width, uint32 nwords) {
 
   _segSize      = 64 * nwords;
   _segAlloc     = 0;
-  _segments     = NULL;
+  _segments     = nullptr;
 
   _nBits        = 0;
   _nBitsTrigger = 0;
@@ -167,6 +184,8 @@ merylCountArray::initializeForTesting(uint32 width, uint32 nwords) {
   clearStats();
 }
 
+
+
 void
 merylCountArray::clearStats(void) {
 #ifdef ADD_INSTRUMENT
@@ -174,6 +193,8 @@ merylCountArray::clearStats(void) {
   memset(nStart, 0, sizeof(uint64) * 6 * 64);
 #endif
 }
+
+
 
 void
 merylCountArray::dumpStats(void) {
@@ -192,11 +213,12 @@ merylCountArray::dumpStats(void) {
 }
 
 
+
 void
 merylCountArray::dumpData(void) {
 
   for (uint32 ss=0; ss<_segAlloc; ss++) {
-    if (_segments[ss] == NULL)
+    if (_segments[ss] == nullptr)
       continue;
       
     fprintf(stderr, "seg[%2d]", ss);
@@ -207,6 +229,7 @@ merylCountArray::dumpData(void) {
     fprintf(stderr, "\n");
   }
 }
+
 
 
 merylCountArray::~merylCountArray() {
@@ -223,7 +246,7 @@ merylCountArray::~merylCountArray() {
 void
 merylCountArray::removeSegments(void) {
 
-  if (_segments == NULL)                  //  If no segments, then
+  if (_segments == nullptr)               //  If no segments, then
     return;                               //  we've already removed them.
 
   for (uint32 ss=0; ss<_segAlloc; ss++)   //  Release the segment memory.
@@ -234,7 +257,7 @@ merylCountArray::removeSegments(void) {
   _nReAlloc  = 0;
 
   _segAlloc = 0;                          //  Don't forget to
-  _segments = NULL;                       //  forget about it.
+  _segments = nullptr;                    //  forget about it.
 
   _nBits        = 0;                      //  Indicate that we've stored no data.
   _nBitsTrigger = 0;
@@ -245,8 +268,8 @@ merylCountArray::removeSegments(void) {
 
 void
 merylCountArray::removeValues(void) {
-  delete _vals;
-  _vals  = NULL;
+  delete _vals;    _vals  = nullptr;
+  delete _labs;    _labs  = nullptr;
 }
 
 
@@ -262,7 +285,7 @@ merylCountArray::addSegment(uint32 seg) {
     resizeArray(_segments, _segAlloc, _segAlloc, 2 * _segAlloc, _raAct::copyData | _raAct::clearNew);
     _nReAlloc++;
   }
-  assert(_segments[seg] == NULL);
+  assert(_segments[seg] == nullptr);
 
   _segments[seg] = new uint64 [_segSize / 64];
 
@@ -294,19 +317,21 @@ swv *
 merylCountArray::unpackSuffixesAndValues(uint64 nSuffixes) {
   swv  *suffixes  = new swv [nSuffixes];
 
-  assert(_vals != NULL);
+  assert(_vals != nullptr);
+  assert(_labs != nullptr);
 
   //fprintf(stderr, "Allocate %lu suffixes, %lu bytes\n", nSuffixes, sizeof(swv) * nSuffixes);
   //fprintf(stderr, "Sorting prefix 0x%016" F_X64P " with " F_U64 " total kmers\n", _prefix, nSuffixes);
 
   _vals->setPosition(0);
+  _labs->setPosition(0);
 
   if      (_vWidth == 0)
     for (uint64 kk=0; kk<nSuffixes; kk++)
-      suffixes[kk].set(get(kk), _vals->getEliasDelta());
+      suffixes[kk].set(get(kk), _vals->getEliasDelta(),    _labs->getBinary(_lWidth));
   else
     for (uint64 kk=0; kk<nSuffixes; kk++)
-      suffixes[kk].set(get(kk), _vals->getBinary(_vWidth));
+      suffixes[kk].set(get(kk), _vals->getBinary(_vWidth), _labs->getBinary(_lWidth));
 
   removeSegments();
   removeValues();
@@ -385,22 +410,26 @@ merylCountArray::countSingleKmersWithValues(void) {
 
   _suffix = new kmdata [nk];
   _counts = new kmvalu [nk];
+  _labels = new kmlabl [nk];
 
   //  And generate the counted kmer data.
 
   _nKmers = 0;
 
-  _counts[_nKmers] = suffixes[0].getValue();
   _suffix[_nKmers] = suffixes[0].getSuffix();
+  _counts[_nKmers] = suffixes[0].getValue();
+  _labels[_nKmers] = suffixes[0].getLabel();
 
   for (uint64 kk=1; kk<nSuffixes; kk++) {
     if (suffixes[kk-1].getSuffix() != suffixes[kk].getSuffix()) {
       _nKmers++;
-      _counts[_nKmers] = 0;
       _suffix[_nKmers] = suffixes[kk].getSuffix();
+      _counts[_nKmers] = 0;
+      _labels[_nKmers] = 0;
     }
 
     _counts[_nKmers] += suffixes[kk].getValue();
+    _labels[_nKmers] += suffixes[kk].getLabel();
   }
 
   _nKmers++;
@@ -449,7 +478,7 @@ void
 merylCountArray::countKmers(void) {
 
   //fprintf(stderr, "merylCountArray::countKmers()-- _nBits %lu -- values=%c multi-set=%c\n",
-  //        _nBits, (_vals == NULL) ? 'n' : 'Y', (_multiSet == false) ? 'n' : 'Y');
+  //        _nBits, (_vals == nullptr) ? 'n' : 'Y', (_multiSet == false) ? 'n' : 'Y');
 
   if (_nBits == 0) {    //  If no kmers stored, nothing to do, so just
     removeSegments();   //  remove the (unused) storage and return.
@@ -458,7 +487,7 @@ merylCountArray::countKmers(void) {
 
   assert(_nBits % _sWidth == 0);
 
-  if (_vals == NULL)
+  if (_vals == nullptr)
     countSingleKmers();
   else
     if (_multiSet == false)
@@ -471,7 +500,7 @@ merylCountArray::countKmers(void) {
 
 void
 merylCountArray::dumpCountedKmers(merylBlockWriter *out, kmlabl label) {
-  out->addCountedBlock(_prefix, _nKmers, _suffix, _counts, label);
+  out->addCountedBlock(_prefix, _nKmers, _suffix, _counts, _labels, label);
 }
 
 
@@ -479,8 +508,8 @@ merylCountArray::dumpCountedKmers(merylBlockWriter *out, kmlabl label) {
 void
 merylCountArray::removeCountedKmers(void) {
 
-  delete [] _suffix;   _suffix = NULL;
-  delete [] _counts;   _counts = NULL;
+  delete [] _suffix;   _suffix = nullptr;
+  delete [] _counts;   _counts = nullptr;
 
   _nKmers = 0;
 }
@@ -733,13 +762,26 @@ merylCountArray::add(kmdata suffix) {
 uint64
 merylCountArray::addValue(kmvalu value) {
 
-  if (_vals == NULL)
+  if (_vals == nullptr)
     return(0);
 
   if (_vWidth == 0)
     return(_vals->setEliasDelta(value));
   else
     return(_vals->setBinary(_vWidth, value));
+}
+
+
+uint64
+merylCountArray::addLabel(kmlabl label) {
+
+  if (_labs == nullptr)
+    return(0);
+
+  if (_lWidth == 0)
+    return(0);
+  else
+    return(_labs->setBinary(_lWidth, label));
 }
 
 
@@ -865,7 +907,7 @@ merylCountArray::getSimple(uint64 kk) {
     uint32  wordBgn   = segPos % 64;         //  Bit position in that word.
     uint32  wordEnd   = wordBgn + _sWidth;
 
-    assert(_segments[seg] != NULL);
+    assert(_segments[seg] != nullptr);
 
     uint64  w = _segments[seg][word];
 
