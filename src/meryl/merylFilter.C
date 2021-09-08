@@ -64,7 +64,7 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
     else if (actRdx[_vIndex2-1] < uint32max)   rhs = act[actRdx[_vIndex2-1]]._val;
     else                                       return(false);
 
-    result = compare(rhs, lhs);
+    result = compare(lhs, rhs);
 
     //fprintf(stderr, "isTrue() isValue = %s\n", result ? "true" : "false");
   }
@@ -86,7 +86,7 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
     else if (actRdx[_vIndex2-1] < uint32max)   rhs = act[actRdx[_vIndex2-1]]._lab;
     else                                       return(false);
 
-    result = compare(rhs, lhs);
+    result = compare(lhs, rhs);
 
     //fprintf(stderr, "isTrue() isLabel = %s\n", result ? "true" : "false");
   }
