@@ -41,6 +41,9 @@ merylCommandBuilder::isLabelSelect(void) {
   else if (strncmp(str, "first#", 6)         == 0)   { select = merylModifyLabel::labelFirst;        constant = decodeInteger(_optString, 6+6,  0, constant, _errors); }
   else if (strncmp(str, "selected#", 9)      == 0)   { select = merylModifyLabel::labelFirst;        constant = decodeInteger(_optString, 6+9,  0, constant, _errors); }
 
+  else if (strncmp(str, "min#", 4)           == 0)   { select = merylModifyLabel::labelMin;          constant = decodeInteger(_optString, 6+4,  0, constant, _errors); }
+  else if (strncmp(str, "max#", 4)           == 0)   { select = merylModifyLabel::labelMax;          constant = decodeInteger(_optString, 6+3,  0, constant, _errors); }
+
   else if (strncmp(str, "and#", 4)           == 0)   { select = merylModifyLabel::labelAnd;          constant = decodeInteger(_optString, 6+4,  0, constant, _errors); }
   else if (strncmp(str, "or#", 3)            == 0)   { select = merylModifyLabel::labelOr;           constant = decodeInteger(_optString, 6+3,  0, constant, _errors); }
   else if (strncmp(str, "xor#", 4)           == 0)   { select = merylModifyLabel::labelXor;          constant = decodeInteger(_optString, 6+4,  0, constant, _errors); }
@@ -61,25 +64,28 @@ merylCommandBuilder::isLabelSelect(void) {
   //  Check for modifiers without constants.  Set the constant to whatever
   //  the identity is for the given modifier.
 
-  else if (strncmp(str, "first", 5)          == 0)   { select = merylModifyLabel::labelFirst;        constant = 0;          }
-  else if (strncmp(str, "selected", 8)       == 0)   { select = merylModifyLabel::labelFirst;        constant = 0;          }
+  else if (strncmp(str, "first", 6)          == 0)   { select = merylModifyLabel::labelFirst;        constant = 0;          }
+  else if (strncmp(str, "selected", 9)       == 0)   { select = merylModifyLabel::labelFirst;        constant = 0;          }
 
-  else if (strncmp(str, "and", 3)            == 0)   { select = merylModifyLabel::labelAnd;          constant = kmlablmax;  }
-  else if (strncmp(str, "or", 2)             == 0)   { select = merylModifyLabel::labelOr;           constant = 0;          }
-  else if (strncmp(str, "xor", 3)            == 0)   { select = merylModifyLabel::labelXor;          constant = kmlablmax;  }
+  else if (strncmp(str, "min", 4)            == 0)   { select = merylModifyLabel::labelMin;          constant = 0;          }
+  else if (strncmp(str, "max", 4)            == 0)   { select = merylModifyLabel::labelMax;          constant = 0;          }
 
-  else if (strncmp(str, "difference", 10)    == 0)   { select = merylModifyLabel::labelDifference;   constant = 0;          }
+  else if (strncmp(str, "and", 4)            == 0)   { select = merylModifyLabel::labelAnd;          constant = kmlablmax;  }
+  else if (strncmp(str, "or", 3)             == 0)   { select = merylModifyLabel::labelOr;           constant = 0;          }
+  else if (strncmp(str, "xor", 4)            == 0)   { select = merylModifyLabel::labelXor;          constant = kmlablmax;  }
 
-  else if (strncmp(str, "lightest", 8)       == 0)   { select = merylModifyLabel::labelLightest;     constant = kmlablmax;  }
-  else if (strncmp(str, "heaviest", 8)       == 0)   { select = merylModifyLabel::labelHeaviest;     constant = 0;          }
+  else if (strncmp(str, "difference", 11)    == 0)   { select = merylModifyLabel::labelDifference;   constant = 0;          }
 
-  else if (strncmp(str, "invert", 6)         == 0)   { select = merylModifyLabel::labelHeaviest;     constant = kmlablmax;  }
+  else if (strncmp(str, "lightest", 9)       == 0)   { select = merylModifyLabel::labelLightest;     constant = kmlablmax;  }
+  else if (strncmp(str, "heaviest", 9)       == 0)   { select = merylModifyLabel::labelHeaviest;     constant = 0;          }
 
-  else if (strncmp(str, "shift-left", 10)    == 0)   { select = merylModifyLabel::labelShiftLeft;    constant = 1;          }
-  else if (strncmp(str, "shift-right", 11)   == 0)   { select = merylModifyLabel::labelShiftRight;   constant = 1;          }
+  else if (strncmp(str, "invert", 7)         == 0)   { select = merylModifyLabel::labelHeaviest;     constant = kmlablmax;  }
 
-  else if (strncmp(str, "rotate-left", 11)   == 0)   { select = merylModifyLabel::labelRotateLeft;   constant = 1;          }
-  else if (strncmp(str, "rotate-right", 12)  == 0)   { select = merylModifyLabel::labelRotateRight;  constant = 1;          }
+  else if (strncmp(str, "shift-left", 11)    == 0)   { select = merylModifyLabel::labelShiftLeft;    constant = 1;          }
+  else if (strncmp(str, "shift-right", 12)   == 0)   { select = merylModifyLabel::labelShiftRight;   constant = 1;          }
+
+  else if (strncmp(str, "rotate-left", 12)   == 0)   { select = merylModifyLabel::labelRotateLeft;   constant = 1;          }
+  else if (strncmp(str, "rotate-right", 13)  == 0)   { select = merylModifyLabel::labelRotateRight;  constant = 1;          }
 
   //  Nope, don't know what this is.
 
