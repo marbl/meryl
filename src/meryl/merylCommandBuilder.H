@@ -63,8 +63,8 @@ private:
   bool    isOption(void);
   bool    isAlias(void);
 
-  bool    isValueSelect(void);
-  bool    isLabelSelect(void);
+  bool    isSelect(void);
+  bool    isFilter(void);
 
   bool    isValueFilter(void);
   bool    isLabelFilter(void);

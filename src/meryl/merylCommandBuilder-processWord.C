@@ -105,13 +105,8 @@ merylCommandBuilder::processWord(char const *opt) {
   if ((isEmpty()            == false) &&   //  Consumes empty words.
       (isOption()           == false) &&   //  Consumes key=value options.
       (isAlias()            == false) &&   //  Consumes 'union', 'intersect', et cetera, aliases
-      (isValueSelect()      == false) &&   //  Consumes 'value='
-      (isLabelSelect()      == false) &&   //  Consumes 'label='
-      (isValueFilter()      == false) &&   //  Consumes 'value:' filters
-      (isLabelFilter()      == false) &&   //  Consumes 'label:' filters
-      (isBasesFilter()      == false) &&   //  Consumes 'bases:' filters
-      (isInputFilter()      == false) &&   //  Consumes 'input:' filters
-      (isFilterConnective() == false) &&   //  Consumes 'and', 'or', 'not'
+      (isSelect()           == false) &&   //  Consumes selection 'value=' and 'label='
+      (isFilter()           == false) &&   //  Consumes filters   'value:', 'label:', 'bases:' and 'input:'; 'not', 'and' and 'or'.
       (isCount()            == false) &&   //  Consumes 'count', 'count-forward', 'count-reverse'
       (isOutput()           == false) &&   //  Consumes 'output' and related database name
       (isPrinter()          == false) &&   //  Consumes 'print' and related output name

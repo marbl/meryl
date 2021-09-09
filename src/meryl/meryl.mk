@@ -3,9 +3,8 @@ SOURCES  := meryl.C \
             merylCommandBuilder-isAlias.C \
             merylCommandBuilder-isFilter.C \
             merylCommandBuilder-isOption.C \
-            merylCommandBuilder-labelSelect.C \
+            merylCommandBuilder-isSelect.C \
             merylCommandBuilder-processWord.C \
-            merylCommandBuilder-valueSelect.C \
             merylCommandBuilder.C \
             merylCountArray.C \
             merylFilter.C \

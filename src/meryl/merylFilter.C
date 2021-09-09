@@ -19,9 +19,13 @@
 #include "meryl.H"
 
 
-merylFilter::merylFilter(merylFilterQuantity type, merylFilterRelation rela, char const *str)   {
-  _q = type;
-  _r = rela;
+merylFilter::merylFilter(merylFilterQuantity type,
+                         merylFilterRelation rela,
+                         bool                invert,
+                         char const         *str)   {
+  _q = type;      //  Type and Relation are obvious. The desired
+  _r = rela;      //  result _t is true when 'invert' is false, and
+  _t = !invert;   //  false when 'invert' is true.
 
   memcpy(_str, str, sizeof(char) * (FILENAME_MAX+1));
 }
@@ -135,7 +139,9 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
     }
   }
 
-  return(result);
+  //  If the result is the desired result, return 'true'.
+
+  return(result == _t);
 }
 
 
@@ -237,7 +243,7 @@ merylFilter::describe(char *str) {
     else if (_vIndex2 == 0)                    sprintf(rhs, "output kmer value");
     else                                       sprintf(rhs, "kmer value from input %u", _vIndex2);
 
-    sprintf(str, "EMIT if %s %s %s\n", lhs, rType, rhs);
+    sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
   }
 
   else if (_q == merylFilterQuantity::isLabel) {
@@ -249,7 +255,7 @@ merylFilter::describe(char *str) {
     else if (_vIndex2 == 0)                    sprintf(rhs, "output kmer label");
     else                                       sprintf(rhs, "kmer label from input %u", _vIndex2);
 
-    sprintf(str, "EMIT if %s %s %s\n", lhs, rType, rhs);
+    sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
   }
 
   else if (_q == merylFilterQuantity::isBases) {
@@ -274,7 +280,7 @@ merylFilter::describe(char *str) {
     else
       sprintf(rhs, "%s", toDec(_vBases2));
 
-    sprintf(str, "EMIT if %s %s %s\n", lhs, rType, rhs);
+    sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
   }
 
   else if (_q == merylFilterQuantity::isIndex) {

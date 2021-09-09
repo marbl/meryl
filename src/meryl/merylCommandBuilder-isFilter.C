@@ -213,6 +213,7 @@ merylCommandBuilder::isValueFilter(void) {
 
   merylFilter  f(merylFilterQuantity::isValue,
                  merylFilterRelation::isNOP,
+                 _invertNextFilter,
                  _optString);
 
   decodeFilter(6, f);
@@ -236,6 +237,7 @@ merylCommandBuilder::isLabelFilter(void) {
 
   merylFilter  f(merylFilterQuantity::isLabel,
                  merylFilterRelation::isNOP,
+                 _invertNextFilter,
                  _optString);
 
   decodeFilter(6, f);
@@ -263,6 +265,7 @@ merylCommandBuilder::isBasesFilter(void) {
 
   merylFilter  f(merylFilterQuantity::isBases,
                  merylFilterRelation::isNOP,
+                 _invertNextFilter,
                  _optString);
 
   //  Decode the bases string itself.
@@ -333,6 +336,7 @@ merylCommandBuilder::isInputFilter(void) {
 
   merylFilter  f(merylFilterQuantity::isIndex,
                  merylFilterRelation::isNOP,
+                 _invertNextFilter,
                  _optString);
 
   //  The 'input' filter is a ':' or ',' separated list specifying how
@@ -446,37 +450,67 @@ merylCommandBuilder::isInputFilter(void) {
 
 
 
-  //  Process any 'and', 'or' or 'not' filter connectives.
-  //
-  //  Note that it is easy to make a command line that confuses things.
-  //  These are all equivalent:
-  //    f1 and not     f2
-  //    f1 and not not f2   <- should be equiv to 'f1 and f2'
-  //    f1 not and     f2   <- should be an error
-#warning connectives not properly handled
-
+//  Process any 'and', 'or' or 'not' filter connectives.
+//
 bool
 merylCommandBuilder::isFilterConnective(void) {
 
-  //  The 'and' word is just syntactic sugar.  We don't need or use it.
+  //  The word 'not' will invert the sense of the next filter.
+  //
+  if (strcmp(_optString, "not") == 0) {
+    _invertNextFilter = !_invertNextFilter;
+    return(true);
+  }
+
+  //  The word 'and' is just syntactic sugar.  We don't need or use it.
   if (strcmp(_optString, "and") == 0) {
     return(true);
   }
 
-  //  The 'or' word tells us to make a new product term.
+  //  The word 'or' tells us to make a new product term.
   if (strcmp(_optString, "or") == 0) {
-    getCurrent()->addNewFilterProduct();
+    if (getCurrent()->addNewFilterProduct()) {
+      addError("attempt to add new filter product when existing filter product is empty.\n");
+    }
     return(true);
   }
 
-  //  The 'not' word will invert the sense of the next filter.
-  if (strcmp(_optString, "not") == 0) {
-    _invertNextFilter = true;
+  //  Nope, not a connective.
+  return(false);
+}
+
+
+
+//  Handle all filter related words.
+//
+//  This fails to detect some errors in the command line:
+//    f1 and and f2
+//    f1 and or  f2
+//    f1 not and f2
+//    f1 or
+//
+//  But does detect a few:
+//    or f1
+//    f1 or or f2
+//
+bool
+merylCommandBuilder::isFilter(void) {
+
+  //  If we find a filter word, process it and then reset
+  //  the invert flag.
+  //
+  if ((isValueFilter()      == true) ||   //  Consumes 'value:' filters
+      (isLabelFilter()      == true) ||   //  Consumes 'label:' filters
+      (isBasesFilter()      == true) ||   //  Consumes 'bases:' filters
+      (isInputFilter()      == true)) {   //  Consumes 'input:' filters
+    _invertNextFilter = false;
     return(true);
   }
 
-  //  Nope, not a connective.  Clear the state.
-  _invertNextFilter = true;
+  //  Not a filter word.  Check if it's a connective.
+
+  if (isFilterConnective() == true)       //  Consumes 'and', 'or', 'not'
+    return(true);
 
   return(false);
 }

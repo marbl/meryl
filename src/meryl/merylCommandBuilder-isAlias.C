@@ -49,7 +49,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelOr;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "union");
+                   merylFilterRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
@@ -61,7 +61,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "union");
+                   merylFilterRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
@@ -73,7 +73,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "union");
+                   merylFilterRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
@@ -85,7 +85,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelOr;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "union");
+                   merylFilterRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
@@ -98,7 +98,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelAnd;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "intersect");
+                   merylFilterRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
@@ -110,7 +110,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "intersect");
+                   merylFilterRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
@@ -122,7 +122,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "intersect");
+                   merylFilterRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
@@ -134,7 +134,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelAnd;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "intersect");
+                   merylFilterRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
@@ -148,7 +148,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelDifference;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "subtract");
+                   merylFilterRelation::isNOP, false, "subtract");
 
     f._input_num_any    = true;
     f._input_idx.push_back(1);
@@ -162,7 +162,7 @@ merylCommandBuilder::isAlias(void) {
     op->_labelSelect    = merylModifyLabel::labelFirst;
 
     merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, "difference");
+                   merylFilterRelation::isNOP, false, "difference");
 
     f._input_num.push_back(1);
     f._input_idx.push_back(1);

@@ -75,7 +75,10 @@ enum class merylFilterQuantity {
 //
 class merylFilter {
 public:
-  merylFilter(merylFilterQuantity type, merylFilterRelation rela, char const *str);
+  merylFilter(merylFilterQuantity type,
+              merylFilterRelation rela,
+              bool                invert,
+              char const         *str);
   ~merylFilter();
 
 private:
@@ -147,6 +150,7 @@ public:
 
   merylFilterRelation  _r = merylFilterRelation::isNOP;  //  Relation we need to satisfy.
   merylFilterQuantity  _q = merylFilterQuantity::isNOP;  //  Quantity we're comparing against.
+  bool                 _t = true;                        //  Desired result for a 'true' filter result.
 
   //  A copy of the command line string, for reporting errors.
   char                           _str[FILENAME_MAX + 1] = { 0 };

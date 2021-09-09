@@ -43,8 +43,8 @@
 //  the filter and should be passed to the output.  It has access to all
 //  the other input kmers through the _act inputs.
 //
-//  addNewFilterTerm() will add a new product term to the sum list.
-//  addNewFilter()     will add a new filter to the most recent product term.
+//  addNewFilterProduct() will add a new product term to the sum list.
+//  addFilterToProduce()  will add a new filter to the most recent product term.
 
 class merylOpTemplate {
 public:
@@ -112,7 +112,7 @@ public:
   //  Filters.
   //
 
-  void          addNewFilterProduct(void);
+  bool          addNewFilterProduct(void);
   void          addFilterToProduct(merylFilter const f);
   merylFilter  &getFilter(uint32 p, uint32 t);
 
@@ -144,9 +144,15 @@ public:
 
 
 inline
-void
+bool
 merylOpTemplate::addNewFilterProduct(void) {
-    _filter.emplace_back();
+
+  if ((_filter.size() == 0) ||
+      (_filter.back().size() == 0))
+    return(true);
+
+  _filter.emplace_back();
+  return(false);
 }
 
 inline
@@ -156,7 +162,7 @@ merylOpTemplate::addFilterToProduct(merylFilter const f) {
   _type = merylOpType::opFilter;   //  This op processes kmers.
 
   if (_filter.size() == 0)         //  If there are no filters yet,
-    addNewFilterProduct();         //  add a new product term.
+    _filter.emplace_back();        //  add a new product term.
 
   _filter.back().emplace_back(f);  //  Add 'f' to the last product term.
 }
