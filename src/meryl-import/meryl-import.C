@@ -177,6 +177,7 @@ main(int argc, char **argv) {
   kmlabl        lab, plab;
 
   uint64        nKmers = 0;
+  uint64        nErrrs = 0;
 
   //  Allocate a bunch of counting arrays.  The naming here follows merylOp-count.C.
 
@@ -184,6 +185,7 @@ main(int argc, char **argv) {
 
   merylCountArray  *data  = new merylCountArray [nPrefix];
 
+#pragma omp parallel for schedule(dynamic, 1)
   for (uint32 pp=0; pp<nPrefix; pp++) {
     data[pp].initialize(pp, wData);
     data[pp].initializeValues(valueWidth, labelWidth);
@@ -250,19 +252,32 @@ main(int argc, char **argv) {
     uint64 al = data[pp].addLabel(kmerF._lab);
 
     if ((kmerF._val > 0) && (av == 0)) {
-      fprintf(stderr, "ERROR: kmer '%s' failed to add value %u\n", word, kmerF._val);
+      char *a = new char [1024];
+      snprintf(a, 1024, "failed to correctly set value %u\n", kmerF._val);
+      err.push_back(a);
     }
 
     if ((kmerF._lab > 0) && (al == 0)) {
-      fprintf(stderr, "ERROR: kmer '%s' failed to add label %lu\n", word, kmerF._lab);
+      char *a = new char [1024];
+      snprintf(a, 1024, "failed to correctly set label %lu\n", kmerF._lab);
+      err.push_back(a);
     }
 
-    nKmers++;
+    if (err.size() == 0) {
+      nKmers++;
+    }
+    else {
+      nErrrs++;
+
+      fprintf(stderr, "ERROR: kmer '%s' failed:\n", word);
+      for (uint32 ii=0; ii<err.size(); ii++)
+        fprintf(stderr, "ERROR:   %s\n", err[ii]);
+    }
   }
 
   //  All data loaded, cleanup.
 
-  fprintf(stderr, "Found %lu kmers in the input.\n", nKmers);
+  fprintf(stderr, "Added %lu kmers; incorrectly added %lu kmers.\n", nKmers, nErrrs);
 
   //  And dump to the output.
 
@@ -274,9 +289,6 @@ main(int argc, char **argv) {
 
 #pragma omp parallel for schedule(dynamic, 1)
   for (uint32 ff=0; ff<output->numberOfFiles(); ff++) {
-    //fprintf(stderr, "thread %2u writes file %2u with prefixes 0x%016lx to 0x%016lx\n",
-    //        omp_get_thread_num(), ff, output->firstPrefixInFile(ff), output->lastPrefixInFile(ff));
-
     for (uint64 pp=output->firstPrefixInFile(ff); pp <= output->lastPrefixInFile(ff); pp++) {
       data[pp].countKmers();                   //  Convert the list of kmers into a list of (kmer, count).
       data[pp].dumpCountedKmers(writer, 0);    //  Write that list to disk.
