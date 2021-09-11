@@ -58,6 +58,7 @@ merylCommandBuilder::isAlias(void) {
 
   else if (strcmp(_optString, "union-min") == 0) {
     op->_valueSelect    = merylModifyValue::valueMin;
+    op->_valueConstant  = kmvalumax;
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
@@ -70,6 +71,7 @@ merylCommandBuilder::isAlias(void) {
 
   else if (strcmp(_optString, "union-max") == 0) {
     op->_valueSelect    = merylModifyValue::valueMax;
+    op->_valueConstant  = kmvalumin;
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
@@ -107,6 +109,7 @@ merylCommandBuilder::isAlias(void) {
 
   else if (strcmp(_optString, "intersect-min") == 0) {
     op->_valueSelect    = merylModifyValue::valueMin;
+    op->_valueConstant  = kmvalumax;
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
@@ -119,6 +122,7 @@ merylCommandBuilder::isAlias(void) {
 
   else if (strcmp(_optString, "intersect-max") == 0) {
     op->_valueSelect    = merylModifyValue::valueMax;
+    op->_valueConstant  = kmvalumin;
     op->_labelSelect    = merylModifyLabel::labelSelected;
 
     merylFilter  f(merylFilterQuantity::isIndex,
