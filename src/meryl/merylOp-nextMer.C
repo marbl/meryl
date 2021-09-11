@@ -58,6 +58,9 @@ merylOpCompute::isKmerFilteredOut(void) {
   if (_ot->_filter.size() == 0)
     return(false);
 
+  if (_kmer._val == 0)
+    return(true);
+
   for (uint32 ii=0; ii<_ot->_filter.size(); ii++) {
     bool t = true;
 
