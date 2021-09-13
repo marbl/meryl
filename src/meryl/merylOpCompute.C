@@ -188,10 +188,13 @@ merylOpCompute::findOutputKmer(void) {
 
     _act   [_actLen] = _inputs[ii]->_kmer; //  Copy the kmer/value/label to the list.
     _actIdx[_actLen] = ii;
-    _actRdx[ii]      = _actLen;
+    //_actRdx[ii]      = _actLen;
 
     _actLen++;
   }
+
+  for (uint32 aa=0; aa<_actLen; aa++)
+    _actRdx[ _actIdx[aa] ] = aa;
 }
 
 
