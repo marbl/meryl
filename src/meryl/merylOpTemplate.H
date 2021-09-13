@@ -115,6 +115,7 @@ public:
   bool          addNewFilterProduct(void);
   void          addFilterToProduct(merylFilter const f);
   merylFilter  &getFilter(uint32 p, uint32 t);
+  merylFilter  &getLastFilter(void);
 
 private:
   std::vector< std::vector<merylFilter> >  _filter;
@@ -171,6 +172,12 @@ inline
 merylFilter &
 merylOpTemplate::getFilter(uint32 p, uint32 t) {
   return(_filter[p][t]);
+}
+
+inline
+merylFilter &
+merylOpTemplate::getLastFilter(void) {
+  return(_filter.back().back());
 }
 
 

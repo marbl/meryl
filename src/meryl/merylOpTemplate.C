@@ -138,27 +138,6 @@ merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char
     fprintf(stderr, "addOutput()-- action #%u -> print to '%s'\n",
             _ident, (prName == nullptr) ? "(stdout)" : prName);
 
-  //  If no filter has been added yet, we need something to say
-  //  this action is doing something.  Likewise,something to
-  //  tell which value/label to output.
-
-#if 0
-  if (_type == merylOpType::opNothing) {
-    fprintf(stderr, "addOutput()-- action #%u <- opPrint\n", _ident);
-    _type        = merylOpType::opPrint;
-  }
-
-  if (_valueSelect == merylModifyValue::valueNOP) {
-    fprintf(stderr, "addOutput()-- action #%u <- valueFirst\n", _ident);
-    _valueSelect = merylModifyValue::valueFirst;
-  }
-
-  if (_labelSelect == merylModifyLabel::labelNOP) {
-    fprintf(stderr, "addOutput()-- action #%u <- labelFirst\n", _ident);
-    _labelSelect = merylModifyLabel::labelFirst;
-  }
-#endif
-
   //  Fail if we've already got a printer assigned.
 
   if (_printerName)

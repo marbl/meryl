@@ -26,21 +26,28 @@ bool
 merylCommandBuilder::isAlias(void) {
   merylOpTemplate  *op = getCurrent();
 
-  //  Decide if this is an alias or not.  If not, just get out of here.
-  //  We'll have to do the test again later to decide how to set up
-  //  the operation.
+  //  Check for _needsValue and _needsConstant.  If set, assume this word is
+  //  an integer constant, and copy the constant to the filter (_needsValue)
+  //  or operation (_needsConstant).  For both, the word is always consumed,
+  //  but we emit an error if it's not understood.
 
-  if ((strcmp(_optString, "union")         != 0) &&
-      (strcmp(_optString, "union-min")     != 0) &&
-      (strcmp(_optString, "union-max")     != 0) &&
-      (strcmp(_optString, "union-sum")     != 0) &&
-      (strcmp(_optString, "intersect")     != 0) &&
-      (strcmp(_optString, "intersect-min") != 0) &&
-      (strcmp(_optString, "intersect-max") != 0) &&
-      (strcmp(_optString, "intersect-sum") != 0) &&
-      (strcmp(_optString, "subtract")      != 0) &&
-      (strcmp(_optString, "difference")    != 0))
-    return(false);
+  if ((_needsValue    == true) ||
+      (_needsConstant == true)) {
+    uint32  c32;
+
+    c32 = decodeInteger(_optString, 0, 0, c32, _errors);
+
+    if (_needsValue)
+      op->getLastFilter()._vValue2 = c32;
+
+    if (_needsConstant)
+      op->_valueConstant = c32;
+
+    _needsValue    = false;
+    _needsConstant = false;
+
+    return(true);
+  }
 
   //  Decode the alias and set up the operation.
 
@@ -174,8 +181,79 @@ merylCommandBuilder::isAlias(void) {
     op->addFilterToProduct(f);
   }
 
-  else {         //  We detected an alias, but didn't decode it.
-    assert(0);   //  Somebody screwed up the code.
+  else if (strcmp(_optString, "distinct") == 0) {
+    assert(0);
+  }
+
+  else if (strcmp(_optString, "word-frequency") == 0) {
+    assert(0);
+  }
+
+  else if (strcmp(_optString, "threshold") == 0) {
+    assert(0);
+  }
+
+  else if (strcmp(_optString, "count-suffix") == 0) {
+  }
+
+
+  else if ((strcmp(_optString, "less-than")    == 0) ||
+           (strcmp(_optString, "greater-than") == 0) ||
+           (strcmp(_optString, "at-least")     == 0) ||
+           (strcmp(_optString, "at-most")      == 0) ||
+           (strcmp(_optString, "equal-to")     == 0) ||
+           (strcmp(_optString, "not-equal-to") == 0)) {
+    op->_inputsMin      = 1;
+    op->_inputsMax      = 1;
+
+    op->_valueSelect    = merylModifyValue::valueFirst;
+    op->_labelSelect    = merylModifyLabel::labelFirst;
+
+    merylFilterRelation   rel = merylFilterRelation::isNOP;
+
+    if (strcmp(_optString, "less-than")    == 0)   rel = merylFilterRelation::isLt;
+    if (strcmp(_optString, "greater-than") == 0)   rel = merylFilterRelation::isGt;
+    if (strcmp(_optString, "at-least")     == 0)   rel = merylFilterRelation::isGeq;
+    if (strcmp(_optString, "at-most")      == 0)   rel = merylFilterRelation::isLeq;
+    if (strcmp(_optString, "equal-to")     == 0)   rel = merylFilterRelation::isEq;
+    if (strcmp(_optString, "not-equal-to") == 0)   rel = merylFilterRelation::isNeq;
+
+    merylFilter  f(merylFilterQuantity::isValue, rel, false, _optString);
+
+    f._vIndex1 = 0;
+    f._vValue2 = 0;
+
+    op->addFilterToProduct(f);
+
+    _needsValue = true;
+  }
+
+
+  else if ((strcmp(_optString, "increase")     == 0) ||
+           (strcmp(_optString, "decrease")     == 0) ||
+           (strcmp(_optString, "multiply")     == 0) ||
+           (strcmp(_optString, "divide")       == 0) ||
+           (strcmp(_optString, "divide-round") == 0) ||
+           (strcmp(_optString, "modulo")       == 0)) {
+    op->_inputsMin      = 1;
+    op->_inputsMax      = 1;
+
+    op->_valueSelect    = merylModifyValue::valueNOP;
+    op->_valueConstant  = 0;
+    op->_labelSelect    = merylModifyLabel::labelFirst;
+
+    if (strcmp(_optString, "increase")     == 0)   op->_valueSelect = merylModifyValue::valueAdd;
+    if (strcmp(_optString, "decrease")     == 0)   op->_valueSelect = merylModifyValue::valueSub;
+    if (strcmp(_optString, "multiply")     == 0)   op->_valueSelect = merylModifyValue::valueMul;
+    if (strcmp(_optString, "divide")       == 0)   op->_valueSelect = merylModifyValue::valueDiv;
+    if (strcmp(_optString, "divide-round") == 0)   op->_valueSelect = merylModifyValue::valueDivZ;
+    if (strcmp(_optString, "modulo")       == 0)   op->_valueSelect = merylModifyValue::valueMod;
+
+    _needsConstant = true;
+  }
+
+  else {             //  Not an alias word.
+    return(false);   //
   }
 
   return(true);

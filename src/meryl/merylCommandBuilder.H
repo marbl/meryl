@@ -126,6 +126,28 @@ private:
   bool      _isHistogram    = false;        //  enable histogram output
   bool      _isStatistics   = false;        //  enable statistics output
 
+  //  If _needsValue or _needsConstant is set, the current filter or current
+  //  action an integer parameter.
+  //
+  //  _needsValue is used by filter aliases:
+  //    less-than,
+  //    greater-than
+  //    at-least
+  //    at-most
+  //    equal-to
+  //    not-equal-to
+  //
+  //  _needsConstant is used by selection aliases:
+  //    increase
+  //    decrease
+  //    multiply
+  //    divide
+  //    divide-round
+  //    modulo
+  //
+  bool      _needsValue     = false;
+  bool      _needsConstant  = false;
+
   bool      _invertNextFilter = false;
 
   ////
