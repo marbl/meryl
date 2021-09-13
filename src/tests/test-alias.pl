@@ -11,9 +11,11 @@ use strict;
 #  Then will run meryl on each of the 10 aliases and compare results against
 #  a naive perl implementation of the operation.
 
+my $vers   = "v2";
 my $meryl  = "/work/meryl-redo/build/bin/meryl";
 my $import = "/work/meryl-redo/build/bin/meryl-import";
 
+#my $vers   = "v1";
 #my $meryl  = "/work/meryl/build/bin/meryl";
 #my $import = "/work/meryl/build/bin/meryl-import";
 
@@ -49,17 +51,17 @@ sub createDatabase ($$$) {
 
     if (! -e $db) {
         if ($inp =~ m/fast/i) {
-            #system("$meryl -k 30 count output $db $inp");
-            system("$meryl k=30 count output $db $inp");
+            system("$meryl -k 30 count output $db $inp")    if ($vers eq "v2");
+            system("$meryl k=30 count output $db $inp")     if ($vers eq "v1");
         } else {
-            #system("$import -k 30 -kmers $inp -valuewidth 6 -labelwidth 10 -output $db");
-            system("$import -k 30 -kmers $inp -output $db");
+            system("$import -k 30 -kmers $inp -valuewidth 6 -labelwidth 10 -output $db")   if ($vers eq "v2");
+            system("$import -k 30 -kmers $inp -output $db")                                if ($vers eq "v1");
         }
     }
 
     #  Load the database.
 
-    open(F, "$meryl threads=1 print $db 2> /dev/null |");
+    open(F, "$meryl threads=1 print $db 2> /dev/null | sort |");
 
     if ($idx == 1) {
         undef @db1;
@@ -73,8 +75,8 @@ sub createDatabase ($$$) {
         undef @db2;
         @db2 = <F>;   chomp @db2;
 
-        #foreach my $i (@db1) {
-        #    print "DB1: '$i'\n";
+        #foreach my $i (@db2) {
+        #    print "DB2: '$i'\n";
         #}
     }
 
@@ -210,14 +212,14 @@ sub compareKmers ($) {
 sub testMethod ($) {
     my $testName = shift @_;
 
-    print STDERR "Testing $testName\n";
+    print STDERR "  $testName\n";
 
     #  Run meryl.
 
     undef @dbM;
 
     #open(F, "$meryl print output test-alias.meryl $testName $db1 $db2 2> /dev/null |");
-    open(F, "$meryl threads=1 print $testName $db1 $db2 2> /dev/null |");
+    open(F, "$meryl threads=1 print $testName $db1 $db2 2> /dev/null | sort |");
     while (<F>) {
         chomp;
         push @dbM, $_;
@@ -273,17 +275,24 @@ sub testMethod ($) {
 
     if (scalar(@errors) > 0) {
         foreach my $e (@errors) {
-            print STDERR "  $e\n";
+            print STDERR "    $e\n";
         }
 
-        foreach my $t (@dbM) {print "dbM '$t'\n";}
-        foreach my $t (@dbT) {print "dbT '$t'\n";}
+        open(Z, "> DEBUG-dbM.dump");
+        foreach my $t (@dbM) {print Z "$t\n";}
+        close(Z);
+
+        open(Z, "> DEBUG-dbT.dump");
+        foreach my $t (@dbT) {print Z "$t\n";}
+        close(Z);
 
         print STDERR "\n";
+
+        die;
     }
     else {
-        print STDERR "  Success!\n";
-        print STDERR "\n";
+        #print STDERR "  Success!\n";
+        #print STDERR "\n";
     }
 }
 
@@ -293,6 +302,8 @@ sub testMethod ($) {
 
 createDatabase(1, $in1, $db1);
 createDatabase(2, $in2, $db2);
+
+print STDERR "Testing:\n";
 
 testMethod("union");
 testMethod("union-min");
@@ -306,3 +317,8 @@ testMethod("intersect-sum");
 
 testMethod("subtract");
 testMethod("difference");
+
+print STDERR "\n";
+print STDERR "Success!\n";
+
+exit(0);
