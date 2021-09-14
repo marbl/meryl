@@ -123,10 +123,18 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
   //  Decode 'arg1' if one exists.  If it doesn't exist, arg1 will be the
   //  same as rela.
 
-  if      (arg1b == relab)             index1 = 0;
-  else if (_optString[arg1b] == '@')   decodeInteger(_optString, arg1b+1, arg1e, index1, _errors);
-  else if (_optString[arg1b] == '#')   decodeInteger(_optString, arg1b+1, arg1e, const1, _errors);
-  else                                 decodeInteger(_optString, arg1b+0, arg1e, const1, _errors);
+  if      (arg1b == relab) {
+    index1 = 0;
+  }
+  else if (_optString[arg1b] == '@') {
+    decodeInteger(_optString, arg1b+1, arg1e, index1, _errors);
+  }  
+  else if (_optString[arg1b] == '#') {
+    decodeInteger(_optString, arg1b+1, arg1e, const1, _errors);
+  }
+  else {
+    decodeInteger(_optString, arg1b+0, arg1e, const1, _errors);
+  }
 
   //  Decode the relation.
 
@@ -137,9 +145,27 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
   if      (arg2b == arg2e) {
     addError("Invalid filter '%s': no second argument to comparison operator found.", _optString);
   }
-  else if (_optString[arg2b] == '@')   decodeInteger(_optString, arg2b+1, arg2e, index2, _errors);
-  else if (_optString[arg2b] == '#')   decodeInteger(_optString, arg2b+1, arg2e, const2, _errors);
-  else                                 decodeInteger(_optString, arg2b+0, arg2e, const2, _errors);
+  else if (_optString[arg2b] == '@') {
+    decodeInteger(_optString, arg2b+1, arg2e, index2, _errors);
+  }
+  else if (_optString[arg2b] == '#') {
+    decodeInteger(_optString, arg2b+1, arg2e, const2, _errors);
+  }
+  else if (strncmp(_optString+arg2b, "distinct=", 9) == 0) {
+    f._vValue2Distinct = strtodouble(_optString+arg2b+9);
+  }
+  else if (strncmp(_optString+arg2b, "word-freq=", 10) == 0) {
+    f._vValue2WordFreq = strtodouble(_optString+arg2b+10);
+  }
+  else if (strncmp(_optString+arg2b, "word-frequency=", 15) == 0) {
+    f._vValue2WordFreq = strtodouble(_optString+arg2b+15);
+  }
+  else if (strncmp(_optString+arg2b, "threshold=", 10) == 0) {
+    decodeInteger(_optString, arg2b+10, arg2e, const2, _errors);
+  }
+  else {
+    decodeInteger(_optString, arg2b+0, arg2e, const2, _errors);
+  }
 
   //  Set the index and constants in the filter.
   //

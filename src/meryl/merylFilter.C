@@ -147,9 +147,33 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
 
 
 void
-merylFilter::finalizeFilterInputs(uint32 nInputs, std::vector<char const *> &err) {
+merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *> &err) {
+  uint32  nInputs = mot->_inputs.size();
 
-  //  Allocate space for the lookup tables.
+  //
+  //  Check that any distinct= or word-frequency= value filters have
+  //  exactly one database input.
+  //
+
+  if ((_vValue2Distinct >= 0) ||
+      (_vValue2WordFreq >= 0)) {
+
+    if (nInputs != 1)
+      addError(err, "filter '%s' invalid; exactly one database input required, %u inputs supplied.\n", _str, nInputs);
+
+    if ((nInputs > 0) &&
+        (mot->_inputs[0]->_stream == nullptr))
+      addError(err, "filter '%s' invalid; exactly one database input required, '%s' input supplied.\n", _str, mot->_inputs[0]->inputType());
+
+    if ((mot->_valueSelect   != merylModifyValue::valueFirst) ||
+        (mot->_valueConstant != 0)) {
+      addError(err, "filter '%s' invalid; the value cannot be modified, remove '%s' modifier\n", _str, toString(mot->_valueSelect));
+    }
+  }
+
+  //
+  //  Build the index: lookup tables.
+  //
 
   _presentInNum = new bool [nInputs + 1];   //  +1 because we actually access [nInputs].
   _presentInIdx = new bool [nInputs];
@@ -211,6 +235,68 @@ merylFilter::finalizeFilterInputs(uint32 nInputs, std::vector<char const *> &err
   }
 
   std::sort(_presentInList, _presentInList + _presentInLen);
+}
+
+
+
+//  If either distinct= or word-frequency= were supplied, we need to
+//  load the histogram from the input database and compute the
+//  threhsold value to use.
+//
+void
+merylFilter::finalizeFilterParameters(merylOpTemplate *mot) {
+  bool  verbose = verbosity.showConstruction();
+
+  if ((_vValue2Distinct < 0) &&
+      (_vValue2WordFreq < 0))
+    return;
+  
+  assert(mot->_inputs.size() == 1);
+  assert(mot->_inputs[0]->_stream != nullptr);
+
+  merylFileReader         *input = mot->_inputs[0]->_stream;
+  merylHistogram          *stats = input->stats();   //  Calls input->loadStatistics().
+  merylHistogramIterator  *histo = new merylHistogramIterator(stats);
+
+  if (_vValue2Distinct >= 0) {
+    uint64  nKmers       = 0;
+    uint64  nKmersTarget = _vValue2Distinct * stats->numDistinct();
+
+    if (verbose)
+      fprintf(stderr, "finalizeFilterParameters()-- database '%s' has %lu distinct kmers -> target %lu kmers\n",
+              mot->_inputs[0]->_stream->filename(), stats->numDistinct(), nKmersTarget);
+
+    for (uint64 ii=0; ii<histo->histogramLength(); ii++) {
+      nKmers += histo->histogramOccurrences(ii);
+
+      if (verbose)
+        fprintf(stderr, "finalizeFilterParameters()--   threshold %lu -> %lu cumulative kmers\n",
+                histo->histogramValue(ii), nKmers);
+
+      if (nKmers >= nKmersTarget) {
+        _vValue2 = histo->histogramValue(ii);
+        break;
+      }
+    }
+
+    if (verbose)
+      fprintf(stderr, "finalizeFilterParameters()-- distinct %f -> threshold %u\n", _vValue2Distinct, _vValue2);
+  }
+
+  if (_vValue2WordFreq >= 0) {
+    if (verbose)
+      fprintf(stderr, "finalizeFilterParameters()-- database '%s' has %lu total kmers\n",
+              mot->_inputs[0]->_stream->filename(), stats->numTotal());
+
+    _vValue2 = _vValue2WordFreq * stats->numTotal();
+
+    if (verbose)
+      fprintf(stderr, "finalizeFilterParameters()-- word-frequency %f -> threshold %u\n", _vValue2WordFreq, _vValue2);
+  }
+
+  delete histo;
+
+  input->dropStatistics();
 }
 
 

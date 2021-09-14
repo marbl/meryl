@@ -210,7 +210,7 @@ merylOpTemplate::finalizeTemplateInputs(std::vector<char const *> &err) {
 
   for (uint32 f1=0; f1<_filter    .size(); f1++)
     for (uint32 f2=0; f2<_filter[f1].size(); f2++)
-      _filter[f1][f2].finalizeFilterInputs(_inputs.size(), err);
+      _filter[f1][f2].finalizeFilterInputs(this, err);
 }
 
 
@@ -234,12 +234,10 @@ merylOpTemplate::finalizeTemplateParameters(void) {
 
   //  Any filters that need to query meryl databases for parameters
   //  should do so now.
-#warning query of database for filter parameters not implemented
-  //for (uint32 f1=0; f1<_filter    .size(); f1++)
-  //for (uint32 f2=0; f2<_filter[f1].size(); f2++)
-  //  _filter[f1][f2].finalizeFilter();
 
-  //initializeThreshold();
+  for (uint32 f1=0; f1<_filter    .size(); f1++)
+  for (uint32 f2=0; f2<_filter[f1].size(); f2++)
+    _filter[f1][f2].finalizeFilterParameters(this);
 }
 
 

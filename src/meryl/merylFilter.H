@@ -135,12 +135,13 @@ public:
   //  where we can figure out what 'all' means, or to fail if the filter
   //  specified a reference to file @4 but only 3 files exist.
   //
-  //  initializeFilter() is used to set any run-time values (loaded from a
-  //  meryl database, for example, to find the threshold that contains 95% of
-  //  the kmers).
+  //  finalizeFilterParameters() is used to set any run-time values (loaded
+  //  from a meryl database, for example, to find the threshold that contains
+  //  95% of the kmers).
   //
 public:
-  void   finalizeFilterInputs(uint32 nInputs, std::vector<char const *> &err);
+  void   finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *> &err);
+  void   finalizeFilterParameters(merylOpTemplate *mot);
 
   char *
   describe(char *str);
@@ -173,6 +174,12 @@ public:
   kmvalu               _vValue2 = 0;           //  from constant 'value' stored here
   kmlabl               _vLabel2 = 0;           //  from constant 'label' stored here
   uint32               _vBases2 = 0;           //  from constant 'bases' stored here ('bases count')
+
+  //  For filters on the value, the _vValue2 can be set to a constant or set
+  //  based on the histogram of the input database.
+
+  double               _vValue2Distinct = -1;
+  double               _vValue2WordFreq = -1;
 
   //  Some flags on what to compare, so we don't explode the
   //  merylFilterQuantity enum with 15 more types.

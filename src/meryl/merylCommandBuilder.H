@@ -127,35 +127,15 @@ private:
   bool      _isStatistics   = false;        //  enable statistics output
 
   //  If _needsValue or _needsConstant is set, the current filter or current
-  //  action an integer parameter.
-  //
-  //  _needsValue is used by filter aliases:
-  //    less-than,
-  //    greater-than
-  //    at-least
-  //    at-most
-  //    equal-to
-  //    not-equal-to
-  //
-  //  _needsConstant is used by selection aliases:
-  //    increase
-  //    decrease
-  //    multiply
-  //    divide
-  //    divide-round
-  //    modulo
-  //
+  //  action needs an integer parameter in the next word.
+
   bool      _needsValue     = false;
   bool      _needsConstant  = false;
 
+  //  If _invertNextFilter is set, the sense of the next filter encountered
+  //  is inverted.  Example: 'filter1 and not filter2'.
+
   bool      _invertNextFilter = false;
-
-  ////
-  //  present-in action - presentIn[x] = 1 iff the kmer needs to be in x inputs
-
-  //uint32    _presentInLen = 0;
-  //uint32    _presentInMax = 0;
-  //uint32   *_presentIn    = nullptr;
 
   //  _opStack is a stack of operations, used when constructing the tree of operations.
   //  _opList is a list of operations.

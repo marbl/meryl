@@ -30,21 +30,51 @@ merylCommandBuilder::isAlias(void) {
   //  an integer constant, and copy the constant to the filter (_needsValue)
   //  or operation (_needsConstant).  For both, the word is always consumed,
   //  but we emit an error if it's not understood.
+  //
+  //  _needsValue is used by filter aliases:
+  //    less-than,
+  //    greater-than
+  //    at-least
+  //    at-most
+  //    equal-to
+  //    not-equal-to
+  //
+  //  _needsConstant is used by selection aliases:
+  //    increase
+  //    decrease
+  //    multiply
+  //    divide
+  //    divide-round
+  //    modulo
 
   if ((_needsValue    == true) ||
       (_needsConstant == true)) {
-    uint32  c32;
+    char   *optstr   = _optString;
+    uint32  constant = 0;
 
-    c32 = decodeInteger(_optString, 0, 0, c32, _errors);
+    if      ((_needsValue == true) && (strncmp(_optString, "distinct=", 9) == 0))
+      op->getLastFilter()._vValue2Distinct = strtodouble(optstr + 9);
 
-    if (_needsValue)
-      op->getLastFilter()._vValue2 = c32;
+    else if ((_needsValue == true) && (strncmp(_optString, "word-freq=", 10) == 0))
+      op->getLastFilter()._vValue2WordFreq = strtodouble(optstr + 10);
 
-    if (_needsConstant)
-      op->_valueConstant = c32;
+    else if ((_needsValue == true) && (strncmp(_optString, "word-frequency=", 15) == 0))
+      op->getLastFilter()._vValue2WordFreq = strtodouble(optstr + 15);
 
-    _needsValue    = false;
-    _needsConstant = false;
+    else if ((_needsValue == true) && (strncmp(_optString, "threshold=", 10) == 0))
+      op->getLastFilter()._vValue2 = decodeInteger(optstr, 10, 0, constant, _errors);
+
+    else if (_needsValue == true)
+      op->getLastFilter()._vValue2 = decodeInteger(optstr, 0, 0, constant, _errors);
+
+    else if (_needsConstant == true)
+      op->_valueConstant = decodeInteger(optstr, 0, 0, constant, _errors);
+
+    else
+      assert(0);
+
+    _needsValue    = false;   //  We've processed the requested argument
+    _needsConstant = false;   //  for either of these just by getting here.
 
     return(true);
   }
