@@ -211,22 +211,6 @@ merylCommandBuilder::isAlias(void) {
     op->addFilterToProduct(f);
   }
 
-  else if (strcmp(_optString, "distinct") == 0) {
-    assert(0);
-  }
-
-  else if (strcmp(_optString, "word-frequency") == 0) {
-    assert(0);
-  }
-
-  else if (strcmp(_optString, "threshold") == 0) {
-    assert(0);
-  }
-
-  else if (strcmp(_optString, "count-suffix") == 0) {
-  }
-
-
   else if ((strcmp(_optString, "less-than")    == 0) ||
            (strcmp(_optString, "greater-than") == 0) ||
            (strcmp(_optString, "at-least")     == 0) ||
