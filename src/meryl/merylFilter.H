@@ -28,12 +28,12 @@
 enum class merylFilterRelation {
   isNOP,         //  Nothing.  Generates an error.
 
-  isEq,          //  Pass if the variable == constant
-  isNeq,         //  Pass if the variable != constant
-  isLeq,         //  Pass if the variable <= constant
-  isGeq,         //  Pass if the variable >= constant
-  isLt,          //  Pass if the variable <  constant
-  isGt,          //  Pass if the variable >  constant
+  isEq,          //  True if the variable == constant
+  isNeq,         //  True if the variable != constant
+  isLeq,         //  True if the variable <= constant
+  isGeq,         //  True if the variable >= constant
+  isLt,          //  True if the variable <  constant
+  isGt,          //  True if the variable >  constant
 };
 
 
@@ -42,10 +42,10 @@ enum class merylFilterRelation {
 enum class merylFilterQuantity {
   isNOP,         //  Nothing.  Generates an error.
 
-  isValue,       //  Compare kmer value against constant
-  isLabel,       //  Compare kmer label against constant
-  isBases,       //  Compare kmer bases against constant
-  isIndex,       //  Compare file indices against list
+  isValue,       //  Compare kmer value
+  isLabel,       //  Compare kmer label
+  isBases,       //  Compare kmer bases
+  isIndex,       //  Compare file index
 };
 
 
