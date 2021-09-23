@@ -16,15 +16,7 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "runtime.H"
-
-#include "kmers.H"
-#include "sequence.H"
-#include "strings.H"
-#include "bits.H"
-
-#include "merylCountArray.H"
-
+#include "meryl.H"
 
 int
 main(int argc, char **argv) {

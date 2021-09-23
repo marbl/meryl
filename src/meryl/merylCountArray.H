@@ -19,10 +19,9 @@
 #ifndef MERYLCOUNTARRAY_H
 #define MERYLCOUNTARRAY_H
 
-#include "meryl.H"
-#include "bits.H"
-#include "system.H"
-
+#ifndef MERYLINCLUDE
+#error "Do not use merylCountArray.H, use meryl.H instead."
+#endif
 
 
 class swv;   //  Defined and only used in merylCountArray.C

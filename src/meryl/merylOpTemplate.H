@@ -19,9 +19,10 @@
 #ifndef MERYLOPTEMPLATE_H
 #define MERYLOPTEMPLATE_H
 
-#include "meryl.H"
+#ifndef MERYLINCLUDE
+#error "Do not use merylOpTemplate.H, use meryl.H instead."
+#endif
 
-#include <vector>
 
 //  This class is used for setting up the processing tree, checking args,
 //  keeping track of parameters, etc.  Objects are made/modified while

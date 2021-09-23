@@ -19,7 +19,9 @@
 #ifndef MERYLMODIFY_H
 #define MERYLMODIFY_H
 
-#include "meryl.H"
+#ifndef MERYLINCLUDE
+#error "Do not use merylModify.H, use meryl.H instead."
+#endif
 
 
 //  Each filter action needs to know how to set the value/label given the

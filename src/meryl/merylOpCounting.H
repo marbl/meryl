@@ -19,15 +19,13 @@
 #ifndef MERYLOPCOUNTING_H
 #define MERYLOPCOUNTING_H
 
-#include "meryl.H"
-
-#include <vector>
+#ifndef MERYLINCLUDE
+#error "Do not use merylOpCounting.H, use meryl.H instead."
+#endif
 
 
 //  For the simple counting algorithm, how big of a word to use for initial counts.
 typedef uint16 lowBits_t;
-
-
 
 
 class merylOpCounting {

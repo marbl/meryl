@@ -19,9 +19,11 @@
 #ifndef MERYLINPUT_H
 #define MERYLINPUT_H
 
-#include "meryl.H"
-#include "kmers.H"
-#include "sequence.H"
+#ifndef MERYLINCLUDE
+#error "Do not use merylInput.H, use meryl.H instead."
+#endif
+
+
 
 #ifdef CANU                   //  If we're building under
 #include "sqStore.H"          //  Canu, include support

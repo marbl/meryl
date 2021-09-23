@@ -19,11 +19,10 @@
 #ifndef MERYLOPCOMPUTE_H
 #define MERYLOPCOMPUTE_H
 
-#include "meryl.H"
-#include "merylModify.H"
-#include "merylFilter.H"
+#ifndef MERYLINCLUDE
+#error "Do not use merylOpCompute.H, use meryl.H instead."
+#endif
 
-#include <vector>
 
 
 

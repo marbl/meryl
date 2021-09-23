@@ -20,10 +20,15 @@
 #define MERYL_H
 
 #include "runtime.H"
-#include "strings.H"
 #include "system.H"
+#include "strings.H"
+#include "bits.H"
 
+#include "kmers.H"
+#include "sequence.H"
 
+#include <stack>
+#include <vector>
 
 
 #include <stdarg.h>
@@ -39,9 +44,6 @@ addError(std::vector<char const *> &ev, char const *fmt, ...) {
 
   ev.push_back(str);
 }
-
-
-
 
 
 
@@ -102,6 +104,7 @@ toString(merylOpType t) {
   assert(0);
   return(nullptr);
 }
+
 
 
 #define MERYLINCLUDE

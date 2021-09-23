@@ -19,10 +19,10 @@
 #ifndef MERYL_COMMAND_BUILDER_H
 #define MERYL_COMMAND_BUILDER_H
 
-#include "runtime.H"
+#ifndef MERYLINCLUDE
+#error "Do not use merylCommandBuilder.H, use meryl.H instead."
+#endif
 
-#include <stack>
-#include <vector>
 
 class merylCommandBuilder {
 public:
