@@ -329,9 +329,7 @@ main(int argc, char **argv) {
   //  Process each file, in parallel.  Just keep getting the next mer and let
   //  each op do their work.
 
-#ifdef WITH_THREADS
   omp_set_num_threads(allowedThreads);
-#endif
 
   for (uint32 rr=0; rr<B->numTrees(); rr++) {
     merylOpTemplate *tpl = B->getTree(rr);
@@ -350,10 +348,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, getMaxThreadsAllowed(), getMaxThreadsAllowed() == 1 ? "" : "s");
     //B->printTree(tpl, 0, 11);
 
-#ifdef WITH_THREADS
 #pragma omp parallel for schedule(dynamic, 1)
-#endif
-
     for (uint32 ff=0; ff<64; ff++) {
       merylOpCompute *cpu = B->getTree(rr, ff);
 
