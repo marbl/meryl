@@ -24,6 +24,23 @@
 #endif
 
 
+//  This is used to hold the input file index, the value and the label from
+//  each input.  Two lists are created, one of the inputs with the smallest
+//  kmer (_act) and one for all inputs (_inp).
+//
+//  For _act, _idx is the index of the input.
+//  For _inp, _idx is 0 if this is input has the smallest kmer,
+//                    uint32max otherwise.
+//
+struct merylActList {
+  uint32  _idx;   //  Index of the input for _act; 0 if kmer is valid in _inp
+  kmvalu  _val;   //  Value of this kmer
+  kmlabl  _lab;   //  Label of this kmer
+};
+
+constexpr
+uint32
+merylActListMax = 128;
 
 
 
@@ -88,18 +105,21 @@ public:
 
   kmer                           _kmer;               //  The kmer we're computing.
 
-  uint32                         _actLen = 0;         //  Number of inputs with that kmer sequence.
-  kmer                          *_act    = nullptr;   //  Kmer sequence/value/label from inputs.
-  uint32                        *_actIdx = nullptr;   //  Index into _inputs each kmer in _act.
-  uint32                        *_actRdx = nullptr;   //  Reverse index mapping database index to _act index (or uint32max).
+  uint32                         _actLen = 0;
+
+  merylActList                   _acts[merylActListMax];
+  merylActList                   _inps[merylActListMax];
+
+  merylActList                  *_actAlloc;
+  merylActList                  *_acta  = nullptr;
+  merylActList                  *_inpa  = nullptr;
 
   //
   //  Filters.
   //
 
-  bool   isKmerFilteredOut(void);
-
-  //  std::vector< std::vector<merylFilter> >  _filter;
+  bool   shouldKmerBeOutput(uint32 ii);
+  bool   shouldKmerBeOutput(void);
 
   friend class merylCommandBuilder;
 };

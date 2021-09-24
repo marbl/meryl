@@ -40,12 +40,24 @@ merylFilter::~merylFilter()  {
 
 
 
-bool
-merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *actRdx) const {
-  bool   result = false;
+//  Returns true if the filter test is true, meaning the kmer should be
+//  output.
+//
+//  _t is the desired result for a 'true' test here; normally it is 'true',
+//  but when 'not' is encountered on the command line, it is set to 'false'.
+//
+//  This flow control doesn't seem to be a bottleneck.
+//   - Entirely hardcoding the test in nextMer() and skipping ALL of the
+//     isKmerFilteredOut() code, takes 42u.
+//   - Calling isKmerFilteredOut() (implemented as a switch in nextMer.C) and
+//    using a set of unrelated if tests here takes 46u.  Using a switch here
+//    did not change times.
+//
 
-  //  compare() will fail, on purpose, if _r is merylFilterRelation::isNOP.
-  //  For filters that never call compare() we don't care what _r is.
+bool
+merylFilter::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActList *inp) const {
+  bool   result = _t;
+
 
   if (_q == merylFilterQuantity::isNOP) {
     assert(0);
@@ -59,18 +71,16 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
     //  Get the left hand value
     if      (_vIndex1 == uint32max)            lhs = _vValue1;
     else if (_vIndex1 == 0)                    lhs = k._val;
-    else if (actRdx[_vIndex1-1] < uint32max)   lhs = act[actRdx[_vIndex1-1]]._val;
+    else if (inp[_vIndex1-1]._idx == 0)        lhs = inp[_vIndex1-1]._val;
     else                                       return(false);
 
     //  Get the right hand value
     if      (_vIndex2 == uint32max)            rhs = _vValue2;
     else if (_vIndex2 == 0)                    rhs = k._val;
-    else if (actRdx[_vIndex2-1] < uint32max)   rhs = act[actRdx[_vIndex2-1]]._val;
+    else if (inp[_vIndex2-1]._idx == 0)        rhs = inp[_vIndex2-1]._val;
     else                                       return(false);
 
     result = compare(lhs, rhs);
-
-    //fprintf(stderr, "isTrue() isValue = %s\n", result ? "true" : "false");
   }
 
 
@@ -81,18 +91,16 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
     //  Get the left hand value
     if      (_vIndex1 == uint32max)            lhs = _vLabel1;
     else if (_vIndex1 == 0)                    lhs = k._lab;
-    else if (actRdx[_vIndex1-1] < uint32max)   lhs = act[actRdx[_vIndex1-1]]._lab;
+    else if (inp[_vIndex1-1]._idx == 0)        lhs = inp[_vIndex1-1]._lab;
     else                                       return(false);
 
     //  Get the right hand value
     if      (_vIndex2 == uint32max)            rhs = _vLabel2;
     else if (_vIndex2 == 0)                    rhs = k._lab;
-    else if (actRdx[_vIndex2-1] < uint32max)   rhs = act[actRdx[_vIndex2-1]]._lab;
+    else if (inp[_vIndex2-1]._idx == 0)        lhs = inp[_vIndex2-1]._lab;
     else                                       return(false);
 
     result = compare(lhs, rhs);
-
-    //fprintf(stderr, "isTrue() isLabel = %s\n", result ? "true" : "false");
   }
 
 
@@ -113,31 +121,20 @@ merylFilter::isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *ac
 
     else                                            //  Nonsense, comparing self  ! see comment
       result = compare(c, c);                       //  to self!                  ! above
-
-    //fprintf(stderr, "isTrue() isBases = %s\n", result ? "true" : "false");
   }
 
 
-  //  The index filter checks two things:
-  //    does the kmer appear in the correct number of inputs
-  //    does the kmer appear in ALL specified inputs
-  //
-  //  The first is a simple array lookup.
-  //
-  //  The second needs to iterate over _presentInIdx and check that the kmer
-  //  is present in each of those inputs.  actRdx[] maps an input index to
-  //  an act[] index, or uint32max if that input didn't supply a kmer.
+  if (_q == merylFilterQuantity::isIndex) {        //  The index filter checks two things:
+    result = _presentInNum[actLen];                //    does the kmer appear in the correct
+                                                   //    number of inputs (an array lookup).
+    for (uint32 pp=0; pp<_presentInLen; pp++) {    //
+      uint32  ai = inp[ _presentInList[pp] ]._idx; //    does the kmer appear in ALL specified
+                                                   //    inputs (a loop).  presentInList is
+      if (ai == uint32max)                         //    the list of inputs that must supply a
+        result = false;                            //    kmer, actRdx maps an input to the act[]
+    }                                              //    index it is associated with, or uint32max
+  }                                                //    if the input didn't supply a kmer.
 
-  if (_q == merylFilterQuantity::isIndex) {
-    result = _presentInNum[actLen];
-
-    for (uint32 pp=0; pp<_presentInLen; pp++) {
-      uint32  ai = actRdx[ _presentInList[pp] ];
-
-      if (ai == uint32max)
-        result = false;
-    }
-  }
 
   //  If the result is the desired result, return 'true'.
 

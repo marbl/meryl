@@ -49,6 +49,9 @@ enum class merylFilterQuantity {
 };
 
 
+//  Defined in merylOpCompute.H.
+struct merylActList;
+
 
 //  A single filter; a term in the product expression.
 //
@@ -127,7 +130,7 @@ private:
   //  this filter object and the other kmer instances in the 'act' list.
 public:
   bool
-  isTrue(kmer k, uint32 actLen, kmer *act, uint32 *actIdx, uint32 *actRdx) const;
+  isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActList *inp) const;
 
 
   //  finalizeFilterInputs() is used to let the filter decide if its
