@@ -272,12 +272,13 @@ main(int argc, char **argv) {
     exit(1);
   }
 
+  if (verbosity.showStandard() == true) {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Found %u command tree%s.\n", B->numTrees(), (B->numTrees() == 1) ? "" : "s");
 
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Found %u command tree%s.\n", B->numTrees(), (B->numTrees() == 1) ? "" : "s");
-
-  for (uint32 ii=0; ii<B->numTrees(); ii++) {
-    B->printTree(B->getTree(ii), 0, 0);
+    for (uint32 ii=0; ii<B->numTrees(); ii++) {
+      B->printTree(B->getTree(ii), 0, 0);
+    }
   }
 
   //  opHistogram is limited to showing only histograms already stored in a database.
@@ -344,8 +345,10 @@ main(int argc, char **argv) {
     //  continue;                                 //  operation, but it's all done now.
     //}
 
-    fprintf(stderr, "\n");
-    fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, getMaxThreadsAllowed(), getMaxThreadsAllowed() == 1 ? "" : "s");
+    if (verbosity.showStandard() == true) {
+      fprintf(stderr, "\n");
+      fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, getMaxThreadsAllowed(), getMaxThreadsAllowed() == 1 ? "" : "s");
+    }
     //B->printTree(tpl, 0, 11);
 
 #pragma omp parallel for schedule(dynamic, 1)
@@ -371,13 +374,16 @@ main(int argc, char **argv) {
 
   //  Now that everything is done, delete!
 
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Cleaning up.\n");
+  if (verbosity.showStandard() == true) {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Cleaning up.\n");
+  }
 
   delete B;
 
-  fprintf(stderr, "\n");
-  fprintf(stderr, "Bye.\n");
-
+  if (verbosity.showStandard() == true) {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Bye.\n");
+  }
   return(0);
 }
