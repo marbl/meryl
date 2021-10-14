@@ -92,57 +92,23 @@ lessThan(swv const &a, swv const &b) {
 
 
 
-merylCountArray::merylCountArray(void) {
-  _sWidth       = 0;
-  _vWidth       = 0;
-
-  _prefix       = 0;
-  _suffix       = nullptr;
-  _counts       = nullptr;
-
-  _nKmers       = 0;
-
-  _bitsPerPage  = 0;
-  _nReAlloc     = 0;
-
-  _segSize      = 0;
-  _segAlloc     = 0;
-  _segments     = nullptr;
-
-  _vals         = nullptr;
-  _labs         = nullptr;
-
-  _nBits        = 0;
-  _nBitsTrigger = 0;
-  _nBitsOldSize = 0;
-
-  _multiSet     = false;
-}
-
-
-
+//  Initialize a count array by setting
+//   - size of the suffix to store (value and label are set in initializeValues())
+//   - the kmer prefix we're counting for
+//   - how big each chunk of data should be
+//   - how much storage we're currently using.
+//
+//  The size of the data chunk is arbitrary, is in bits, and reserves
+//  8 words for malloc() information.
 uint64
 merylCountArray::initialize(uint64 prefix, uint32 width) {
   _sWidth       = width;
 
   _prefix       = prefix;
-  _suffix       = nullptr;
-  _counts       = nullptr;
-
-  _nKmers       = 0;
 
   _bitsPerPage  = getPageSize() * 8;
-  _nReAlloc     = 0;
-
-  //  Set the segment size, in bits, to be a multiple of the page size.
-  //  Reserve some space for OS allocator stuff (needs to be divisible by
-  //  64).
   _segSize      = pagesPerSegment() * _bitsPerPage - 8 * 64;
-  _segAlloc     = 0;
-  _segments     = nullptr;
 
-  _nBits        = 0;
-  _nBitsTrigger = 0;
   _nBitsOldSize = usedSize();
 
   return(_nBitsOldSize);

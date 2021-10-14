@@ -48,7 +48,8 @@ class swv;   //  Defined and only used in merylCountArray.C
 
 class merylCountArray {
 public:
-  merylCountArray();
+  merylCountArray() {
+  };
   ~merylCountArray();
 
   uint64    initialize(uint64 prefix, uint32 width);
@@ -168,33 +169,33 @@ public:
 
 
 private:
-  uint32           _sWidth;       //  Size of the suffix we're storing
-  uint32           _vWidth;       //  Size of the values we're storing
-  uint32           _lWidth;       //  Size of the labels we're storing
+  uint32           _sWidth = 0;         //  Size of the suffix we're storing
+  uint32           _vWidth = 0;         //  Size of the values we're storing
+  uint32           _lWidth = 0;         //  Size of the labels we're storing
 
-  uint64           _prefix;       //  The kmer prefix we're storing data for
-  kmdata          *_suffix;       //  After sorting, the suffix of each kmer
-  kmvalu          *_counts;       //  After sorting, the number of times we've seen this kmer
-  kmlabl          *_labels;       //  After sorting, the label associated with this kmer
+  uint64           _prefix = 0;         //  The kmer prefix we're storing data for
+  kmdata          *_suffix = nullptr;   //  After sorting, the suffix of each kmer
+  kmvalu          *_counts = nullptr;   //  After sorting, the number of times we've seen this kmer
+  kmlabl          *_labels = nullptr;   //  After sorting, the label associated with this kmer
 
-  uint64           _nKmers;       //  Number of kmers.
+  uint64           _nKmers = 0;         //  Number of kmers.
 
-  uint64           _bitsPerPage;
-  uint64           _nReAlloc;
+  uint64           _bitsPerPage = 0;
+  uint64           _nReAlloc    = 0;
 
 private:
-  uint32           _segSize;      //  Number of bits in each segment.
-  uint32           _segAlloc;     //  Number of segments we're allowed to allocate  (size of the array below).
-  uint64         **_segments;     //  An array of blocks of data.
+  uint32           _segSize  = 0;       //  Number of bits in each segment.
+  uint32           _segAlloc = 0;       //  Number of segments we're allowed to allocate  (size of the array below).
+  uint64         **_segments = nullptr; //  An array of blocks of data.
 
-  stuffedBits     *_vals;         //  An array of values.
-  stuffedBits     *_labs;         //  An array of labels.
+  stuffedBits     *_vals = nullptr;     //  An array of values.
+  stuffedBits     *_labs = nullptr;     //  An array of labels.
 
-  uint64           _nBits;        //  Number of bits stored.
-  uint64           _nBitsTrigger; //  Number of bits we need to store for a size recalculation to occur.
-  uint64           _nBitsOldSize; //  Last computed size.
+  uint64           _nBits        = 0;   //  Number of bits stored.
+  uint64           _nBitsTrigger = 0;   //  Number of bits we need to store for a size recalculation to occur.
+  uint64           _nBitsOldSize = 0;   //  Last computed size.
 
-  bool             _multiSet;     //  Treat the input kmers as a multiset.
+  bool             _multiSet = false;   //  Treat the input kmers as a multiset.
 };
 
 
