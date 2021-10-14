@@ -285,6 +285,8 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
   if (_writer == nullptr)
     return;
 
+  _counting->_lConstant = _labelConstant;
+
   //  Call the counting method.
   _counting->doCounting(_inputs, allowedMemory, allowedThreads, _writer);
 
