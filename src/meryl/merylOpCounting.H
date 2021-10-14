@@ -112,7 +112,7 @@ public:
   //uint64    _sMask      = 0;   //  
   //uint64    _cSuffix    = 0;   //  
 
-  kmlabl    _lConstant  = 0;   //  All kmers are set to this label
+  kmlabl    _lConstant    = 0;   //  All kmers are set to this label
 };
 
 
