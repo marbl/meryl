@@ -36,7 +36,7 @@ loadLookup(char const         *inputDBname,
 
   merylFileReader   *merylDB = new merylFileReader(inputDBname);
 
-  lookup.load(merylDB, 16.0, true, false, minV, maxV);
+  lookup.load(merylDB, 16.0, 0, minV, maxV);
 
   fprintf(stderr, "\n");
 
@@ -98,25 +98,14 @@ main(int argc, char **argv) {
   std::vector<char const *>  err;
   int                        arg = 1;
   while (arg < argc) {
-    if        (strcmp(argv[arg], "-sequence") == 0) {   //  INPUT READS and RANGE TO PROCESS
+    if      (strcmp(argv[arg], "-sequence") == 0)
       inputSeqName = argv[++arg];
-    }
 
-    else if (strcmp(argv[arg], "-mers") == 0) {
+    else if (strcmp(argv[arg], "-mers") == 0)
       inputDBname = argv[++arg];
-    }
 
-    else if (strcmp(argv[arg], "-no-count") == 0) {
+    else if (strcmp(argv[arg], "-no-count") == 0)
       skipCountCheck = true;
-    }
-    //} else if (strcmp(argv[arg], "-min") == 0) {
-    //  minV = strtouint64(argv[++arg]);
-
-    //} else if (strcmp(argv[arg], "-max") == 0) {
-    //  maxV = strtouint64(argv[++arg]);
-
-    //} else if (strcmp(argv[arg], "-threads") == 0) {
-    //  threads = strtouint32(argv[++arg]);
 
     else {
       char *s = new char [1024];
@@ -147,12 +136,9 @@ main(int argc, char **argv) {
     exit(1);
   }
 
-
-
   merylExactLookup        kmerLookup;
   std::map<kmer,kmvalu>   kmerValue;
   std::map<kmer,kmvalu>   kmerCheck;
-
 
   loadLookup(inputDBname, minV, maxV, kmerLookup);
   loadMap   (inputDBname, minV, maxV, kmerValue);
@@ -254,8 +240,11 @@ main(int argc, char **argv) {
       //  Log.
 
       if (fail)
+        kmerLookup.exists_test(cMer);
+
+      if (fail)
         nFail++;
-#if 0
+#if 1
       else
         fprintf(stdout, "%s\t%s\t%s PASSES\n",
                 seq.ident(),

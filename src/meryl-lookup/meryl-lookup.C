@@ -49,55 +49,43 @@ lookupGlobal::loadLookupTables(void) {
 
   //  Estimate memory needed for each lookup table.
 
-  double   minMemTotal = 0.0;
-  double   optMemTotal = 0.0;
+  double   reqMemory    = 0.0;
+  bool     reportMemory = true;
+  bool     reportSizes  = true;
 
   for (uint32 ii=0; ii<lookupDBname.size(); ii++) {
-    fprintf(stderr, "--\n");
-    fprintf(stderr, "-- Estimating memory usage for '%s'.\n", lookupDBname[ii]);
-    fprintf(stderr, "--\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Estimating memory usage for '%s'.\n", lookupDBname[ii]);
 
-    double  minm, optm;
-    lookupDBs[ii]->estimateMemoryUsage(merylDBs[ii], maxMemory, minm, optm, minV, maxV);
-
-    minMemTotal += minm;
-    optMemTotal += optm;
+    reqMemory += lookupDBs[ii]->estimateMemoryUsage(merylDBs[ii], maxMemory, 0, minV, maxV);
   }
 
-  //  Use either the smallest or 'fastest' table, or fail, depending on how
-  //  much memory the use lets us use.
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Memory required:  %.3f GB\n", reqMemory);
+  fprintf(stderr, "Memory limit:     %.3f GB\n", maxMemory);
 
-  bool  useOpt = (optMemTotal <= maxMemory);
-  bool  useMin = (minMemTotal <= maxMemory) && (useOpt == false);
-
-  fprintf(stderr, "--\n");
-  fprintf(stderr, "-- Minimal memory needed: %.3f GB%s\n", minMemTotal, (useMin) ? "  enabled" : "");
-  fprintf(stderr, "-- Optimal memory needed: %.3f GB%s\n", optMemTotal, (useOpt) ? "  enabled" : "");
-  fprintf(stderr, "-- Memory limit           %.3f GB\n",   maxMemory);
-  fprintf(stderr, "--\n");
-
-  if ((useMin == false) &&
-      (useOpt == false)) {
+  if (reqMemory > maxMemory) {
     fprintf(stderr, "\n");
     fprintf(stderr, "Not enough memory to load databases.  Increase -memory.\n");
-    fprintf(stderr, "\n");
     exit(1);
   }
 
   if (doEstimate == true) {
-    fprintf(stderr, "-- Stopping after memory estimated reported; -estimate option enabled.\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Stopping after memory estimated reported; -estimate option enabled.\n");
     exit(0);
   }
 
   //  Now load the data and forget about the input databases.
 
   for (uint32 ii=0; ii<lookupDBname.size(); ii++) {
-    fprintf(stderr, "--\n");
-    fprintf(stderr, "-- Loading kmers from '%s' into lookup table.\n", lookupDBname[ii]);
-    fprintf(stderr, "--\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Loading kmers from '%s' into lookup table.\n", lookupDBname[ii]);
 
-    if (lookupDBs[ii]->load(merylDBs[ii], maxMemory, useMin, useOpt, minV, maxV) == false)
+    if (lookupDBs[ii]->load(merylDBs[ii], maxMemory, 0, minV, maxV) < 0) {
+      fprintf(stderr, "Failed to load database #%u\n", ii);
       exit(1);
+    }
 
     delete merylDBs[ii];
   }
@@ -109,13 +97,16 @@ lookupGlobal::loadLookupTables(void) {
 void
 lookupGlobal::openInputs(void) {
 
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Opening inputs:\n");
+
   if (seqName1) {
-    fprintf(stderr, "-- Opening input sequences '%s'.\n", seqName1);
+    fprintf(stderr, "  '%s'\n", seqName1);
     seqFile1 = new dnaSeqFile(seqName1);
   }
 
   if (seqName2) {
-    fprintf(stderr, "-- Opening input sequences '%s'.\n", seqName2);
+    fprintf(stderr, "  '%s'\n", seqName2);
     seqFile2 = new dnaSeqFile(seqName2);
   }
 }
@@ -126,13 +117,16 @@ lookupGlobal::openInputs(void) {
 void
 lookupGlobal::openOutputs(void) {
 
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Opening outputs:\n");
+
   if (outName1) {
-    fprintf(stderr, "-- Opening output file '%s'.\n", outName1);
+    fprintf(stderr, "  '%s'\n", outName1);
     outFile1 = new compressedFileWriter(outName1);
   }
 
   if (outName2) {
-    fprintf(stderr, "-- Opening output file '%s'.\n", outName1);
+    fprintf(stderr, "  '%s'\n", outName1);
     outFile2 = new compressedFileWriter(outName2);
   }
 }
@@ -257,12 +251,16 @@ main(int argc, char **argv) {
 
   setNumThreads(lThreads);   //  Enable threads for loading data.
 
+  double time0 = getTime();
+
   G->initialize();
   G->loadLookupTables();
   G->openInputs();
   G->openOutputs();
 
   setNumThreads(nThreads);   //  Enable threads for computing results.
+
+  double time1 = getTime();
 
   switch (G->reportType) {
     case lookupOp::opNone:                                break;
@@ -275,8 +273,13 @@ main(int argc, char **argv) {
     case lookupOp::opExclude:       filter(G);            break;
   }
 
+  double time2 = getTime();
+
   delete G;
-  fprintf(stderr, "Bye!\n");
+
+  fprintf(stderr, "\n");
+  fprintf(stderr, "Bye!  (%.0f seconds to initialize and %0.f seconds to compute)\n",
+          time1-time0, time2-time1);
 
   return(0);
 }
