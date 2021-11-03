@@ -49,6 +49,16 @@ lookupGlobal::loadLookupTables(void) {
 
   //  Estimate memory needed for each lookup table.
 
+  //  Since estimateMemoryUsage() is now including space for temporary
+  //  buffers that are used only when loading, this estimate is significantly
+  //  too large for small datasets.  If table1 and table2 need only 5 GB
+  //  memory (each), the estimate for each will also include several GB for
+  //  buffers (based on the number of threads); 16 threads = 8 GB buffers.
+  //  So while the data needs 10 GB memory, meryl claims it needs 2x 13 GB =
+  //  26 GB memory.  Since the tables are loaded sequentially, it really only
+  //  needs 13 - 8 + 13 - 8 = 18 GB peak, 10 GB final.
+#warning estimate is too high
+
   double   reqMemory    = 0.0;
   bool     reportMemory = true;
   bool     reportSizes  = true;
