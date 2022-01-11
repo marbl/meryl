@@ -343,15 +343,20 @@ merylOperation::configureCounting(uint64   memoryAllowed,      //  Input:  Maxim
   //
   //  Set up to use the complex algorithm.
   //
+  //  If small kmer size, skip this.  For reasons I didn't explore, sizes 5
+  //  and below result in an infinite loop.
+  //
 
   uint64   memoryUsedComplex = UINT64_MAX;
   uint32   bestPrefix        = 0;
-  uint32   nBatches          = 0;
+  uint32   nBatches          = 1;    //  One batch in SIMPLE mode.
 
-  for (nBatches=1; memoryUsedComplex > memoryAllowed; nBatches++)
-    findBestPrefixSize(_expNumKmers / nBatches, memoryAllowed, bestPrefix, memoryUsedComplex);
+  if (kmerTiny::merSize() > 5) {
+    for (nBatches=1; memoryUsedComplex > memoryAllowed; nBatches++)
+      findBestPrefixSize(_expNumKmers / nBatches, memoryAllowed, bestPrefix, memoryUsedComplex);
 
-  findBestValues(_expNumKmers / nBatches, bestPrefix, memoryUsedComplex, wPrefix_, nPrefix_, wData_, wDataMask_);
+    findBestValues(_expNumKmers / nBatches, bestPrefix, memoryUsedComplex, wPrefix_, nPrefix_, wData_, wDataMask_);
+  }
 
   //
   //  Decide simple or complex.  useSimple_ is an output.
