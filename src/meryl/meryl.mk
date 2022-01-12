@@ -13,7 +13,7 @@ SOURCES  := meryl.C \
 SRC_INCDIRS := .
 
 #  If we're part of Canu, build with canu support and use Canu's copy of
-#  meryl-utility.  Otherwise, don't.
+#  meryl-utility.  Otherwise, don't.  (seqrequester does this too)
 ifneq ($(wildcard stores/sqStore.H), )
   SRC_CXXFLAGS := -DCANU
   SRC_INCDIRS  := ../../../utility/src/utility ../../../stores
