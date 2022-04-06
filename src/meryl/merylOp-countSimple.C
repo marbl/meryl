@@ -33,7 +33,10 @@ merylOperation::countSimple(void) {
   //  If we're only configuring, stop now.
 
   if (_onlyConfig)
+  {
+    delete[] buffer;
     return;
+  }
 
   uint32          lowBitsSize     = sizeof(lowBits_t) * 8;
   uint32          lowBitsMax      = ((uint32)1 << lowBitsSize) - 1;   //  Largest value that can be stored in lowBits.
