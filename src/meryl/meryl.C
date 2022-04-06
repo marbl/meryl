@@ -103,7 +103,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "\n");
     fprintf(stderr, "  COMMANDS:\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    statistics           display total, unique, distnict, present number of the kmers on the screen.  accepts exactly one input.\n");
+    fprintf(stderr, "    statistics           display total, unique, distinct, present number of the kmers on the screen.  accepts exactly one input.\n");
     fprintf(stderr, "    histogram            display kmer frequency on the screen as 'frequency<tab>count'.  accepts exactly one input.\n");
     fprintf(stderr, "    print                display kmers on the screen as 'kmer<tab>count'.  accepts exactly one input.\n");
     fprintf(stderr, "\n");
@@ -138,7 +138,7 @@ main(int argc, char **argv) {
     fprintf(stderr, "    intersect-max        return kmers that occur in all inputs, set the count to the maximum count.\n");
     fprintf(stderr, "    intersect-sum        return kmers that occur in all inputs, set the count to the sum of the counts.\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    subtract             return kmers that occur in the first input, subtracting counts from the other inputs\n");
+    fprintf(stderr, "    subtract             return kmers that occur in the first input, substracting counts from the other inputs\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    difference           return kmers that occur in the first input, but none of the other inputs\n");
     fprintf(stderr, "    symmetric-difference return kmers that occur in exactly one input\n");
