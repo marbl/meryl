@@ -63,7 +63,8 @@ SUBMAKEFILES := meryl/meryl.mk \
                 meryl-analyze/meryl-analyze.mk \
                 meryl-simple/meryl-simple.mk \
                 meryl-import/meryl-import.mk \
-                meryl-lookup/meryl-lookup.mk
+                meryl-lookup/meryl-lookup.mk \
+                meryl-lookup/position-lookup.mk
 
 ifeq ($(BUILDTESTS), 1)
 SUBMAKEFILES += tests/merylCountArrayTest.mk \
