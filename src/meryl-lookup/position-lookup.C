@@ -30,9 +30,9 @@ public:
   }
 
   uint32  refID  = 0;   //  refID is relative to the reference file.
-  uint32  refPos = 0;   //
+  uint32  refPos = 0;   //  refPos is the index of the kmer in the lookup table.
   uint32  qryID  = 0;   //  qryID is relative to the batch.
-  uint32  qryPos = 0;   //
+  uint32  qryPos = 0;   //  qryPos is the position of the kmer in the query sequence.
 };
 
 
@@ -40,6 +40,8 @@ class seqBatch {
 public:
   seqBatch();
   ~seqBatch();
+
+  uint64                 batchid = 0;
 
   std::vector<dnaSeq *>  sequences;
   std::vector<hit_s>     hits;
@@ -90,6 +92,8 @@ private:
   uint32                     inputNamesPos = 0;
 
   dnaSeqFile                *inputFile  = nullptr;
+
+  uint64                     batchid = 0;
 
   merylExactLookup          *refLookup  = nullptr;
   uint32                    *nQmerPer   = nullptr;   //  Number of query kmers with a hit here
@@ -158,8 +162,10 @@ posLookGlobal::loadBatch(uint64 nSeqs, uint64 nBases) {
     seq = new dnaSeq;
 
     if (inputFile->loadSequence(*seq) == true) {   //  If we load an input sequence
-      if (s == nullptr)                            //  add it to the seqBatch,
+      if (s == nullptr) {                          //  add it to the seqBatch,
         s = new seqBatch();                        //  creating a seqBatch if necessary.
+        s->batchid = batchid++;
+      }
 
       nS += 1;
       nB += seq->length();
@@ -172,7 +178,8 @@ posLookGlobal::loadBatch(uint64 nSeqs, uint64 nBases) {
     }
   }
 
-  //fprintf(stderr, "Loaded batch with %lu sequences and %lu bases.\n", nS, nB);
+  if (s)
+    fprintf(stderr, "Loaded batch %4lu with %5lu sequences and %8lu bases.\n", s->batchid, nS, nB);
   return(s);
 }
 
@@ -222,8 +229,10 @@ posLookGlobal::writeBatch(seqBatch *s) {
   bool   doFullWrite = false;
   uint32 hh=0;
 
-  if (s->hits.size() == 0)
-    return;
+  //if (s->hits.size() == 0)
+  //  return;
+
+  fprintf(stderr, "Write  batch %4lu with ----- sequences and -------- bases -- %9lu hits\n", s->batchid, s->hits.size());
 
   //  Scan the list of hits, count the number of hits to each contig.
 
@@ -248,7 +257,7 @@ posLookGlobal::writeBatch(seqBatch *s) {
     }
 
     for (uint32 ii=0; ii<s->sequences.size(); ii++)
-        fprintf(hitsPerQuery->file(), "%u\t%u\t%lu\t%s\n", nPer[ii], tCov[ii], s->sequences[ii]->length(), s->sequences[ii]->ident());
+      fprintf(hitsPerQuery->file(), "%u\t%u\t%lu\t%s\n", nPer[ii], tCov[ii], s->sequences[ii]->length(), s->sequences[ii]->ident());
 
     delete [] nPer;
     delete [] tCov;
@@ -279,53 +288,40 @@ posLookGlobal::writeBatch(seqBatch *s) {
 
   //  Scan the list of hits, count the number of distinct contigs that hit
   //  each reference position.
-  //
-  //  This is hard.  Each hit is a single kmer-to-multiple-reference-positions map.
-  //  To count one-contig per hit, we need to uniq the list of hits for the contig.
 
   if (paintQueryPerBase) {
-    uint64  lp = uint64max;
-    uint32  b  = 0;
-    uint32  e  = 1;
+    uint64  lq = uint64max;
 
-    while (b < s->hits.size()) {
-      //  Search ahead for the end of this query.
-      //    e will be the start of the next query.
-      while ((e < s->hits.size()) && (s->hits[b].qryID == s->hits[e].qryID))
-        e++;
+    //  Sort by refPos, then by qryID.
 
-      //  Sort hits for this query by the refPos.
-      std::sort(s->hits.begin()+b, s->hits.begin()+e-1, [](hit_s &a,
-                                                           hit_s &b)   { return(a.refPos < b.refPos);  });
+    std::sort(s->hits.begin(), s->hits.end(), [](hit_s &a,
+                                                 hit_s &b)   { return(((a.refPos  < b.refPos)) ||
+                                                                      ((a.refPos == b.refPos) &&
+                                                                       (a.qryID   < b.qryID))); });
 
-      //  Add one to each ref position as long as the qryID of the hit is
-      //  different than the last one.
+    //  Scan the hits, incrementing the count of contigs-per-base, skipping
+    //  multiple hits from the same contig to the same refPos.
 
-      for (uint32 pp=b; pp<e; pp++) {
-        if (lp != s->hits[pp].refPos) {
-          uint32  qryid = s->hits[hh].qryID;
-          uint64  idx   = s->hits[hh].refPos;
-          uint64  base  = refLookup->_posStart->get(idx);
-          uint32  nmax  = refLookup->valueAtIndex(idx);
+    for (uint32 pp=0; pp<s->hits.size(); pp++) {
+      if ((pp != 0) && (s->hits[pp-1].refPos == s->hits[pp].refPos) && (s->hits[pp-1].qryID == s->hits[pp].qryID))
+        continue;
 
-          //  Over all the nmax positions in the reference, add one
-          //  for the hit to this kmer in this contig.
+      //fprintf(stderr, "");
 
-          for (uint32 nn=0; nn<nmax; nn++) {
-            uint64 rpp    = refLookup->_posData->get(base + nn);
-            uint64 refID  = refLookup->decodeID(rpp);
-            uint64 refPos = refLookup->decodePos(rpp);
+      //  Over all the nmax positions in the reference, add one
+      //  for the hit to this kmer in this contig.
 
-            nQseqPer[refPos]++;
-          }
-        }
+      uint64  idx   = s->hits[pp].refPos;
+      uint64  base  = refLookup->_posStart->get(idx);
+      uint32  nmax  = refLookup->valueAtIndex(idx);
 
-        lp = s->hits[pp].refPos;
+      for (uint32 nn=0; nn<nmax; nn++) {
+        uint64 rpp    = refLookup->_posData->get(base + nn);
+        uint64 refID  = refLookup->decodeID(rpp);
+        uint64 refPos = refLookup->decodePos(rpp);
+
+        nQseqPer[refPos]++;
       }
-
-      //  Move to the next query
-      b = e;
-      e = b+1;
     }
   }
 
@@ -428,12 +424,13 @@ main(int argc, char **argv) {
 
   sweatShop      *ss = new sweatShop(loadSeqs, lookupSeqs, writeSeqs);
 
-  ss->setLoaderQueueSize(265);
+  ss->setLoaderQueueSize(16);
   ss->setNumberOfWorkers(14);
-  ss->setWriterQueueSize(265);
+  ss->setWriterQueueSize(128);
   ss->setInOrderOutput(true);
 
-  ss->run(g, true);
+  //ss->run(g, true);
+  ss->run(g, false);
 
   delete ss;
 
