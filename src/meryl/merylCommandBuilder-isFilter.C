@@ -385,10 +385,10 @@ merylCommandBuilder::isInputFilter(void) {
     if (_optString[ii] == ',')
       _optString[ii] = ':';
 
-  splitToWords  W(_optString, splitLetter, ':');
+  splitToWords  W(_optString, ':');
 
   for (uint32 ww=1; ww<W.numWords(); ww++) {     //  Skip the first word; it is 'input'.
-    splitToWords  P(W[ww], splitLetter, '-');
+    splitToWords  P(W[ww], '-');
 
     //  Kmer must be present in all input databases.
     if      (strcmp(W[ww], "all") == 0) {
