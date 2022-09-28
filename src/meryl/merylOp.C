@@ -60,7 +60,7 @@ openPerThreadOutput(FILE *prFile, char *prName, uint32 fileNum) {
   else
     snprintf(N, FILENAME_MAX, "%s%0*d%s", pre, len, fileNum, suf);
 
-  return(AS_UTL_openOutputFile(N));
+  return(merylutil::openOutputFile(N));
 }
 
 
@@ -110,7 +110,7 @@ merylOperation::~merylOperation() {
   assert(_writer == NULL);
 
   if (_printer != stdout)
-    AS_UTL_closeFile(_printer);
+    merylutil::closeFile(_printer);
 
   delete [] _printerName;
 

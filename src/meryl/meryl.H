@@ -19,8 +19,6 @@
 #ifndef MERYL_H
 #define MERYL_H
 
-#include "runtime.H"
-
 #include "merylInput.H"
 #include "merylOp.H"
 #include "merylCountArray.H"

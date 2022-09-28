@@ -18,11 +18,7 @@
 
 #include "meryl.H"
 
-#include "runtime.H"
-#include "strings.H"
-#include "system.H"
-
-
+using namespace merylutil;
 
 int
 main(int argc, char **argv) {

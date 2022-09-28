@@ -19,7 +19,7 @@
 #ifndef MERYLOP_H
 #define MERYLOP_H
 
-#include "meryl.H"
+#include "types.H"
 
 //  These would (maybe) be handy, but they change the order of kmers, so we need
 //  to sort again.

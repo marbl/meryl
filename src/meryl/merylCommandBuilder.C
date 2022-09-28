@@ -17,11 +17,9 @@
  */
 
 #include "meryl.H"
-
-#include "runtime.H"
 #include "strings.H"
-#include "system.H"
 
+using namespace merylutil;
 
 
 //  In meryOp-count.C

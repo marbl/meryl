@@ -16,10 +16,12 @@
  *  contains full conditions and disclaimers.
  */
 
+#include <algorithm>
+
 #include "meryl-lookup.H"
+#include "system.H"
 
-#include "sweatShop.H"
-
+using namespace merylutil;
 
 class hit_s {
 public:

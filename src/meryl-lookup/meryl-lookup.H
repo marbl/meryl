@@ -16,11 +16,10 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "runtime.H"
-
-#include "sequence.H"
 #include "kmers.H"
+#include "sequence.H"
 
+using namespace merylutil;
 
 enum class lookupOp {
   opNone,

@@ -415,7 +415,7 @@ merylOperation::guesstimateNumberOfkmersInInput_dnaSeqFile(dnaSeqFile *sequence)
   if ((name[0] == '-') && (len == 1))
     return(0);
 
-  uint64  size = AS_UTL_sizeOfFile(name);
+  uint64  size = merylutil::sizeOfFile(name);
 
   if      ((len > 3) && (name[len-3] == '.') && (name[len-2] == 'g') && (name[len-1] == 'z'))
     numMers += size * 3;

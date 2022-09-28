@@ -16,13 +16,12 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "runtime.H"
-#include "sequence.H"
+#include <algorithm>
+
 #include "kmers.H"
-//#include "strings.H"
-//#include "system.H"
+#include "sequence.H"
 
-
+using namespace merylutil;
 
 int
 main(int argc, char **argv) {
@@ -166,8 +165,8 @@ main(int argc, char **argv) {
   for (uint32 ii=0; ii<histMax; ii++)
     hist[ii] = 0;
 
-  //LE *M = AS_UTL_openOutputFile(mOutput);
-  FILE *D = AS_UTL_openOutputFile(dOutput);
+  //LE *M = merylutil::openOutputFile(mOutput);
+  FILE *D = merylutil::openOutputFile(dOutput);
 
   fprintf(stderr, "-- Output.\n");
 
@@ -194,17 +193,17 @@ main(int argc, char **argv) {
     jj = jj + 1;
   }
 
-  AS_UTL_closeFile(D);
+  merylutil::closeFile(D);
 
 
   if (hOutput) {
-    FILE *H = AS_UTL_openOutputFile(hOutput);
+    FILE *H = merylutil::openOutputFile(hOutput);
 
     for (uint32 ii=0; ii<=histLen; ii++)
       if (hist[ii] > 0)
         fprintf(H, "%u\t%u\n", ii, hist[ii]);
 
-    AS_UTL_closeFile(H);
+    merylutil::closeFile(H);
   }
 
   //  Cleanup.

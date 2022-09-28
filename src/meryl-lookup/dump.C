@@ -17,7 +17,8 @@
  */
 
 #include "meryl-lookup.H"
-#include "sweatShop.H"
+
+#include "system.H"
 
 
 class dumpInput {

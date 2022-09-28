@@ -16,13 +16,13 @@
  *  contains full conditions and disclaimers.
  */
 
+#include <atomic>
+
 #include "meryl.H"
 #include "strings.H"
 #include "system.H"
-#include "sweatShop.H"
 
-#include <atomic>
-
+using namespace merylutil;
 
 class mcGlobalData {
 public:
