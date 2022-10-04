@@ -16,13 +16,11 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "runtime.H"
-
 #include "kmers.H"
 #include "sequence.H"
 #include "bits.H"
 
-
+using namespace merylutil;
 
 void
 loadLookup(char const         *inputDBname,
