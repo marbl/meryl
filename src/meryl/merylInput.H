@@ -23,6 +23,7 @@
 #include "kmers.H"
 
 using namespace merylutil;
+using namespace merylutil::kmers::v1;
 
 #ifdef CANU                   //  If we're building under
 #include "sqStore.H"          //  Canu, include support

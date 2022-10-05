@@ -20,9 +20,6 @@
 #define MERYLCOUNTARRAY_H
 
 #include "meryl.H"
-//#include "types.H"
-//#include "bits.H"
-//#include "system.H"
 
 class swv;   //  Defined and only used in merylCountArray.C
 

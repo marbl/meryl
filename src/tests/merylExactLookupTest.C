@@ -21,6 +21,7 @@
 #include "bits.H"
 
 using namespace merylutil;
+using namespace merylutil::kmers::v1;
 
 void
 loadLookup(char const         *inputDBname,

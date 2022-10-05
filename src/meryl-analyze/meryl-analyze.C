@@ -21,6 +21,7 @@
 #include "bits.H"
 
 using namespace merylutil;
+using namespace merylutil::kmers::v1;
 
 #define OP_NONE   0
 #define OP_GA     1

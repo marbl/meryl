@@ -22,6 +22,7 @@
 #include "sequence.H"
 
 using namespace merylutil;
+using namespace merylutil::kmers::v1;
 
 int
 main(int argc, char **argv) {

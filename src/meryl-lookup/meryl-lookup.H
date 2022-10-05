@@ -20,6 +20,7 @@
 #include "sequence.H"
 
 using namespace merylutil;
+using namespace merylutil::kmers::v1;
 
 enum class lookupOp {
   opNone,
