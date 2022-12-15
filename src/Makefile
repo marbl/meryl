@@ -618,18 +618,13 @@ endif
 #CXXFLAGS   += -DNOBACKTRACE
 
 #  But, if we we have an old GCC, stack tracing support isn't there.
-#  The second test is because gcc7 (and only gcc7) reports '7' for -dumpversion.
+#  (This handles both version number forms of "11" and "9.5.0".)
 
-GXX_45 := $(shell expr `${CXX} -dumpversion     | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/'` \>= 40500)
+GXX_45 := $(shell ${CXX} -dumpversion | awk -F . '{ if ($$1*10000+$$2*100+$$3 >= 040500) { print "yes" } else { print "no"} }')
 GXX_VV := $(shell ${CXX} -dumpversion)
 
-ifeq (${GXX_VV}, 7)
-GXX_45 := $(shell expr `${CXX} -dumpfullversion | sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' -e 's/^[0-9]\{3,4\}$$/&00/'` \>= 40500)
-GXX_VV := $(shell ${CXX} -dumpfullversion)
-endif
-
 ifeq (${BUILDSTACKTRACE}, 1)
-ifeq (${GXX_45}, 0)
+ifeq (${GXX_45}, no)
 $(info WARNING:)
 $(info WARNING: ${CXX} ${GXX_VV} detected, disabling stack trace support.  Please upgrade to GCC 4.7 or higher.)
 $(info WARNING:)
