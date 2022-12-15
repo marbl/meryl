@@ -102,11 +102,11 @@ SUBMAKEFILES := meryl/meryl.mk \
                 meryl-lookup/meryl-lookup.mk \
                 meryl-lookup/position-lookup.mk
 
-SUBMAKEFILES += meryl2/meryl.mk \
-                meryl2-analyze/meryl-analyze.mk \
-                meryl2-simple/meryl-simple.mk \
-                meryl2-import/meryl-import.mk \
-                meryl2-lookup/meryl-lookup.mk
+#SUBMAKEFILES += meryl2/meryl.mk \
+#                meryl2-analyze/meryl-analyze.mk \
+#                meryl2-simple/meryl-simple.mk \
+#                meryl2-import/meryl-import.mk \
+#                meryl2-lookup/meryl-lookup.mk
 
 ifeq ($(BUILDTESTS), 1)
 SUBMAKEFILES += tests/merylCountArrayTest.mk \
