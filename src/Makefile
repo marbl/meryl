@@ -259,8 +259,7 @@ define INCLUDE_SUBMAKEFILE
         $${OBJS}: SRC_CFLAGS   := $${$${TGT}_CFLAGS} $${SRC_CFLAGS}
         $${OBJS}: SRC_CXXFLAGS := $${$${TGT}_CXXFLAGS} $${SRC_CXXFLAGS}
         $${OBJS}: SRC_DEFS     := $$(addprefix -D,$${$${TGT}_DEFS} $${SRC_DEFS})
-        $${OBJS}: SRC_INCDIRS  := $$(addprefix -I,\
-                                     $${$${TGT}_INCDIRS} $${SRC_INCDIRS})
+        $${OBJS}: SRC_INCDIRS  := $$(addprefix -iquote ,$${$${TGT}_INCDIRS} $${SRC_INCDIRS})
     endif
 
     ifneq "$$(strip $${SUBMAKEFILES})" ""
@@ -645,7 +644,7 @@ $(eval $(call INCLUDE_SUBMAKEFILE,main.mk))
 
 # Perform post-processing on global variables as needed.
 DEFS := $(addprefix -D,${DEFS})
-INCDIRS := $(addprefix -I,$(call CANONICAL_PATH,${INCDIRS}))
+INCDIRS := $(addprefix -iquote ,$(call CANONICAL_PATH,${INCDIRS}))
 
 # Define the "all" target (which simply builds all user-defined targets) as the
 # default goal.
