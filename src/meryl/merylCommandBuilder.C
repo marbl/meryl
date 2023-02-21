@@ -538,7 +538,7 @@ merylCommandBuilder::isSequenceInput(void) {
 
   _opStack.top()->addInputFromSeq(_inoutName, _doCompression);
 
-  _doCompression = false;
+  //_doCompression = false;
 
   return(true);
 }
