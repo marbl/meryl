@@ -31,20 +31,6 @@
 using namespace merylutil;
 using namespace merylutil::kmers::v2;
 
-#include <stdarg.h>
-inline
-void
-addError(std::vector<char const *> &ev, char const *fmt, ...) {
-  char    *str = new char [1024];
-  va_list  ap;
-
-  va_start(ap, fmt);
-  vsnprintf(str, 1024, fmt, ap);
-  va_end(ap);
-
-  ev.push_back(str);
-}
-
 
 
 //  A global (variable 'verbosity') to tell what messages to output.

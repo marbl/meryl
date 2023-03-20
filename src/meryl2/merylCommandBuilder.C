@@ -18,22 +18,6 @@
 
 #include "meryl.H"
 
-#include <stdarg.h>
-
-
-void
-merylCommandBuilder::addError(char const *fmt, ...) {
-  char    *err = new char [1024];
-  va_list  ap;
-
-  va_start(ap, fmt);
-  vsnprintf(err, 1024, fmt, ap);
-  va_end(ap);
-
-  _errors.push_back(err);
-}
-
-
 
 //  This is called by processWord() when an '[' is encountered in the input.
 //  It will _always_ push a new operation onto the stack.  Depending on the
@@ -156,7 +140,7 @@ merylCommandBuilder::isCount(void) {
     return(false);
 
   if (op->_type == merylOpType::opCounting)
-    addError("operation is already a counting operation");
+    sprintf(_errors, "ERROR: operation is already a counting operation.\n");
 
   op->_type     = merylOpType::opCounting;
   op->_counting = new merylOpCounting(_optString);
@@ -381,7 +365,7 @@ merylCommandBuilder::isInput(void) {
 #else
 
   if (canuInput == true) {
-    addError("ERROR: Detected Canu seqStore input '%s', but no Canu support is available.\n", _inoutName);
+    sprintf(_errors, "ERROR: Detected Canu seqStore input '%s', but no Canu support is available.\n", _inoutName);
   }
 
 #endif
@@ -396,7 +380,7 @@ merylCommandBuilder::isInput(void) {
 }
 
 
-//  This doesn't really build the trees, since they're build as words are
+//  This doesn't really build the trees, since they're built as words are
 //  added.
 //
 //  This does go through all the actions to make sure the inputs, outputs and
@@ -421,11 +405,11 @@ merylCommandBuilder::buildTrees(void) {
     ot->finalizeTemplateInputs(_errors);
 
     if (ot->_inputs.size() < ot->_inputsMin)
-      addError("operation at position %u has %u inputs, but requires at least %u\n",
+      sprintf(_errors, "ERROR: operation at position %u has %u inputs, but requires at least %u.\n",
                oo, ot->_inputs.size(), ot->_inputsMin);
 
     if (ot->_inputs.size() > ot->_inputsMax)
-      addError("operation at position %u has %u inputs, but requires at most %u\n",
+      sprintf(_errors, "ERROR: operation at position %u has %u inputs, but requires at most %u.\n",
                oo, ot->_inputs.size(), ot->_inputsMax);
   }
 
@@ -441,15 +425,15 @@ merylCommandBuilder::buildTrees(void) {
       continue;
 
     if (kmer::merSize() == 0)  //  ERROR: Kmer size not supplied with modifier k=<kmer-size>
-      addError("counting operation at position %u doesn't have a mer size set\n", oo);
+      sprintf(_errors, "ERROR: counting operation at position %u doesn't have a mer size set.\n", oo);
 
     if (ot->_writer == nullptr)
-      addError("counting operation at position %u must have an output database\n", oo);
+      sprintf(_errors, "ERROR: counting operation at position %u must have an output database.\n", oo);
 
     for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
       if ((ot->_inputs[ii]->isFromSequence() == false) &&
           (ot->_inputs[ii]->isFromStore()    == false))
-        addError("counting operation at position %u input %u must be from a sequence file or Canu seqStore\n", oo, ii);
+        sprintf(_errors, "ERROR: counting operation at position %u input %u must be from a sequence file or Canu seqStore.", oo, ii);
   }
 
   //  Check STATISTICS or HISTOGRAM operations:
@@ -465,7 +449,7 @@ merylCommandBuilder::buildTrees(void) {
     for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
       if ((ot->_inputs[ii]->isFromTemplate() == false) &&
           (ot->_inputs[ii]->isFromDatabase() == false))
-        addError("stats/histo operation at position %u input %u must be from a meryl database or another operation\n", oo, ii);
+        sprintf(_errors, "ERROR: stats/histo operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
   }
 
   //  Check FILTER operations:
@@ -480,7 +464,7 @@ merylCommandBuilder::buildTrees(void) {
     for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
       if ((ot->_inputs[ii]->isFromTemplate() == false) &&
           (ot->_inputs[ii]->isFromDatabase() == false))
-        addError("filter operation at position %u input %u must be from a meryl database or another operation\n", oo, ii);
+        sprintf(_errors, "ERROR: filter operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
   }
 }
 
@@ -500,7 +484,12 @@ void
 merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 indent) {
   char   sA[1024];
 
+  //
   //  Scan the list of roots to decide if this is the root of a tree.
+  //
+  //  If it is a root, the stream output is ignored;
+  //  if it not, the stream output is the input to some other action.
+  //
 
   bool   isTree  = false;
   uint32 rootNum = 0;
@@ -511,9 +500,6 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
       rootNum = rr;
     }
   }
-
-  //  The action is either the root (and so the stream output from it is
-  //  ignored) or is an input to some other action.
 
   if (isTree == true) {
     switch (op->_type) {
@@ -527,16 +513,37 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
   }
   else {
     switch (op->_type) {
-      case merylOpType::opNothing:      fprintf(stderr, "%*s<- INPUT @%u: action #%u <empty>\n",           indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opCounting:     fprintf(stderr, "%*s<- INPUT @%u: action #%u count kmers\n",       indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opStatistics:   fprintf(stderr, "%*s<- INPUT @%u: action #%u report statistics\n", indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opHistogram:    fprintf(stderr, "%*s<- INPUT @%u: action #%u report histogram\n",  indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opPrint:        fprintf(stderr, "%*s<- INPUT @%u: action #%u print kmers\n",       indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opFilter:       fprintf(stderr, "%*s<- INPUT @%u: action #%u filter kmers\n",      indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opNothing:      fprintf(stderr, "%*s^- INPUT @%u: action #%u <empty>\n",           indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opCounting:     fprintf(stderr, "%*s^- INPUT @%u: action #%u count kmers\n",       indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opStatistics:   fprintf(stderr, "%*s^- INPUT @%u: action #%u report statistics\n", indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opHistogram:    fprintf(stderr, "%*s^- INPUT @%u: action #%u report histogram\n",  indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opPrint:        fprintf(stderr, "%*s^- INPUT @%u: action #%u print kmers\n",       indent, "", inputNum, op->_ident);   break;
+      case merylOpType::opFilter:       fprintf(stderr, "%*s^- INPUT @%u: action #%u filter kmers\n",      indent, "", inputNum, op->_ident);   break;
     }
   }
 
-  //  SELECTION
+  //
+  //  Report database, printing, histogram and statistics outputs.
+  //
+
+  if (op->_writer != nullptr) {
+    fprintf(stderr, "%*s|> database '%s'\n", indent+3, "", op->_writer->filename());
+  }
+
+  if (op->_printerName != nullptr) {
+    fprintf(stderr, "%*s|> text file '%s'\n", indent+3, "", op->_printerName);
+  }
+
+  if (op->_statsFile != nullptr) {
+    fprintf(stderr, "%*s|> statistics to file '%s'\n", indent+3, "", op->_statsFile->filename());
+  }
+
+  if (op->_histoFile != nullptr) {
+    fprintf(stderr, "%*s|> histogram to file '%s'\n", indent+3, "", op->_histoFile->filename());
+  }
+
+  //
+  //  Report kmer/value/label selection.
   //
 
   switch (op->_valueSelect) {
@@ -638,9 +645,9 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
       break;
   }
 
-
-
+  //
   //  Report filters
+  //
 
   for (uint32 ii=0; ii<op->_filter    .size(); ii++) {
     fprintf(stderr, "%*s|- FILTER %u\n", indent+3, "", ii+1);
@@ -652,6 +659,31 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
     //  fprintf(stderr, "%*sor\n", indent+4, "");
   }
 
+  //
+  //  Report inputs
+  //
+
+  for (uint32 ii=0; ii<op->_inputs.size(); ii++) {
+    merylInput  *in = op->_inputs[ii];
+
+    if (in->isFromTemplate() == true) {
+      //  The following line is printed by the recursive call to printTree().
+      //fprintf(stderr, "%*s<- INPUT @%u: action #%u\n", indent+3, "", ii+1, in->_template->_ident);
+      printTree(in->_template, ii+1, indent+3);
+    }
+
+    if (in->isFromDatabase() == true) {
+      fprintf(stderr, "%*s^- INPUT @%u: meryl database '%s'\n", indent+3, "", ii+1, in->name());
+    }
+
+    if (in->isFromSequence() == true) {
+      fprintf(stderr, "%*s^- INPUT @%u: sequence file '%s'%s\n", indent+3, "", ii+1, in->name(), in->_homopolyCompress ? " (homopoly compressed)" : "");
+    }
+
+    if (in->isFromStore() == true) {
+      fprintf(stderr, "%*s^- INPUT @%u: Canu sqStore '%s' (using reads %u through %u)\n", indent+3, "", ii+1, in->name(), in->_sqBgn, in->_sqEnd);
+    }
+  }
 
 
 #if 0
@@ -683,42 +715,9 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 inde
     fprintf(stderr, "%*sword-frequenct=%f\n", indent+3, "", op->_wordFreq);
 #endif
 
-
-  //  Report inputs
-
-  for (uint32 ii=0; ii<op->_inputs.size(); ii++) {
-    merylInput  *in = op->_inputs[ii];
-
-    if (in->isFromTemplate() == true) {
-      //  The following line is printed by the recursive call to printTree().
-      //fprintf(stderr, "%*s<- INPUT @%u: action #%u\n", indent+3, "", ii+1, in->_template->_ident);
-      printTree(in->_template, ii+1, indent+3);
-    }
-
-    if (in->isFromDatabase() == true) {
-      fprintf(stderr, "%*s<- INPUT @%u: meryl database '%s'\n", indent+3, "", ii+1, in->name());
-    }
-
-    if (in->isFromSequence() == true) {
-      fprintf(stderr, "%*s<- INPUT @%u: sequence file '%s'%s\n", indent+3, "", ii+1, in->name(), in->_homopolyCompress ? " (homopoly compressed)" : "");
-    }
-
-    if (in->isFromStore() == true) {
-      fprintf(stderr, "%*s<- INPUT @%u: Canu sqStore '%s' (using reads %u through %u)\n", indent+3, "", ii+1, in->name(), in->_sqBgn, in->_sqEnd);
-    }
-  }
-
-  //  Report outputs
-
-  if (op->_writer != nullptr) {
-    fprintf(stderr, "%*s-> database '%s'\n", indent+3, "", op->_writer->filename());
-  }
-
-  //  Report printing
-
-  if (op->_printerName != nullptr) {
-    fprintf(stderr, "%*s-> text file '%s'\n", indent+3, "", op->_printerName);
-  }
+  //
+  //  If a tree, flag the end.
+  //
 
   if (isTree == true) {
     fprintf(stderr, "%*s|- TREE %u ends.\n", indent, "", rootNum);

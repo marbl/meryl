@@ -21,34 +21,6 @@
 merylVerbosity  verbosity;
 
 
-uint64
-setAllowedMemory(char const *memstr=nullptr) {
-  uint64 m = 0;
-
-  if (memstr == nullptr)
-    m  = getMaxMemoryAllowed();
-  else
-    m  = (uint64)(strtodouble(memstr) * 1024.0 * 1024.0 * 1024.0);
-
-  return(m);
-}
-
-
-
-uint32
-setAllowedThreads(char const *thrstr=nullptr) {
-  uint32 t = 0;
-
-  if (thrstr == nullptr)
-    t = getMaxThreadsAllowed();
-  else
-    t = strtouint64(thrstr);
-
-  return(t);
-}
-
-
-
 
 int
 main(int argc, char **argv) {
@@ -57,9 +29,8 @@ main(int argc, char **argv) {
 
   argc = AS_configure(argc, argv);
 
-  uint64                allowedMemory  = setAllowedMemory();
-  uint32                allowedThreads = setAllowedThreads();
-
+  uint64  maxMemory  = uint64max,  allowedMemory  = getMaxMemoryAllowed();   //  Remember any system-imposed
+  uint32  maxThreads = uint32max,  allowedThreads = getMaxThreadsAllowed();  //  limit on cpu/threads.
 
   std::vector<char const *>  err;
   for (int32 arg=1; arg < argc; arg++) {
@@ -93,6 +64,54 @@ main(int argc, char **argv) {
     //  command builder (and besides, they're global options).
     //
 
+    if (strcmp(argv[arg], "-k") == 0) {
+      kmerTiny::setSize(strtouint32(argv[++arg]));
+      continue;
+    }
+#ifdef LEGACY_OPTIONS
+    if (strncmp(argv[arg], "k=", 2) == 0) {
+      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-k %s' instead.\n",
+              argv[arg], argv[arg]+2);
+      kmerTiny::setSize(strtouint32(argv[arg]+2));
+      continue;
+    }
+#endif
+
+    if (strcmp(argv[arg], "-l") == 0) {
+      kmerTiny::setLabelSize(strtouint32(argv[++arg]));
+      continue;
+    }
+
+    if ((strcmp(argv[arg],  "-m")      == 0) ||
+        (strcmp(argv[arg],  "-memory") == 0) ||
+        (strcmp(argv[arg], "--memory") == 0)) {
+      maxMemory = getAllowedMemory(argv[++arg], err);
+      continue;
+    }
+#ifdef LEGACY_OPTIONS
+    if (strncmp(argv[arg], "memory=", 7) == 0) {
+      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-m %s' instead.\n",
+              argv[arg], argv[arg]+7);
+      maxMemory = getAllowedMemory(argv[arg]+7, err);
+      continue;
+    }
+#endif
+
+    if ((strcmp(argv[arg],  "-t")       == 0) ||
+        (strcmp(argv[arg],  "-threads") == 0) ||
+        (strcmp(argv[arg], "--threads") == 0)) {
+      maxThreads = getAllowedThreads(argv[++arg], err);
+      continue;
+    }
+#ifdef LEGACY_OPTIONS
+    if (strncmp(argv[arg], "threads=", 8) == 0) {
+      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-t %s' instead.\n",
+              argv[arg], argv[arg]+8);
+      maxThreads = getAllowedThreads(argv[arg]+8, err);
+      continue;
+    }
+#endif
+
     if (strncmp(argv[arg], "-V", 2) == 0) {          //  Anything that starts with -V
       for (uint32 vv=1; vv<strlen(argv[arg]); vv++)  //  increases verbosity by the
         verbosity.increaseVerbosity();               //  number of letters.
@@ -114,52 +133,6 @@ main(int argc, char **argv) {
       continue;
     }
 
-    if (strcmp(argv[arg], "-k") == 0) {
-      kmerTiny::setSize(strtouint32(argv[++arg]));
-      continue;
-    }
-
-    if (strcmp(argv[arg], "-l") == 0) {
-      kmerTiny::setLabelSize(strtouint32(argv[++arg]));
-      continue;
-    }
-
-    //  Some obsolete options kept in for compatibility.
-#if 1
-    if (strncmp(argv[arg], "k=", 2) == 0) {
-      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-k %s' instead.\n",
-              argv[arg], argv[arg]+2);
-      kmerTiny::setSize(strtouint32(argv[arg]+2));
-      continue;
-    }
-    if (strncmp(argv[arg], "memory=", 7) == 0) {
-      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-m %s' instead.\n",
-              argv[arg], argv[arg]+7);
-      setAllowedMemory(argv[arg]+7);
-      continue;
-    }
-    if (strncmp(argv[arg], "threads=", 8) == 0) {
-      fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-t %s' instead.\n",
-              argv[arg], argv[arg]+8);
-      setAllowedThreads(argv[arg]+8);
-      continue;
-    }
-#endif
-
-    if ((strcmp(argv[arg],  "-m")      == 0) ||
-        (strcmp(argv[arg],  "-memory") == 0) ||
-        (strcmp(argv[arg], "--memory") == 0)) {
-      setAllowedMemory(argv[++arg]);
-      continue;
-    }
-
-    if ((strcmp(argv[arg],  "-t")       == 0) ||
-        (strcmp(argv[arg],  "-threads") == 0) ||
-        (strcmp(argv[arg], "--threads") == 0)) {
-      setAllowedThreads(argv[++arg]);
-      continue;
-    }
-
     //
     //  Throw the option to merylCommandBuilder and let it figure it out.
     //
@@ -174,88 +147,12 @@ main(int argc, char **argv) {
 
   B->buildTrees();
 
-  //  If any errors, fail.
-
   if ((argc == 1) ||                //  No commands
       (B->numTrees() == 0) ||       //  No actions
-      (err.size() > 0)) {           //  Errors
-    fprintf(stderr, "usage: %s ...   DISABLED\n", argv[0]);
-#if 0
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  A meryl command line is formed as a series of commands and files, possibly\n");
-    fprintf(stderr, "  grouped using square brackets.  Each command operates on the file(s) that\n");
-    fprintf(stderr, "  are listed after it.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  COMMANDS:\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    statistics           display total, unique, distnict, present number of the kmers on the screen.  accepts exactly one input.\n");
-    fprintf(stderr, "    histogram            display kmer frequency on the screen as 'frequency<tab>count'.  accepts exactly one input.\n");
-    fprintf(stderr, "    print                display kmers on the screen as 'kmer<tab>count'.  accepts exactly one input.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    count                Count the occurrences of canonical kmers in the input.  must have 'output' specified.\n");
-    fprintf(stderr, "    count-forward        Count the occurrences of forward kmers in the input.  must have 'output' specified.\n");
-    fprintf(stderr, "    count-reverse        Count the occurrences of reverse kmers in the input.  must have 'output' specified.\n");
-    fprintf(stderr, "      k=<K>              create mers of size K bases (mandatory).\n");
-    fprintf(stderr, "      n=<N>              expect N mers in the input (optional; for precise memory sizing).\n");
-    fprintf(stderr, "      memory=M           use no more than (about) M GB memory.\n");
-    fprintf(stderr, "      threads=T          use no more than T threads.\n");
-    fprintf(stderr, "      compress           compress homopolymer runs to a single letter.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    less-than N          return kmers that occur fewer than N times in the input.  accepts exactly one input.\n");
-    fprintf(stderr, "    greater-than N       return kmers that occur more than N times in the input.  accepts exactly one input.\n");
-    fprintf(stderr, "    equal-to N           return kmers that occur exactly N times in the input.  accepts exactly one input.\n");
-    fprintf(stderr, "    not-equal-to N       return kmers that do not occur exactly N times in the input.  accepts exactly one input.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    increase X           add X to the count of each kmer.\n");
-    fprintf(stderr, "    decrease X           subtract X from the count of each kmer.\n");
-    fprintf(stderr, "    multiply X           multiply the count of each kmer by X.\n");
-    fprintf(stderr, "    divide X             divide the count of each kmer by X.\n");
-    fprintf(stderr, "    divide-round X       divide the count of each kmer by X and round results. count < X will become 1.\n");
-    fprintf(stderr, "    modulo X             set the count of each kmer to the remainder of the count divided by X.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    union                return kmers that occur in any input, set the count to the number of inputs with this kmer.\n");
-    fprintf(stderr, "    union-min            return kmers that occur in any input, set the count to the minimum count\n");
-    fprintf(stderr, "    union-max            return kmers that occur in any input, set the count to the maximum count\n");
-    fprintf(stderr, "    union-sum            return kmers that occur in any input, set the count to the sum of the counts\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    intersect            return kmers that occur in all inputs, set the count to the count in the first input.\n");
-    fprintf(stderr, "    intersect-min        return kmers that occur in all inputs, set the count to the minimum count.\n");
-    fprintf(stderr, "    intersect-max        return kmers that occur in all inputs, set the count to the maximum count.\n");
-    fprintf(stderr, "    intersect-sum        return kmers that occur in all inputs, set the count to the sum of the counts.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    subtract             return kmers that occur in the first input, subtracting counts from the other inputs\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    difference           return kmers that occur in the first input, but none of the other inputs\n");
-    fprintf(stderr, "    symmetric-difference return kmers that occur in exactly one input\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  MODIFIERS:\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "    output O             write kmers generated by the present command to an output  meryl database O\n");
-    fprintf(stderr, "                         mandatory for count operations.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  EXAMPLES:\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Example:  Report 22-mers present in at least one of input1.fasta and input2.fasta.\n");
-    fprintf(stderr, "            Kmers from each input are saved in meryl databases 'input1' and 'input2',\n");
-    fprintf(stderr, "            but the kmers in the union are only reported to the screen.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "            meryl print \\\n");
-    fprintf(stderr, "                    union \\\n");
-    fprintf(stderr, "                      [count k=22 input1.fasta output input1] \\\n");
-    fprintf(stderr, "                      [count k=22 input2.fasta output input2]\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Example:  Find the highest count of each kmer present in both files, save the kmers to\n");
-    fprintf(stderr, "            database 'maxCount'.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "            meryl intersect-max input1 input2 output maxCount\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "  Example:  Find unique kmers common to both files.  Brackets are necessary\n");
-    fprintf(stderr, "            on the first 'equal-to' command to prevent the second 'equal-to' from\n");
-    fprintf(stderr, "            being used as an input to the first 'equal-to'.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "            meryl intersect [equal-to 1 input1] equal-to 1 input2\n");
-    fprintf(stderr, "\n");
-#endif
+      (err.size() > 0)) {           //  Command line errors
+    fprintf(stderr, "usage: %s ...\n", argv[0]);
+
+#include "meryl-usage.H"
 
     for (uint32 ii=0; ii<err.size(); ii++)
       if (err[ii] != NULL)
@@ -264,61 +161,53 @@ main(int argc, char **argv) {
     exit(1);
   }
 
-  if (B->numErrors() > 0) {
-    for (uint32 ii=0; ii<B->numErrors(); ii++)
-      if (B->getErrors()[ii] != nullptr)
-        fprintf(stderr, "%s\n", B->getErrors()[ii]);
-
-    exit(1);
-  }
+  //
+  //  Display the action tree.
+  //
 
   if (verbosity.showStandard() == true) {
     fprintf(stderr, "\n");
     fprintf(stderr, "Found %u command tree%s.\n", B->numTrees(), (B->numTrees() == 1) ? "" : "s");
 
-    for (uint32 ii=0; ii<B->numTrees(); ii++) {
+    for (uint32 ii=0; ii<B->numTrees(); ii++)
       B->printTree(B->getTree(ii), 0, 0);
-    }
   }
 
-  //  opHistogram is limited to showing only histograms already stored in a database.
-  //  opHistogram cannot take input from anything but a database.
-  //  opHistogram does not generate kmer outputs.
-  //  So, if the top op is histogram, all we can do is load the histogram and dump it.
   //
-  //  Eventully, maybe, opHistogram will pass through mers (but then we need to figure out
-  //  where to report the histogram).
+  //  Display any errors in that tree.
   //
-  //  Eventually, maybe, opHistogram will allow input from a kmer stream.
-#if 0
-  if (B->getOperation(0)->getOperation() == merylOp::opHistogram) {
-    B->getOperation(0)->initialize();
-    B->getOperation(0)->reportHistogram();
-    exit(0);
+
+  if (B->numErrors() > 0) {         //  Errors from parsing actions.
+    fprintf(stderr, "Errors detected in the action tree%s:\n", (B->numTrees() == 1) ? "" : "s");
+    fprintf(stderr, "\n");
+
+    for (uint32 ii=0; ii<B->numErrors(); ii++)
+      if (B->getErrors()[ii] != nullptr)
+        fprintf(stderr, "  %s\n", B->getErrors()[ii]);
+
+    exit(1);
   }
 
-  if (B->getOperation(0)->getOperation() == merylOp::opStatistics) {
-    B->getOperation(0)->initialize();
-    B->getOperation(0)->reportStatistics();
-    exit(0);
-  }
-#endif
-
+  //
+  //  Stop if we're only configuring.
+  //
 
   if (stopAfterConfigure) {
     fprintf(stderr, "Stopping after configuration.\n");
     return(0);
   }
 
-
+  //
   //  Counting operations are a big headache.  They don't fit into the
   //  tree nicely:
   //   - they do their own threading, so only one thread can start the operation
   //   - when done, they transform themselves into a pass-through operation that
   //     simply reads the (just counted) input and passes kmers through.
   //
-  //  So, we special case them here.  Process in order, counting, writing the
-  //  output, and converting to a pass-through operation.
+  //  So, we special case them here.  This steps through each action in the tree,
+  //  counting kmers, writing to a new database, and finally converting the action
+  //  to a null pass-through.
+  //
 
   B->performCounting(allowedMemory, allowedThreads);
 

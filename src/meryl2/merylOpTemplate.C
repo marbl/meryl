@@ -58,7 +58,7 @@ void
 merylOpTemplate::addInputFromDB(char const *dbName, std::vector<char const *> &err) {
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "addInputFromOp()-- action #%u <- input from file '%s'\n",
+    fprintf(stderr, "addInputFromDB()-- action #%u <- input from file '%s'\n",
             _ident, dbName);
 
   _inputs.push_back(new merylInput(new merylFileReader(dbName)));
@@ -77,7 +77,7 @@ void
 merylOpTemplate::addInputFromSeq(char const *sqName, bool doCompression, std::vector<char const *> &err) {
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "addInputFromOp()-- action #%u <- input from file '%s'\n",
+    fprintf(stderr, "addInputFromSeq()-- action #%u <- input from file '%s'\n",
             _ident, sqName);
 
   _inputs.push_back(new merylInput(new dnaSeqFile(sqName), doCompression));
@@ -91,7 +91,7 @@ merylOpTemplate::addInputFromCanu(char const *sqName, uint32 segment, uint32 seg
 #ifdef CANU
 
   if (verbosity.showConstruction() == true)
-    fprintf(stderr, "addInputFromOp()-- action #%u <- input from sqStore '%s'\n",
+    fprintf(stderr, "addInputFromCanu()-- action #%u <- input from sqStore '%s'\n",
             _ident, sqName);
 
   _inputs.push_back(new merylInput(new sqStore(sqName), segment, segmentMax));
@@ -108,8 +108,12 @@ merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
     fprintf(stderr, "addOutput()-- action #%u -> output to database '%s'\n",
             _ident, wrName);
 
-  if (_writer)
-    addError(err, "ERROR: operation #%u already has an output set, can't add output to '%s'!\n", _ident, wrName);
+  if (_writer) {
+    sprintf(err, "Operation #%u already writes output to '%s',", _ident, _writer->filename());
+    sprintf(err, "  can't add another output to '%s'!", wrName);
+    sprintf(err, "");
+    return;
+  }
 
   _writer = new merylFileWriter(wrName);
 }
@@ -140,8 +144,12 @@ merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char
 
   //  Fail if we've already got a printer assigned.
 
-  if (_printerName)
-    addError(err, "ERROR: operation #%u already has a printer set, can't add print to '%s'!\n", prName);
+  if (_printerName) {
+    sprintf(err, "Operation #%u is already printing to '%s',", _ident, _printerName);
+    sprintf(err, "  can't add another output to '%s'.", prName);
+    sprintf(err, "");
+    return;
+  }
 
   //  Decide if this is to stdout.
 
@@ -173,6 +181,10 @@ merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char
 
 
 
+//
+//  Add 'histogram' or 'statistics' output to this operation.
+//  Fails if 
+
 void
 merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char const *> &err) {
 
@@ -181,14 +193,22 @@ merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char
             _ident, (asStats == true) ? "statistics" : "histogram", hiName);
 
   if (asStats == true) {
-    if (_statsFile != nullptr)
-      addError(err, "ERROR: operation #%u already has 'statistics' output set, can't add output to '%s'!\n", _ident, hiName);
+    if (_statsFile != nullptr) {
+      sprintf(err, "Operation #%u already has 'statistics' output to file '%s',", _ident, _statsFile->filename());
+      sprintf(err, "  can't add another output to file '%s'.", hiName);
+      sprintf(err, "");
+      return;
+    }
     _statsFile = new compressedFileWriter(hiName);
   }
 
   if (asStats == false) {
-    if (_histoFile != nullptr)
-      addError(err, "ERROR: operation #%u already has 'histogram' output set, can't add output to '%s'!\n", _ident, hiName);
+    if (_histoFile != nullptr) {
+      sprintf(err, "Operation #%u already has 'histogram' output to file '%s',", _ident, _histoFile->filename());
+      sprintf(err, "  can't add another output to file '%s'.", hiName);
+      sprintf(err, "");
+      return;
+    }
     _histoFile = new compressedFileWriter(hiName);
   }
 }

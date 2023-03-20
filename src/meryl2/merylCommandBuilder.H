@@ -96,8 +96,6 @@ public:
   uint32                      numErrors(void)   {  return(_errors.size());  }
   std::vector<char const *>  &getErrors(void)   {  return(_errors);         }
 
-  void                        addError(char const *fmt, ...);
-
   std::vector<char const *>  _errors;
 
   //  Storage and flags we use for processing a command line word.

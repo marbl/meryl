@@ -72,7 +72,7 @@ merylCommandBuilder::isOption(void) {
     if (op->_type == merylOpType::opCounting)
       op->_counting->setExpectedNumberOfKmers(val64);
     else
-      addError("option '%s' encountered for non-counting operation.", _optString);
+      sprintf(_errors, "option '%s' encountered for non-counting operation.", _optString);
     return(true);
   }
 
@@ -81,7 +81,7 @@ merylCommandBuilder::isOption(void) {
     if (op->_type == merylOpType::opCounting)
       op->_counting->setCountSuffix(val);
     else
-      addError("option '%s' encountered for non-counting operation.", _optString);
+      sprintf(_errors, "option '%s' encountered for non-counting operation.", _optString);
     return(true);
   }
 
@@ -112,7 +112,7 @@ merylCommandBuilder::isOption(void) {
       (isDecNumber(val, '/'))) {
     decodeRange(val, _segment, _segmentMax);
 #ifndef CANU
-    addError("option '%s' available only with Canu support.\n", _optString);
+    sprintf(_errors, "option '%s' available only with Canu support.", _optString);
 #endif
     return(true);
   }

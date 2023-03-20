@@ -49,7 +49,13 @@ merylCommandBuilder::isRelation(uint32 bgn) {
 }
 
 
-//  Returns the relation indicated by the next letters, or adds an error to err.
+//  Returns the relation indicated by the next letters, or adds an error to
+//  err.
+//
+//  The error only triggers if the relation is completely bogus - the three
+//  single-letter relations will match bogus stuff like '451,<625' which in
+//  turn will fail to decode number '451,'.
+//
 merylFilterRelation
 merylCommandBuilder::decodeRelation(uint32 bgn) {
   merylFilterRelation  relation = merylFilterRelation::isNOP;
@@ -73,7 +79,9 @@ merylCommandBuilder::decodeRelation(uint32 bgn) {
   else if (strncmp(_optString+bgn, "gt", 2) == 0)   { relation = merylFilterRelation::isGt;  }
 
   else {
-    addError("Unknown comparison operator in '%s'.\n", _optString);
+    sprintf(_errors, "No comparison operator found in '%s',", _optString);
+    sprintf(_errors, "  expecting one of '==', 'eq', '!=', 'ge', '<', etc.");
+    sprintf(_errors, "");
   }
 
   return(relation);
@@ -113,7 +121,7 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
     arg2e++;
 
   //  Debug.
-#if 0
+#if 1
   fprintf(stderr, "decodeFilter()- WORD          '%s'\n",       _optString);
   fprintf(stderr, "decodeFilter()- ARG1  %3d-%3d '%s'\n", arg1b, arg1e, _optString + arg1b);
   fprintf(stderr, "decodeFilter()- RELA  %3d     '%s'\n", relab,        _optString + relab);
@@ -143,7 +151,8 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
   //  Decode 'arg2' if one exists.
 
   if      (arg2b == arg2e) {
-    addError("Invalid filter '%s': no second argument to comparison operator found.", _optString);
+    sprintf(_errors, "Invalid filter '%s': no second argument to comparison operator found.", _optString);
+    sprintf(_errors, "");
   }
   else if (_optString[arg2b] == '@') {
     decodeInteger(_optString, arg2b+1, arg2e, index2, _errors);
@@ -187,7 +196,8 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
   f._vIndex2 = index2;
 
   if (f._vIndex1 == f._vIndex2) {
-    addError("Invalid filter '%s': always true (or false).\n", _optString);
+    sprintf(_errors, "Invalid filter '%s': always true (or false).", _optString);
+    sprintf(_errors, "");
   }
 
   switch (f._q) {
@@ -317,7 +327,8 @@ merylCommandBuilder::isBasesFilter(void) {
         f._countG = true;
         break;
       default:
-        addError("Invalid 'bases' letter in filter '%s'.\n", _optString);
+        sprintf(_errors, "Invalid 'bases' letter in filter '%s'.", _optString);
+        sprintf(_errors, "");
         break;
     }
 
@@ -325,7 +336,8 @@ merylCommandBuilder::isBasesFilter(void) {
   }
 
   if (_optString[bpos] != ':') {
-    addError("Failed to parse 'bases' filter '%s'.\n", _optString);
+    sprintf(_errors, "Failed to parse 'bases' filter '%s'.", _optString);
+    sprintf(_errors, "");
     return(true);
   }
 
@@ -340,12 +352,16 @@ merylCommandBuilder::isBasesFilter(void) {
   //  vIndex is 0 if nothing is supplied for this side: "bases:acgt:ge4" will set vIndex1 to 0.
 
   if      ((f._vIndex1 != uint32max) &&
-           (f._vIndex1  > 0))
-    addError("filter '%s' right hand side cannot specify a database input.\n", _optString);
+           (f._vIndex1  > 0)) {
+    sprintf(_errors, "filter '%s' right hand side cannot specify a database input.", _optString);
+    sprintf(_errors, "");
+  }
 
   if      ((f._vIndex2 != uint32max) &&
-           (f._vIndex2  > 0))
-    addError("filter '%s' left hand side cannot specify a database input.\n", _optString);
+           (f._vIndex2  > 0)) {
+    sprintf(_errors, "filter '%s' left hand side cannot specify a database input.", _optString);
+    sprintf(_errors, "");
+  }
   
   getCurrent()->addFilterToProduct(f);
 
@@ -465,7 +481,8 @@ merylCommandBuilder::isInputFilter(void) {
     }
 
     else {
-      addError("filter '%s' cannot be decoded: unknown word '%s'.\n", _optString, W[ww]);
+      sprintf(_errors, "filter '%s' cannot be decoded: unknown word '%s'.", _optString, W[ww]);
+      sprintf(_errors, "");
     }
   }
 
@@ -496,7 +513,8 @@ merylCommandBuilder::isFilterConnective(void) {
   //  The word 'or' tells us to make a new product term.
   if (strcmp(_optString, "or") == 0) {
     if (getCurrent()->addNewFilterProduct()) {
-      addError("attempt to add new filter product when existing filter product is empty.\n");
+      sprintf(_errors, "attempt to add new filter product when existing filter product is empty.");
+      sprintf(_errors, "");
     }
     return(true);
   }

@@ -83,7 +83,7 @@ merylCommandBuilder::isSelect(void) {
     //  Nope, don't know what this is.
 
     else {
-      addError("Unknown value selection modifier '%s'.\n", _optString);
+      sprintf(_errors, "Unknown value selection modifier '%s'.", _optString);
     }
 
     //  Copy the decoded modifier to the select.
@@ -155,7 +155,7 @@ merylCommandBuilder::isSelect(void) {
     //  Nope, don't know what this is.
 
     else {
-      addError("Unknown label selection modifier '%s'.\n", _optString);
+      sprintf(_errors, "Unknown label selection modifier '%s'.", _optString);
     }
 
     //  Copy the decoded modifier to the select.

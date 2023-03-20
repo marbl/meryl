@@ -158,15 +158,15 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
       (_vValue2WordFreq >= 0)) {
 
     if (nInputs != 1)
-      addError(err, "filter '%s' invalid; exactly one database input required, %u inputs supplied.\n", _str, nInputs);
+      sprintf(err, "ERROR: filter '%s' invalid; exactly one input required but %u supplied.\n", _str, nInputs);
 
     if ((nInputs > 0) &&
         (mot->_inputs[0]->_stream == nullptr))
-      addError(err, "filter '%s' invalid; exactly one database input required, '%s' input supplied.\n", _str, mot->_inputs[0]->inputType());
+      sprintf(err, "ERROR: filter '%s' invalid; database input expected, but type '%s' supplied.\n", _str, mot->_inputs[0]->inputType());
 
     if ((mot->_valueSelect   != merylModifyValue::valueFirst) ||
         (mot->_valueConstant != 0)) {
-      addError(err, "filter '%s' invalid; the value cannot be modified, remove '%s' modifier\n", _str, toString(mot->_valueSelect));
+      sprintf(err, "ERROR: filter '%s' invalid; the value cannot be modified, remove '%s' modifier\n", _str, toString(mot->_valueSelect));
     }
   }
 
@@ -200,9 +200,9 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
     uint32  a = _input_num[ii];
 
     if (a == 0)
-      addError(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
+      sprintf(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
     else if (a > nInputs)
-      addError(err, "filter '%s' invalid: cannot occur in %u inputs; there are only %u inputs.\n", _str, a, nInputs);
+      sprintf(err, "filter '%s' invalid: cannot occur in %u inputs; there are only %u inputs.\n", _str, a, nInputs);
     else
       _presentInNum[a] = true;
   }
@@ -219,9 +219,9 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
     uint32 a = _input_idx[ii];
 
     if (a == 0)
-      addError(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
+      sprintf(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
     else if (a > nInputs)
-      addError(err, "filter '%s' invalid: input %u does not exist; there are only %u inputs.\n", _str, a, nInputs);
+      sprintf(err, "filter '%s' invalid: input %u does not exist; there are only %u inputs.\n", _str, a, nInputs);
     else {
       _presentInIdx[a-1] = true;
       _presentInList[_presentInLen++] = a-1;

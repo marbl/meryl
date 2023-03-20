@@ -103,7 +103,7 @@ merylCommandBuilder::processWord(char const *opt) {
   //  'print some.meryl'.
 
   if ((isEmpty()            == false) &&   //  Consumes empty words.
-      (isOption()           == false) &&   //  Consumes key=value options.
+      (isOption()           == false) &&   //  Consumes key=value and single-word options.
       (isAlias()            == false) &&   //  Consumes 'union', 'intersect', et cetera, aliases
       (isSelect()           == false) &&   //  Consumes selection 'value=' and 'label='
       (isFilter()           == false) &&   //  Consumes filters   'value:', 'label:', 'bases:' and 'input:'; 'not', 'and' and 'or'.
@@ -113,7 +113,7 @@ merylCommandBuilder::processWord(char const *opt) {
       (isHistogram()        == false) &&   //  Consumes 'histogram' and related output name
       (isStatistics()       == false) &&   //  Consumes 'statistics' and related output name
       (isInput()            == false))     //  Consumes inputs
-    addError("Can't interpret '%s': not a meryl command, option, or recognized input file.", _optString);
+    sprintf(_errors, "Can't interpret '%s': not a meryl command, option, or recognized input file.", _optString);
 
   //  Process any operation close events (']') that were at the end of this
   //  word.  We discovered and stripped them out above.
@@ -126,7 +126,7 @@ merylCommandBuilder::processWord(char const *opt) {
       terminateOperation();
       _opStack.pop();
     } else {
-      addError("processWord()- Extra ']' encountered in command line.\n");
+      sprintf(_errors, "processWord()- Extra ']' encountered in command line.");
     }
   }
 
