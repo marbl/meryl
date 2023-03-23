@@ -29,8 +29,8 @@ main(int argc, char **argv) {
 
   argc = AS_configure(argc, argv);
 
-  uint64  maxMemory  = uint64max,  allowedMemory  = getMaxMemoryAllowed();   //  Remember any system-imposed
-  uint32  maxThreads = uint32max,  allowedThreads = getMaxThreadsAllowed();  //  limit on cpu/threads.
+  uint64  allowedMemory  = getMaxMemoryAllowed();   //  Remember any system-imposed
+  uint32  allowedThreads = getMaxThreadsAllowed();  //  limit on cpu/threads.
 
   std::vector<char const *>  err;
   for (int32 arg=1; arg < argc; arg++) {
@@ -85,14 +85,14 @@ main(int argc, char **argv) {
     if ((strcmp(argv[arg],  "-m")      == 0) ||
         (strcmp(argv[arg],  "-memory") == 0) ||
         (strcmp(argv[arg], "--memory") == 0)) {
-      maxMemory = getAllowedMemory(argv[++arg], err);
+      allowedMemory = getAllowedMemory(argv[++arg], err);
       continue;
     }
 #ifdef LEGACY_OPTIONS
     if (strncmp(argv[arg], "memory=", 7) == 0) {
       fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-m %s' instead.\n",
               argv[arg], argv[arg]+7);
-      maxMemory = getAllowedMemory(argv[arg]+7, err);
+      allowedMemory = getAllowedMemory(argv[arg]+7, err);
       continue;
     }
 #endif
@@ -100,14 +100,14 @@ main(int argc, char **argv) {
     if ((strcmp(argv[arg],  "-t")       == 0) ||
         (strcmp(argv[arg],  "-threads") == 0) ||
         (strcmp(argv[arg], "--threads") == 0)) {
-      maxThreads = getAllowedThreads(argv[++arg], err);
+      allowedThreads = getAllowedThreads(argv[++arg], err);
       continue;
     }
 #ifdef LEGACY_OPTIONS
     if (strncmp(argv[arg], "threads=", 8) == 0) {
       fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-t %s' instead.\n",
               argv[arg], argv[arg]+8);
-      maxThreads = getAllowedThreads(argv[arg]+8, err);
+      allowedThreads = getAllowedThreads(argv[arg]+8, err);
       continue;
     }
 #endif
