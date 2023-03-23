@@ -154,6 +154,13 @@ bool
 merylCommandBuilder::isOutput(void) {
   merylOpTemplate  *op = getCurrent();
 
+  //  If we see 'output=' we can immediately add an output file.
+
+  if (strncasecmp(_optString, "output=", 7) == 0) {
+    op->addOutput(_optString+7, _errors);
+    return(true);
+  }
+
   //  If we see 'output' remember that the next arg is expected to be the
   //  database or filename.
 
@@ -184,7 +191,17 @@ bool
 merylCommandBuilder::isPrinter(void) {
   merylOpTemplate  *op = getCurrent();
 
-  //  If we see 'output' or 'print' or 'printacgt', remember that the next
+  if (strncasecmp(_optString, "print=", 6) == 0) {
+    op->addPrinter(_optString+6, false, _errors);
+    return(true);
+  }
+
+  if (strncasecmp(_optString, "printacgt=", 10) == 0) {
+    op->addPrinter(_optString+10, true, _errors);
+    return(true);
+  }
+
+  //  If we see 'print' or 'printacgt', remember that the next
   //  arg is expected to be the database or filename.
 
   if (strcasecmp(_optString, "print") == 0) {
