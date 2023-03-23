@@ -35,9 +35,6 @@ merylCommandBuilder::isSelect(void) {
 
     if      (strncmp(str, "#", 1)           == 0)   { select = merylModifyValue::valueSet;        constant = decodeInteger(_optString, 6+1, 0, constant, _errors); }
 
-    else if (strncmp(str, "first#", 6)      == 0)   { select = merylModifyValue::valueSelected;   constant = decodeInteger(_optString, 6+6, 0, constant, _errors); }
-    else if (strncmp(str, "selected#", 9)   == 0)   { select = merylModifyValue::valueSelected;   constant = decodeInteger(_optString, 6+9, 0, constant, _errors); }
-
     else if (strncmp(str, "min#", 4)        == 0)   { select = merylModifyValue::valueMin;        constant = decodeInteger(_optString, 6+4, 0, constant, _errors); }
     else if (strncmp(str, "max#", 4)        == 0)   { select = merylModifyValue::valueMax;        constant = decodeInteger(_optString, 6+4, 0, constant, _errors); }
 
@@ -102,9 +99,6 @@ merylCommandBuilder::isSelect(void) {
     //  Check for modifiers with constants at the end.
 
     if      (strncmp(str, "#", 1)              == 0)   { select = merylModifyLabel::labelSet;          constant = decodeInteger(_optString, 6+1,  0, constant, _errors); }
-
-    else if (strncmp(str, "first#", 6)         == 0)   { select = merylModifyLabel::labelFirst;        constant = decodeInteger(_optString, 6+6,  0, constant, _errors); }
-    else if (strncmp(str, "selected#", 9)      == 0)   { select = merylModifyLabel::labelFirst;        constant = decodeInteger(_optString, 6+9,  0, constant, _errors); }
 
     else if (strncmp(str, "min#", 4)           == 0)   { select = merylModifyLabel::labelMin;          constant = decodeInteger(_optString, 6+4,  0, constant, _errors); }
     else if (strncmp(str, "max#", 4)           == 0)   { select = merylModifyLabel::labelMax;          constant = decodeInteger(_optString, 6+3,  0, constant, _errors); }
