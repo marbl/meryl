@@ -5,12 +5,10 @@ Meryl
    :hidden:
 
    quick-start
-   faq
-   tutorial
    reference
    usage
    history
-
+   faq
 
 `Meryl <http://github.com/marbl/meryl>`_ is a tool for working with sets of
 kmers.  A set of kmers, when annotated with an integer value (typically the
@@ -50,8 +48,7 @@ similar, but doesn't support filters or labels, and the specification of
 actions is much simpler.
 
 *  :ref:`Quick Start             <quick-start>` - no experience or data required, download and analyze *Escherichia coli* repeats today!
-*  :ref:`Tutorial and Examples   <tutorial>`    - a more in-depth look at the meryl command
-*  :ref:`Parameter Reference     <reference>`   - alphabetical list of meryl actions
 *  :ref:`Usage                   <usage>`       - command line usage cheat sheet
+*  :ref:`Reference               <reference>`   - all the details
 *  :ref:`History                 <history>`     - the history of meryl
 *  :ref:`FAQ                     <faq>`         - Frequently asked questions

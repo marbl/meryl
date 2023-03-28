@@ -1,17 +1,19 @@
 .. _usage:
 
-{MOSTLY A PLACEHOLDER}
+====================
+Command Line Options
+====================
 
-===========================
-meryl2 COMMAND LINE OPTIONS
-===========================
 
-Global Options
---------------
 
-Global options apply to every action.  Global options are expressed as
+meryl2 Global Options
+---------------------
+
+In meryl2, global options apply to every action.  Global options are expressed as
 command line switches.  K-mer size, label size, memory usage, number of
 threads, and simple sequence reductions are all global options.
+
+Processing is specified as a list of ``actions`` and are described elsewhere.
 
 .. code-block:: none
   :caption: meryl2 usage.
@@ -61,9 +63,9 @@ imput that could be counted in some given memory size.
     Dump the raw data from a merylData file in a meryl database.
 
 
-==================================
-meryl2-lookup COMMAND LINE OPTIONS
-==================================
+meryl2-lookup Usage
+-------------------
+
 
 .. code-block:: none
   :caption: meryl2-lookup usage.

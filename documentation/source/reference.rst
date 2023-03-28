@@ -1,5 +1,9 @@
 .. _reference:
 
+==============
+What is Meryl?
+==============
+
 Meryl is a tool for creating and working with DNA sequence k-mers.  K-mers
 are typically created by **counting** how many times each k-mer sequence
 occurs in some collection of sequences.  Meryl refers to this as the
@@ -13,9 +17,6 @@ bits could be used to `unary encode
 of the k-mer.  Databases are filtered and combined using **actions**.  An
 action tells how to **select** the output value and label of a k-mer, and how
 to **filter** undesired k-mers from the output database.
-
-Background
-==========
 
 .. note::
   The original meryl used order ACTG for a reason that turned out to be
@@ -76,7 +77,7 @@ In meryl, k-mers can be up to 64 bases long and are canonical by default.
 
 Given at least one sequence file, meryl will find the list of k-mers present
 in it and count how many times each one occurs.  The count becomes the
-'value' of the k-mer.  These are stored in a meryl database.  The above
+``value`` of the k-mer.  These are stored in a meryl database.  The above
 example would store:
 
 .. code-block:: none
@@ -90,8 +91,8 @@ Values are treated as unsigned 32-bit integers (the max value is
 4,294,967,295).  Values can be operated on by the usual arithmetic
 operations.
 
-Each k-mer can optionally have a 64-bit 'label' associated with it.  The
-label can, for example, be used to assign a 'type' or 'class' to certain
+Each k-mer can optionally have a 64-bit ``label`` associated with it.  The
+label can, for example, be used to assign a ``type`` or ``class`` to certain
 k-mers, or to mark k-mers as coming from a specific source, etc.  Labels are
 operated on by the binary logic operations (AND, OR, XOR, NOT) and can also
 be shifted to the left or right.
@@ -100,14 +101,28 @@ The primary purpose of meryl is to combine multiple k-mer databases into a
 single output database by computing new values and labels and filtering k-mers
 based on their value, label, base composition and presence or absence from
 specific databases.  It does this by passing each k-mer through a tree of
-'actions'.  A leaf node of the tree reads k-mers from input databases (or by
+``actions``.  A leaf node of the tree reads k-mers from input databases (or by
 counting k-mers in input sequence files), filtering k-mers via an action, and
 emitting k-mers to other nodes.  Eventually the k-mers pass through a root node
 and are output to a new database.  (Any node can create output databases, not
 just the root node.)
 
+=========
 Databases
 =========
+
+.. sidebar:: Database Implementation Details
+
+  Each kmer is stored by breaking the binary represntation into three
+  pieces: a file prefix, a block prefix, and a suffix.  A k-mer needs 2*k bits
+  to represent it.  The file prefix is 6 bits wide, representing one of the 64
+  possible files in a database.  Inside a file, kmers are stored in blocks,
+  each kmer in a block will have the same block prefix.  The suffix data for a
+  block is stored using Elias-Fano encoding (CITE) where each suffix is split
+  into two pieces.  The first piece is encoded as a unary offset from the last
+  piece, and the second piece is a N-log2(N)+1 binary value.  At present,
+  values are stored as plain 32-bit integers, stored immediately after the kmer
+  data.
 
 A set of k-mers, each k-mer with a value and a label, is stored in a
 **database**.  The database is a directory with 129 binary files in it -- 64
@@ -124,6 +139,8 @@ Each k-mer is stored at most once per database - thus a k-mer cannot have
 multiple values of labels associated with it (though we did envision doing
 this at one time).
 
+
+===============
 Counting K-mers
 ===============
 
@@ -164,13 +181,24 @@ sequences and the k-mer size.
 Counting Small k-mers (k < 17)
 ------------------------------
 
+.. warning::
+  does count really only use one thread here?
+
+.. warning::
+  is this method used even for small amount of input sequence?
+
+.. sidebar:: Small k-mer Counting Implementation Details
+
+  Each integer counter is initially a 16-bit value.  Once any count exceeds
+  2\ :sup:`16` = 65,535 another bit is added to all value, resulting in
+  17-bit values for every k-mer.  Once any count then exceeds 2\ :sup:`17` =
+  131,072, another bit is added, and so on.  Thus, memory usage is 512 MB *
+  log\ :sub:`2` maximum_count_value
+
 For k at most 16, meryl counts k-mers directly, that is, by associating an
 integer count with each possible k-mer.  This has the benefit of being simple
 and uses a constant amount of memory regardless of the size of the input, but
 quickly exhausts memory for even moderate k-mer sizes.
-
-.. warning::
-  BUT THIS METHOD ISN'T used if there isn't a lot of input sequence
 
 There are 4\ :sup:`k` k-mers of size k; for k=16, there are 4,294,967,296
 possible k-mers.  Counting 16-mers with this method will use at least 8
@@ -182,17 +210,17 @@ This method uses only a single thread to read the input sequence and
 increment counters in the array, but multiple threads can be used to generate
 the output database.
 
-.. warning::
-  does count really only use one thread here?
-
-Details: Each integer counter is initially a 16-bit value.  Once any count
-exceeds 2\ :sup:`16` = 65,535 another bit is added to all value, resulting in
-17-bit values for every k-mer.  Once any count then exceeds 2\ :sup:`17` =
-131,072, another bit is added, and so on.  Thus, memory usage is 512 MB *
-log\ :sub:`2` maximum_count_value
-
 Counting Large k-mers (k > 15)
 ------------------------------
+
+.. sidebar:: Large k-mer Counting Implementation Details
+
+  Each k-mer is split into a prefix and a suffix.  The prefix is used to
+  select a list to which the suffix is added.  When the (approximate) size of
+  all lists exceeds a user-supplied threshold, each list is sorted, the
+  suffixes are counted, and this subset of counted k-mers is output to an
+  intermediate database.  After all k-mers are processed, the intermediate
+  databases are merged into one.
 
 For k larger than 15, or for small amounts of input sequence, meryl counts
 k-mers by first converting the sequence to a list of k-mers, duplicates
@@ -207,15 +235,7 @@ writing and merging partial results.
 
 This method can use multiple threads for every stage.
 
-Details: Each k-mer is split into a prefix and a suffix.  The prefix is used
-to select a list to which the suffix is added.  A trade off is made between a
-small prefix (resulting in few lists that store large suffixes) and a large
-prefix (resulting in many lists where the overhead of each list could use
-more space than the lists themselves).  When the (approximate) size of all
-lists exceeds a user-supplied threshold, each list is sorted, the suffixes
-are counted, and output to an intermediate database.  After all k-mers are
-processed, the intermediate databases are merged into one.
-
+=======
 Actions
 =======
 
@@ -226,7 +246,23 @@ be output or discarded (e.g., "if the new value is more than 100, output the
 k-mer"), and prints it to the screen, saves it to a new database, or
 passes it on to another action for further processing.
 
-.. note:
+An action is specified as an alias (listed below) or by explicitly stating
+all parameters.  The parameters describe:
+
+ * what value to select for each output k-mer
+ * what label to select for each output k-mer
+ * conditions when a k-mer should be filtered from output:
+    - based on which input databases it came from
+    - based on the input and/or output values of the k-mer
+    - based on the input and/or output labels of the k-mer
+    - based on the sequence of the k-mer
+ * what to do with output k-mers
+    - output them to a new database
+    - print them to ASCII output files
+    - display them on the terminal
+
+.. note::
+
   K-mers are read "in order" from the inputs.  If an input does not contain
   the "next" k-mer, it does not participate in the action processing.  For example,
   suppose we have three input databases with the following 4-mers and their counts:
@@ -241,7 +277,7 @@ passes it on to another action for further processing.
     CAAT/1            GGGG/3
     GGGG/1
 
-  A 'union-sum' action with these three databases as input will output:
+  A ``union-sum`` action with these three databases as input will output:
 
   .. code-block:: none
     :caption: Sample output from union-sum action.
@@ -252,21 +288,6 @@ passes it on to another action for further processing.
     CAAT/3 (... from input-1 and input-2)
     CCCC/3 (... from input-3)
     GGGG/4 (... from input-1 and input-3)
-
-An action is specified as an alias (listed below) or by explicitly stating
-all parameters.  The parameters describe:
-
- - what value to **select** for each output k-mer
- - what label to **select** for each output k-mer
- - conditions when a k-mer should be **filtered** from output
-    - based on which input databases it came from
-    - based on the input and/or output values of the k-mer
-    - based on the input and/or output labels of the k-mer
-    - based on the sequence of the k-mer
- - what to do with output k-mers
-    - output them to a new database
-    - print them to ASCII output files
-    - display them on the terminal
 
 A **selector** selects or computes the output value (label) for each k-mer
 from among the input values (labels), or computes an output value (label)
@@ -282,8 +303,8 @@ Any number of filters can be supplied, linked with **and**, **or** and
 Though it is possible to specify all those choices explicitly, **aliases** are
 provided for most common operations.
 
-Aliases exist to support common operations.  An alias sets the 'value',
-'label' and 'input' options and so these are not allowed to be used with
+Aliases exist to support common operations.  An alias sets the ``value``,
+``label`` and ``input`` options and so these are not allowed to be used with
 aliases.  Examples of aliases and their explicit configuration:
 
 .. table:: Action Aliases
@@ -413,6 +434,7 @@ A full action is:
   [ action-name
       output=<database.meryl>
       print=<files.##.mers>
+      display
       value=rule-to-create-output-value
       label=rule-to-create-output-label
       value:rule-to-select-k-mer-for-output
@@ -424,36 +446,89 @@ A full action is:
       ...
   ]
 
-'output' is optional.  If present, the k-mers generated by this action will be
-written to the specified meryl database.  If an existing database is supplied,
-it will be overwritten.
-
-'print' is optional.  If present, the k-mers will be written to ASCII file(s)
-in the format '<k-mer><tab><value><tab><label>', one k-mer per line.  The k-mers
-will be in sorted order: A, C, T, G.  K-Mers will be canonical, unless the
-input database (or 'count' action) has explicitly specified otherwise.  If
-the file name includes the string '##', the data will be written to 64 files,
-in parallel, using up to 64 threads.
-
-'value=' and 'label=' describe how to combine the input values and labels
-into a single output value and label.
-
-'value:', 'label:', 'bases:' and 'input:' describe the conditions required
-for a k-mer to output.  Any number of these may be supplied.  They form
-a 
-
-An 'input' is either a meryl database or another meryl action.  Some actions
-require exactly one input, others require more than one - this is specified
-in the 'input:' rule.
-
 Square brackets MUST surround every action (exception: the first action in a
 command tree can omit the brackets).
 
+``output`` is optional.  If present, the k-mers generated by this action will
+be written to the specified meryl database.  If an existing database is
+supplied, it will be overwritten.
+
+``print`` is optional.  If present, the k-mers will be written to ASCII
+file(s) in the format ``<k-mer><tab><value><tab><label>``, one k-mer per
+line.  The k-mers will be in sorted order: A, C, T, G.  If the file name
+includes the string ``##``, the data will be written to 64 files, in
+parallel, using up to 64 threads.  Appending suffix ``.gz``, ``.bz2`` or
+``.xz`` will cause the output file to be compressed.
+
+``display`` is optional.  It behaves like ``print``, except the k-mers are
+written to the terminal.
+
+.. note::
+
+  ``printACGT`` is the same as ``print``, but modifies the ordering of kmers
+  from ``A < C < T < G`` to ``A < C < G < T`` when forming canonical kmers.
+  While this generates correct canonical kmers, the output kmers are not
+  sorted.
+
+  Consider 3-mers from string ``GGAGAGCT``:
+
+  .. table:: ACTG order vs ACGT order
+    :widths: 20 20 20 20 20
+
+    +------------+---------+---------+---------------------------+
+    |            |         |         |     canonical kmer in     |
+    |            |         |         +-------------+-------------+
+    | ``GGAGCT`` | forward | reverse |  ACTG order |  ACGT order |
+    +------------+---------+---------+-------------+-------------+
+    | ``GGA...`` | ``GGA`` | ``TCC`` |   ``TCC``   |   ``GGA``   |
+    +------------+---------+---------+-------------+-------------+
+    | ``.GAG..`` | ``GAG`` | ``CTC`` |   ``CTC``   |   ``CTC``   |
+    +------------+---------+---------+-------------+-------------+
+    | ``..AGC.`` | ``AGC`` | ``GCT`` |   ``AGC``   |   ``AGC``   |
+    +------------+---------+---------+-------------+-------------+
+    | ``...GCT`` | ``GCT`` | ``AGC`` |   ``AGC``   |   ``AGC``   |
+    +------------+---------+---------+-------------+-------------+
+
+  When meryl builds the datase, it uses the ``A < C < T < G`` order.  These
+  kmers will be stored in the database in order: ``AGC``, ``CTC``, ``TCC``,
+  ``GCT``.  But when output using **printACGT**, the kmers will be reported as
+  ``AGC``, ``CTC``, ``GGA``, ``GCT``.  Notice that because of the change in
+  canonical kmer from ``TCC`` to ``GGA`` the last kmer is not in sorted order.
+
+``value=`` and ``label=`` describe how to combine the input values and labels
+into a single output value and label.
+
+``value:``, ``label:``, ``bases:`` and ``input:`` describe the conditions
+required for a k-mer to output.  Any number of these may be supplied.  They
+form a
+
+An ``input`` is either a meryl database or another meryl action.  Some
+actions require exactly one input, others require more than one - this is
+specified in the ``input:`` rule.
+
+=========
 Selectors
----------
+=========
+
+.. warning::
+  HOW IS THIS IMPLEMENTED?
+
+  When value:#c, value:first, value:min or value:max are used, the label
+  operation acts ONLY on the kmers matching the value selection.  For example,
+  if value:min finds value=5 is the minimu, label=or would combine the labels
+  of all kmers with value=5.  Contrast this with value:add (which would set the
+  output value to the sum of the kmer values in all databases) and label:and
+  (which would set each bit in the output label to true if the corresponding
+  bit is true in all inputs).
+
+  Likewise for label:#c, label:first, label:minweight and label:maxweight.  For
+  example, when label:#c is used, value:add would sum the values of all labels
+  that are the same as constant c.
+
+
 
 Value Selectors
-~~~~~~~~~~~~~~~
+---------------
 
 A **value selector** selects (or computes) the output value of the k-mer
 based on the input values and possibly a single integer constant.
@@ -469,6 +544,9 @@ based on the input values and possibly a single integer constant.
   ``value=add#10`` would set the output value to the sum of the input values
   plus ten; ``value=min#10`` would set the output value to the smallest input
   value or 10 if all input values are larger than 10.
+
+.. warning::
+  How to form complex expressions?
 
 .. warning::
   Things like value=@1-@2 are NOT supported.  Even the potentially useful
@@ -526,10 +604,13 @@ based on the input values and possibly a single integer constant.
   +--------------------+-------------------------------------------------+
 
 Label Selectors
-~~~~~~~~~~~~~~~
+---------------
 
 A **label selector** selects (or computes) the output label of the k-mer
 based on the input label and possibly a single 64-bit constant.
+
+.. warning::
+  How to form complex expressions?
 
 .. table:: Value Selectors
   :widths: 20 80
@@ -557,7 +638,8 @@ based on the input label and possibly a single 64-bit constant.
   +------------------------+-------------------------------------------------+
   | label=xor(#X)          | ...the bitwise XOR of all input labels.         |
   +------------------------+-------------------------------------------------+
-  | label=difference(#X)   | ... ????                                        |
+  | label=difference(#X)   | ...that of the k-mer in the first input,        |
+  |                        | with all bits set in other inputs turned off.   |
   +------------------------+-------------------------------------------------+
   | label=lightest(#X)     | ...the label with the fewest bit set.           |
   +------------------------+-------------------------------------------------+
@@ -574,15 +656,14 @@ based on the input label and possibly a single 64-bit constant.
   | label=rotate-right(#X) | ...the first input rotated right by X places.   |
   +------------------------+-------------------------------------------------+
 
+=======
 Filters
--------
+=======
 
-Filters decide if the k-mer should be output.
-
-They can use the values and labels of the input k-mers, the computed value and label of
-the k-mer to be output, the number and location of inputs that supplied an input
-k-mer, and the base composition of the k-mer to decide if a k-mer should be
-discarded or sent to the output.  A single filter term tests one condition,
+Filters decide if the k-mer should be output.  They can use the values and
+labels of the input k-mers, the computed value and label of the k-mer to be
+output, the number and location of inputs that supplied an input k-mer, and
+the base composition of the k-mer.  A single filter term tests one condition,
 e.g., ``value:>3``, and multiple terms are connected together in a
 sum-of-products form (e.g., 'and' has higher precedence than 'or'):
 
@@ -592,8 +673,9 @@ sum-of-products form (e.g., 'and' has higher precedence than 'or'):
 
   value:@1>=20 or value:@2>=20 or value:>30 and input:#2
 
-will output a k-mer if it has a value of at least 20 in either input database,
-or the output value is more than 30 and the k-mer occurs in both inputs.
+will output a k-mer if it has a value of at least 20 in either input
+database, or the output value is more than 30 and the k-mer occurs in both
+inputs, or both conditions are met.
 
 The 'not' keyword has highest precedence and can be used to invert the sense
 of the next term, and only the next term.  While this seems restrictive,
@@ -610,10 +692,12 @@ Do not confuse filters ('value:', 'label:', 'input:', 'bases:') with
 selectors ('value=' and 'label=').
 
 Value Filters
-~~~~~~~~~~~~~
+-------------
 
 A value filter discards the k-mer from output if the input or output values
-are undesired.  When the filter is TRUE the k-mer is output.
+are undesired.  When the filter is TRUE the k-mer is output.  The syntax and
+options are similar to **label filters**, but value filters are typically
+integer functions.
 
 .. code-block:: none
 
@@ -684,8 +768,8 @@ Examples:
   +--------------------+------------------------------------------------------------------------------+
 
 
-Legacy Vale Filters
-~~~~~~~~~~~~~~~~~~~
+Legacy Value Filters
+~~~~~~~~~~~~~~~~~~~~
 
 The simple thresholding algorthms output a kmer if it's value meets the
 specified criterion.  They can operate only on exactly one input stream; use
@@ -715,14 +799,186 @@ kmer is the number of times the kmer is present in the input sequences.
 
 
 Label Filters
-~~~~~~~~~~~~~
+-------------
 
+A label filter discards the k-mer from output if the input or output labels
+are undesired.  When the filter is TRUE the k-mer is output.  The syntax and
+options are similar to **value filters**, but label filters are typically
+binary functions.
 
+.. code-block:: none
+
+  label:<ARG1><OP><ARG2>
+
+ARG1 and ARG2 can be an input file (``@3``), a constant (``#0100b`` or ``4h``), a
+special function (ARG2 only) or empty (ARG1 only).
+
+.. table::
+  :widths: 20 10 20 50
+
+  +------------------+------+-------------------+--------------------------------------------------------+
+  | ARG1             |  OP  | ARG2              | Meaning                                                |
+  +==================+======+===================+========================================================+
+  | ``@n``           |      | ``@n``            | Use the label from the k-mer in the ``n``\th input.    |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  | ``#n`` or ``n``  |      | ``#n`` or ``n``   | Use the constant ``n``.                                |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  | <not-present>    |      |                   | Use the label of the selected output k-mer.            |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |      | ``distinct=f``    | Use the label such that ``f`` fraction of the distinct |
+  |                  |      |                   | k-mers have at most this label.                        |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |      | ``word-freq=f``   | (same, but for total k-mers?)                          |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |      | ``threshold=n``   | Use the constant ``n``.                                |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |``==``|                   | TRUE if ARG1 equals ARG2.                              |
+  |                  |``=`` |                   |                                                        |
+  |                  |``eq``|                   |                                                        |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |``!=``|                   | TRUE if ARG1 does not equal ARG2.                      |
+  |                  |``<>``|                   |                                                        |
+  |                  |``ne``|                   |                                                        |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |``<=``|                   | TRUE if ARG1 is less than or equal to ARG2.            |
+  |                  |``le``|                   |                                                        |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |``>=``|                   | TRUE if ARG1 is greater than or equal to ARG2.         |
+  |                  |``ge``|                   |                                                        |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |``<`` |                   | TRUE if ARG1 is less than ARG2.                        |
+  |                  |``lt``|                   |                                                        |
+  +------------------+------+-------------------+--------------------------------------------------------+
+  |                  |``>`` |                   | TRUE if ARG1 is greater than ARG2.                     |
+  |                  |``gt``|                   |                                                        |
+  +------------------+------+-------------------+--------------------------------------------------------+
+
+Note that ``@1`` is not necessarily the first file supplied to the action.  If
+the k-mer occurs only in the last file, ``@1`` will be the label of the k-mer in
+that file.
+
+Examples:
+
+We want to find k-mers in an that are in none, one or two different read
+sets.  We'll assign distinct indicator bits to each input, ``union`` everything
+together, then pick out k-mers that have the `assembly` indicator set.
+
+.. code-block:: none
+  :caption: Finding unsupported k-mers, version 1.
+  :linenos:
+
+  meryl \
+    union \
+      output=labeled.meryl \
+      value=@3 \
+      label=or \
+      label:and#0b100 \
+      [ label=0b001 db1.meryl ] \
+      [ label=0b010 db2.meryl ] \
+      [ label=0b100 asm.meryl ]
+
+The result will by k-mers with the value from the assembly and labeled with:
+
+.. table::
+  :widths: 20 80
+
+  +-------+---------------------------------------------------+
+  | 0b0.. | (label never occurs)                              |
+  +-------+---------------------------------------------------+
+  | 0b100 | appears only in asm                               |
+  +-------+---------------------------------------------------+
+  | 0b101 | appears in asm and db1                            |
+  +-------+---------------------------------------------------+
+  | 0b110 | appears in asm and db2                            |
+  +-------+---------------------------------------------------+
+  | 0b111 | appears in asm and both db1 and db1               |
+  +-------+---------------------------------------------------+
+
+An alternate method is to first intersect the read k-mers with the assembly,
+then merge those two sets:
+
+.. code-block:: none
+  :caption: Finding unsupported k-mers, version 2.
+  :linenos:
+
+  meryl \
+    union \
+    output=labeled.meryl \
+      value=sum \
+      label=or \
+      [ intersect value=@2 label=0b01 asm.meryl db1.meryl ] \
+      [ intersect value=@2 label=0b10 asm.meryl db2.meryl ]
+
+The result is slightly different.  We no longer output k-mers that exist only
+in the assembly; the value of k-mers will by the sum of the values in the
+read databases, and the label will be:
+
+.. table::
+  :widths: 20 80
+
+  +-------+---------------------------------------------------+
+  |  0b00 | (label never occurs)                              |
+  +-------+---------------------------------------------------+
+  |  0b01 | appears in the assembly and db1                   |
+  +-------+---------------------------------------------------+
+  |  0b10 | appears in the assembly and db2                   |
+  +-------+---------------------------------------------------+
+  |  0b11 | appears in the assembly and both db1 and db1      |
+  +-------+---------------------------------------------------+
+
+Find k-mers with a value of at least ten that exist in two or more databases,
+report which and how many databases contained the k-mer.
+
+.. code-block:: none
+  :caption: Finding supported k-mers from multiple databases.
+  :linenos:
+
+  meryl \
+    display \
+    value=count \
+    label=or \
+    inputs:2-4 \
+    [ value:>=10 label:0001b a.meryl ] \
+    [ value:>=10 label:0010b b.meryl ] \
+    [ value:>=10 label:0100b c.meryl ] \
+    [ value:>=10 label:1000b d.meryl ]
+
+Output a k-mer if it exists in at least three databases with count greater
+than 100, but output the minimum count the k-mer has in any input database.
+
+.. code-block:: none
+  :caption: Minimum value of well-supported k-mers.
+  :linenos:
+
+  meryl \
+  intersect \
+    value:@2 \
+    [ input:3-5 \
+      [ value:>100 a.meryl ] \
+      [ value:>100 b.meryl ] \
+      [ value:>100 c.meryl ] \
+      [ value:>100 d.meryl ] \
+      [ value:>100 e.meryl ] \
+    ]
+    [ union-min \
+      a.meryl \
+      b.meryl \
+      c.meryl \
+      d.meryl \
+      e.meryl \
+    ] \
+
+The first sub-action generates a list of k-mers that are well-supported in at
+least three inputs.  Its sub-actions return lists of k-mers with value
+greater than 100.  The second sub-action returns a list of all k-mers with
+their actual value.  Finally, ``intersect`` returns a list of k-mers that
+are both "well-supported in at least three inputs" and "in any input" and
+sets the output value to whatever was in the second input.
 
 
 
 Base Composition Filters
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 The base composition filter selects kmers for output based on the number of
 A's, C's, G's and T's in the kmer sequence.
@@ -774,21 +1030,22 @@ using the specified numeric comparison operator ``<OP>``.
 
 
 Input Filters
-~~~~~~~~~~~~~
+-------------
 
-The input filter selects k-mers for output based on which input
-databases/actions supplied the k-mer.
+The input filter selects k-mers for output based on which inputs
+supplied the k-mer.
 
 .. code-block:: none
 
   input:<CONDITION>[:<CONDITION>[...]]
 
-A ``<CONDITION>`` is either an input number (``@n``) or input count (``#n``).
+A ``<CONDITION>`` is either an input number (``@n``) or input count (``n`` or ``n-m``).
 For the filter to be TRUE, all the CONDITIONS must be met.
 
-The '@n' notation is comparing against the input file order (first file, etc).
+.. warning::
+  Do input-counts require ``#n`` or just integers ``n``?
 
-The '#n' notation is comparing against 'input-count'.
+Note that a k-mer is always present in at least one input.
 
 Assuming 9 input files, some examples are:
 
@@ -819,13 +1076,13 @@ A few aliases exist:
   +-------------+-------------+---------------------------------------------------------+
   | Alias       | Filter      | Meaning                                                 |
   +=============+=============+=========================================================+
-  | input:any   | input:#1-#9 | k-mer is in any number of inputs                        |
+  | input:any   | input:#1-#9 | k-mer is in any number of inputs.                       |
   +-------------+-------------+---------------------------------------------------------+
-  | input:all   | input:#9    | k-mer is in all inputs                                  |
+  | input:all   | input:#9    | k-mer is in all inputs.                                 |
   +-------------+-------------+---------------------------------------------------------+
-  | input:only  | input:@1:#1 | k-mer is in the first input, and in exactly one input   |
+  | input:only  | input:@1:#1 | k-mer is in the first input, and in exactly one input.  |
   +-------------+-------------+---------------------------------------------------------+
-  | input:first | input:@1    | k-mer is in the first input, and maybe other inputs     |
+  | input:first | input:@1    | k-mer is in the first input, and maybe other inputs.    |
   +-------------+-------------+---------------------------------------------------------+
 
 The difference between 'only' and 'first' is subtle: 'only' is true if the
@@ -833,7 +1090,7 @@ k-mer is present exactly only in the firt file, while 'first' is true if the
 k-mer exists in the first file and any other files.  'only' will effect a set
 difference action, while 'first' is more akin to a set intersection.
 
-
+================
 Processing Trees
 ================
 

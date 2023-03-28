@@ -1,7 +1,7 @@
 .. _faq:
 
-Meryl2 Frequently Asked Questions
-=================================
+Frequently Asked Questions
+==========================
 
 .. contents::
   :local:
