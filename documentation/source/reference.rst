@@ -857,6 +857,38 @@ Note that ``@1`` is not necessarily the first file supplied to the action.  If
 the k-mer occurs only in the last file, ``@1`` will be the label of the k-mer in
 that file.
 
+.. table:: Proposed Flters
+  :widths: 20 80
+
+  +--------------------+------------------------------------------------------------+
+  | Filter             | TRUE if...                                                 |
+  +====================+============================================================+
+  | label:all#c        | ...all bits set in c are also set in the label             |
+  |                    |                                                            |
+  | label:and#c        | equivalent to ``l & c == c`` or ``l | c == l``             |
+  |                    |                                                            |
+  |                    | equivalent to ``~l & c == 0`` (not expressible in meryl)   |
+  +--------------------+------------------------------------------------------------+
+  | label:any#c        | ...any bits set in c are also set in the label             |
+  |                    |                                                            |
+  | label:or#c         | equivalent to ``l & c != 0``                               |
+  +--------------------+------------------------------------------------------------+
+  | label:none#c       | ...no bits set in c are set in the label                   |
+  |                    |                                                            |
+  | label:not#c        | equivalent to ``l & c == 0``                               |
+  +--------------------+------------------------------------------------------------+
+  | label:only#c       | ...only the bits set in c are set in the label             |
+  |                    |                                                            |
+  | label:xor#c ??     | equivalent to ``l | c == c`` or ``l && c == l``            |
+  |                    |                                                            |
+  |                    | equivalent to ``none#~c``                                  |
+  +--------------------+------------------------------------------------------------+
+  | label:and#c=d      | ...not expressible in meryl                                |
+  |                    |                                                            |
+  +--------------------+------------------------------------------------------------+
+  | label:or#c=d       | ...not expressible in meryl                                |
+  +--------------------+------------------------------------------------------------+
+
 Examples:
 
 We want to find k-mers in an that are in none, one or two different read
@@ -974,6 +1006,189 @@ greater than 100.  The second sub-action returns a list of all k-mers with
 their actual value.  Finally, ``intersect`` returns a list of k-mers that
 are both "well-supported in at least three inputs" and "in any input" and
 sets the output value to whatever was in the second input.
+
+A Generalized Label Filter
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A general label filter can be devised by supplying a function that converts
+each bit in the label to some testable output bit, then testing those output
+bits.
+
+An example will follow the tables.
+
+The four functions are:
+
+.. table:: 
+
+  +-----------+------+--------------+------------------------+
+  | function  | code | output value |                        |
+  +===========+======+==============+========================+
+  | zero(bit) | 0    | 0            | always false           |
+  +-----------+------+--------------+------------------------+
+  | one(bit)  | 1    | 1            | always true            |
+  +-----------+------+--------------+------------------------+
+  | pass(bit) | +    | bit          | true if label is set   |
+  +-----------+------+--------------+------------------------+
+  | flip(bit) | -    | !bit         | true if label is unset |
+  +-----------+------+--------------+------------------------+
+
+And the five tests are:
+
+.. table:: 
+
+  +-------------------+------+---------------------------------------+
+  | test              | code |                                       |
+  +===================+======+=======================================+
+  | all-must-be-true  | T    | All 'T' bits must be true.            |
+  +-------------------+------+---------------------------------------+
+  | any-must-be-true  | t    | At least one 't' bit must be true.    |
+  +-------------------+------+---------------------------------------+
+  | any-must-be-false | f    | At least one 'f' bit must be false.   |
+  +-------------------+------+---------------------------------------+
+  | all-must-be-false | F    | All 'F' bits must be false.           |
+  +-------------------+------+---------------------------------------+
+  | don't care        | x    | Bit is not tested.                    |
+  +-------------------+------+---------------------------------------+
+
+Example: With a five-bit label, the filter ``label:+--++:FttTT`` will output
+the k-mer if its label begins with ``0``, has at least one ``0`` in the next
+two bits, and ends with ``11``.
+
+Aliases ``all`` (all tests are ``T``), any (all tests are ``t``), and none
+(all tests are ``F``) exist.
+
+The default function is ``+`` and the default test is ``T``.
+
+A filter ``label:0101011`` needs to be special case interpreted to
+mean "the label equals 0101011".
+
+A filter ``label:....011`` likewise should be special cased to mean "the
+label ends in 011".
+
+Examples on 2-bit labels:
+
+.. table:: 
+
+  +----------------+-----------------------+-------------------+
+  | Filter         | Meaning               | Label Example     |
+  |                |                       +----+----+----+----+
+  |                |                       | 00 | 01 | 10 | 11 |
+  +================+=======================+====+====+====+====+
+  | label:00:all   | always false          |  F |  F |  F |  F |
+  +----------------+-----------------------+----+----+----+----+
+  | label:11:all   | always true           |  T |  T |  T |  T |
+  +----------------+-----------------------+----+----+----+----+
+  | label:-+:all   | label must be 01      |  F |  T |  F |  F |
+  +----------------+-----------------------+----+----+----+----+
+  | label:1+:all   | label must be x1      |  F |  T |  F |  T |
+  +----------------+-----------------------+----+----+----+----+
+  +----------------+-----------------------+----+----+----+----+
+  | label:00:any   | always false          |  F |  F |  F |  F |
+  +----------------+-----------------------+----+----+----+----+
+  | label:11:any   | always true           |  T |  T |  T |  T |
+  +----------------+-----------------------+----+----+----+----+
+  | label:-+:any   | label cannot be 10    |  T |  T |  F |  T |
+  +----------------+-----------------------+----+----+----+----+
+  | label:0+:any   | label cannot be x0    |  F |  T |  F |  T |
+  +----------------+-----------------------+----+----+----+----+
+  +----------------+-----------------------+----+----+----+----+
+  | label:00:none  | always true           |  T |  T |  T |  T |
+  +----------------+-----------------------+----+----+----+----+
+  | label:11:none  | always false          |  F |  F |  F |  F |
+  +----------------+-----------------------+----+----+----+----+
+  | label:-+:none  | label must be 10      |  F |  F |  T |  F |
+  +----------------+-----------------------+----+----+----+----+
+  | label:0+:none  | label cannot be x1    |  T |  F |  T |  F |
+  +----------------+-----------------------+----+----+----+----+
+
+Examples:
+
+.. code:: none
+
+  'equal' label:+-+-:all   --> true if the label is exactly 1010
+  'all'   label:+1+1:any   --> true if none of the '+' bits are set
+  'any'   label:+0+0:any   --> true if any of the '+' bits are set
+  'none'  label:-1-1:all   --> true if none of the '-' bits are set
+  'only'  label:1-1-:all   --> true if the '-' bits are all zero
+
+Examples:
+
+.. code:: none
+
+  label:101011
+
+    SPECIAL CASE, outputs k-mer if the label is exactly 101011.
+
+  label:+-+-++:all
+
+    Outputs k-mer if the label is exactly 101011.
+
+  label=and label:+11+:all label:@2:1++1:all
+
+    Compute the output label as the AND of all input labels.
+    Require that the output label have the first and last bits set, AND
+    require that the label on the second input have the middle two bits set.
+
+Some tests that can be implemented:
+
+A. ``L == C`` or ``L != C``
+
+   For testing equality, convert the constant into a string of +'s (for 1
+   bits) and -'s (for 0 bits) then check that all bits are set.
+
+   For testing non-equality, invert the conversion so that 1's are set to -
+   and 0's to +, then check that any bit is set.
+
+   For testing (non-)equality of only a portion of the label, set the bits
+   that should not be tested to 1 (for equality) or 0 (for non-equality).
+
+   Proof: **not verified recently** if the label is the same as the constant,
+   1 bits in the label will be inverted (to 0) and 0 bits in the label will
+   be output true (so also 0) resulting in a modified label of all 0's.  If a
+   1 bit in the label corresponds to a 0 bit in the constant, it will be
+   passed true (a 1 in the modified label), similarly, a if a 0 bit in the
+   label corresponds to a 1 bit in the constant it will be passed inverted (a
+   1 in the modified label), either of which will make the modified label not
+   equal to zero.
+
+B. ``L & C == L`` or ``L | C == C``
+
+   These test that C dominates L: that every bit set in L is also set in C, equivalently,
+   that there is no bit set in L that is not set in C.
+
+   Convert the constant c into a string of 0's (for 1 bits) and +'s (for 0
+   bits), then check that no bit is set.
+
+   Where C is a 1, we don't care what L is; 'l&c == l' is true for both l=0
+   and l=1.  By forcing these bits to 0 in the modified string, they will
+   never result in the check failing.
+
+   Where C is a 0, howeveer, L must be 0.  Hence, passing the L bit true will
+   result in a 1 bit output when L=1, which will cause the check to properly
+   fail.  When L=0, a 0 is outpout, and the check passes.
+
+   If instead of testing that no bit is set, we test that any bit is set, the
+   sense of the filter is inverted; we test that C does not dominate L; that
+   there is a bit set in L that is not set in C.
+
+C. ``L & C == C`` or ``L | C == L``
+
+   This is the dual of case B: L dominates C; that every bit set in C is also set in L.
+
+   Convert the constant c into a string of +'s (for 1 bits) and 1's (for 0
+   bits), then check that all bits are set.
+
+   The filter is inverted if we test that some testable bit is false.
+   
+D. ``L & C == 0`` or ``L & C != 0``
+
+   These test that L and C have no bits in common (or at least one bit in
+   common).
+
+   Convert the constant to +'s for 1's and 0's for 0's, then check that no
+   bit is set (for no bits in common) or that some bit is set (for some bits
+   in common).
+
 
 
 
