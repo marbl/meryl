@@ -679,7 +679,7 @@ inputs, or both conditions are met.
 
 The 'not' keyword has highest precedence and can be used to invert the sense
 of the next term, and only the next term.  While this seems restrictive,
-De Morgan's laws https://en.wikipedia.org/wiki/De_Morgan's_laws are useful:
+`De Morgan's laws <https://en.wikipedia.org/wiki/De_Morgan's_laws>`_ are useful:
 
 .. code-block:: none
   :caption: De Morgan's laws
@@ -719,9 +719,15 @@ special function (ARG2 only) or empty (ARG1 only).
   | <not-present>    |      |                   | Use the value of the selected output k-mer.            |
   +------------------+------+-------------------+--------------------------------------------------------+
   |                  |      | ``distinct=f``    | Use the value such that ``f`` fraction of the distinct |
-  |                  |      |                   | k-mers have at most this value.                        |
+  |                  |      |                   | k-mers have at most this value.  That is,              |
+  |                  |      |                   | ``value:ge:distinct=0.9`` will output the 10% most     |
+  |                  |      |                   | repetitive k-mers in the database.                     |
   +------------------+------+-------------------+--------------------------------------------------------+
-  |                  |      | ``word-freq=f``   | (same, but for total k-mers?)                          |
+  |                  |      | ``word-freq=f``   | Compute the word-frequency of a k-mer as its value     |
+  |                  |      |                   | divided by the total number of k-mers in the database. |
+  |                  |      |                   |                                                        |
+  |                  |      |                   |                                                        |
+  |                  |      |                   |                                                        |
   +------------------+------+-------------------+--------------------------------------------------------+
   |                  |      | ``threshold=n``   | Use the constant ``n``.                                |
   +------------------+------+-------------------+--------------------------------------------------------+
@@ -766,35 +772,6 @@ Examples:
   +--------------------+------------------------------------------------------------------------------+
   | ``value:@1>@2``    | ...the value of the first input is more than the second input.               |
   +--------------------+------------------------------------------------------------------------------+
-
-
-Legacy Value Filters
-~~~~~~~~~~~~~~~~~~~~
-
-The simple thresholding algorthms output a kmer if it's value meets the
-specified criterion.  They can operate only on exactly one input stream; use
-'union-sum' to combine multiple streams into one.  Threshold values can be of
-several types:
-
-The value of the kmer.
-
-  Specified as a plain integer, or as "threshold=<integer>" or as "t=<integer>".
-
-The cumulative fraction of distinct kmers.
-
-  Specified as "distinct=<number>" or as "d=<number>".  <number> should be
-  between 0.0 and 1.0.
-
-The word frequency of this kmer in the database of kmers.
-
-  The word frequency of a kmer is the value of the kmer divided by the number
-  of kmers represented by the database.
-
-  Specified as "word-frequency=<number>" or as "f=<number>".  <number> should
-  be between 0.0 and 1.0, and is typically on the order of 1e-6 (0.000001).
-
-Both 'distinct' and 'word-frequency' are meaningful only if the value of a
-kmer is the number of times the kmer is present in the input sequences.
 
 
 
@@ -1027,9 +1004,9 @@ The four functions are:
   +-----------+------+--------------+------------------------+
   | one(bit)  | 1    | 1            | always true            |
   +-----------+------+--------------+------------------------+
-  | pass(bit) | +    | bit          | true if label is set   |
+  | pass(bit) | \+   | bit          | true if label is set   |
   +-----------+------+--------------+------------------------+
-  | flip(bit) | -    | !bit         | true if label is unset |
+  | flip(bit) | \-   | !bit         | true if label is unset |
   +-----------+------+--------------+------------------------+
 
 And the five tests are:
