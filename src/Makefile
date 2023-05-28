@@ -413,7 +413,7 @@ ifeq ($(origin CXXFLAGS), undefined)
 
   ifeq ($(BUILDDEBUG), 1)
   else
-    CXXFLAGS += -O4 -funroll-loops -fexpensive-optimizations -finline-functions -fomit-frame-pointer
+    CXXFLAGS += -O4 -fpermissive -funroll-loops -fexpensive-optimizations -finline-functions -fomit-frame-pointer
   endif
 
   ifeq ($(BUILDJEMALLOC), 1)
