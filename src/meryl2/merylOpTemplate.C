@@ -164,7 +164,7 @@ merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char
 
   uint32  len = 0;
 
-  for (char *suf = strchr(prName, '#'); ((suf) && (*suf == '#')); suf++)
+  for (char const *suf = strchr(prName, '#'); ((suf) && (*suf == '#')); suf++)
     len++;
 
   if (len < 2) {
