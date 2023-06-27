@@ -99,7 +99,7 @@ merylFilter::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActLis
     //  Get the right hand value
     if      (_vIndex2 == uint32max)            rhs = _vLabel2;
     else if (_vIndex2 == 0)                    rhs = k._lab;
-    else if (inp[_vIndex2-1]._idx == 0)        lhs = inp[_vIndex2-1]._lab;
+    else if (inp[_vIndex2-1]._idx == 0)        rhs = inp[_vIndex2-1]._lab;
     else                                       return(false);
 
     result = compare(lhs, rhs);
