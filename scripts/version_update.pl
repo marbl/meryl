@@ -41,7 +41,6 @@ my $label    = "snapshot";      #  If not 'release' print this in the version ou
 my $major    = "1";             #  Bump before release.
 my $minor    = "3";             #  Bump before release.
 
-my $branch   = "master";
 my $version  = "v$major.$minor";
 
 my @submodules;
@@ -122,26 +121,38 @@ if (-d "../.git") {
         $dirty = "sync'd with github";
     }
 
+    #  Figure out which branch we're on.
 
-    #  But if we're on a branch, replace the version with the name of the branch.
-    open(F, "git rev-parse --abbrev-ref HEAD |");
+    my $branch = "master";
+
+    open(F, "git branch --contains |");   #  Show branches that contain the tip commit.
     while (<F>) {
-        chomp;
-        $branch  = $_;
+        next  if (m/detached\sat/);       #  Skip 'detached' states.
+
+        s/^\*{0,1}\s+//;                  #  Remove any '*' annotation
+        s/\s+$//;                         #  and all spaces.
+
+        $branch = $_;                     #  Pick the first branch
+        last;                             #  mentioned.
+    }
+    close(F);
+
+    #  If a release branch, save major and minor version numbers.
+
+    if ($branch =~ m/v(\d+)\.(\d+)/) {
+        $major = $1;
+        $minor = $2;
     }
 
-    if ($branch ne "master") {
-        if ($branch =~ m/v(\d+)\.(\d+)/) {
-            $major = $1;
-            $minor = $2;
-        }
+    #  If on an actual branch, remember the branch name.
 
+    if ($branch ne "master") {
         $label   = "branch";
         $version = $branch;
     }
 
+    #  Get information on any submodules present.
 
-    #  Get information on any submodules here.
     open(F, "git submodule status |");
     while (<F>) {
         if (m/^(.*)\s+(.*)\s+\((.*)\)$/) {
