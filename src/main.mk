@@ -73,7 +73,9 @@ SOURCES      := utility/src/align/align-ksw2-driver.C \
                 utility/src/system/speedCounter-v1.C \
                 utility/src/system/sweatShop-v1.C \
                 utility/src/system/system-stackTrace-v1.C \
-                utility/src/system/system-v1.C
+                utility/src/system/system-v1.C \
+                utility/src/system/time-v1.C
+
 
 ifeq (${BUILDSTACKTRACE}, 1)
 SOURCES      += utility/src/system/libbacktrace/atomic.c \
