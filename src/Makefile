@@ -377,7 +377,7 @@ all: $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
 
 .PHONY: clean
 clean:
-	if [ -d ../build ] ; then find ../build -type d -print | sort -r | xargs -n 100 rmdir ;  fi
+	if [ -d ../build ] ; then find ../build -type d -print | sort -r | xargs -n 100 rmdir ; fi
 	@echo ""
 	@echo "Cleaned."
 	@echo ""
