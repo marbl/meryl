@@ -112,5 +112,6 @@ SUBMAKEFILES += meryl2/meryl.mk \
 
 ifeq ($(BUILDTESTS), 1)
 SUBMAKEFILES += tests/merylCountArrayTest.mk \
-                tests/merylExactLookupTest.mk
+                tests/merylExactLookupTest.mk \
+                tests/matchTokenTest.mk
 endif
