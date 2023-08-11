@@ -46,7 +46,7 @@ merylOpTemplate::~merylOpTemplate() {
 void
 merylOpTemplate::addInputFromOp(merylOpTemplate *otin, std::vector<char const *> &err) {
 
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "addInputFromOp()-- action #%u <- input from action #%u\n",
             _ident, otin->_ident);
 
@@ -57,7 +57,7 @@ merylOpTemplate::addInputFromOp(merylOpTemplate *otin, std::vector<char const *>
 void
 merylOpTemplate::addInputFromDB(char const *dbName, std::vector<char const *> &err) {
 
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "addInputFromDB()-- action #%u <- input from file '%s'\n",
             _ident, dbName);
 
@@ -76,7 +76,7 @@ merylOpTemplate::addInputFromDB(char const *dbName) {
 void
 merylOpTemplate::addInputFromSeq(char const *sqName, bool doCompression, std::vector<char const *> &err) {
 
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "addInputFromSeq()-- action #%u <- input from file '%s'\n",
             _ident, sqName);
 
@@ -90,7 +90,7 @@ merylOpTemplate::addInputFromCanu(char const *sqName, uint32 segment, uint32 seg
 
 #ifdef CANU
 
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "addInputFromCanu()-- action #%u <- input from sqStore '%s'\n",
             _ident, sqName);
 
@@ -102,10 +102,10 @@ merylOpTemplate::addInputFromCanu(char const *sqName, uint32 segment, uint32 seg
 
 
 void
-merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
+merylOpTemplate::addOutputToDB(char const *wrName, std::vector<char const *> &err) {
 
-  if (verbosity.showConstruction() == true)
-    fprintf(stderr, "addOutput()-- action #%u -> output to database '%s'\n",
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "addOutputToDB()-- action #%u -> output to database '%s'\n",
             _ident, wrName);
 
   if (_writer) {
@@ -136,9 +136,9 @@ merylOpTemplate::addOutput(char const *wrName, std::vector<char const *> &err) {
 //  merylOpCompute::addPrinter() uses this to decide if it should open
 //  per-slice output or use the global output.
 void
-merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char const *> &err) {
+merylOpTemplate::addOutputToList(char const *prName, bool ACGTorder, std::vector<char const *> &err) {
 
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "addOutput()-- action #%u -> print to '%s'\n",
             _ident, (prName == nullptr) ? "(stdout)" : prName);
 
@@ -188,7 +188,7 @@ merylOpTemplate::addPrinter(char const *prName, bool ACGTorder, std::vector<char
 void
 merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char const *> &err) {
 
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "addOutput()-- action #%u -> %s to '%s'\n",
             _ident, (asStats == true) ? "statistics" : "histogram", hiName);
 

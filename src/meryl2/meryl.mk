@@ -1,12 +1,15 @@
 TARGET   := meryl2
 SOURCES  := meryl.C \
             merylCommandBuilder-isAlias.C \
-            merylCommandBuilder-isFilter.C \
+            merylCommandBuilder-isAssign.C \
+            merylCommandBuilder-isInOut.C \
             merylCommandBuilder-isOption.C \
             merylCommandBuilder-isSelect.C \
+            merylCommandBuilder-printTree.C \
             merylCommandBuilder-processWord.C \
             merylCommandBuilder.C \
             merylCountArray.C \
+            merylDebug.C \
             merylFilter.C \
             merylInput.C \
             merylOp-count-memorySize.C \

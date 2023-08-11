@@ -54,18 +54,21 @@ public:
   ~merylOpTemplate();
 
 public:
+  void    addInputFromDB  (char const *dbName,   std::vector<char const *> &err);
+  void    addInputFromDB  (char const *dbName);
+  void    addInputFromList(char const *dbName,   std::vector<char const *> &err) {};
+  void    addInputFromPipe(char const *pipeName, std::vector<char const *> &err) {};
+
   void    addInputFromOp  (merylOpTemplate *operation, std::vector<char const *> &err);
 
-  void    addInputFromDB  (char const *dbName, std::vector<char const *> &err);
-  void    addInputFromDB  (char const *dbName);
-
   void    addInputFromCanu(char const *stName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err);
-
   void    addInputFromSeq (char const *sqName, bool doCompression, std::vector<char const *> &err);
 
-  void    addOutput    (char const *wrName,                 std::vector<char const *> &err);
-  void    addPrinter   (char const *prName, bool ACGTorder, std::vector<char const *> &err);
-  void    addHistogram (char const *hiName, bool asStats,   std::vector<char const *> &err);
+  void    addOutputToDB  (char const *wrName,                 std::vector<char const *> &err);
+  void    addOutputToList(char const *prName, bool ACGTorder, std::vector<char const *> &err);
+  void    addOutputToPipe(char const *pipeName,               std::vector<char const *> &err) {};
+
+  void    addHistogram   (char const *hiName, bool asStats,   std::vector<char const *> &err);
 
   void    finalizeTemplateInputs(std::vector<char const *> &err);
   void    finalizeTemplateParameters(void);

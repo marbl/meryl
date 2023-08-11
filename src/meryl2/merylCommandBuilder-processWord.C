@@ -17,127 +17,175 @@
  */
 
 #include "meryl.H"
+#include "matchToken.H"
+
+
+//
+//  Parameter Class:     Parameter Name:
+//    output               database, db
+//                         list
+//                         show, stdout
+//                         pipe
+//
+//    assign, set          value
+//                         label
+//
+//    select, get          value
+//                         label
+//
+//    input                database, db
+//                         list
+//                         pipe
+//                         action
+//
+//
+
+//
+//  Detect and strip action create '[' and terminate ']' symbols from the word.
+//
+uint32
+merylCommandBuilder::findCreateTerminate(void) {
+  uint32  t = 0;
+
+  if (_optString[0] == '[') {                              //  If told to make a new action, close the
+    terminateOperations(1);                                //  existing action, make a new one, and
+    addNewOperation();                                     //  remove the '['.
+
+    for (uint32 ii=0; ii<_optStringLen; ii++)              //  There should only ever by a single '[' and
+      _optString[ii] = _optString[ii+1];                   //  never a space after it, unless the user is
+    _optStringLen--;                                       //  being a jerk, in which case, we'll fail later
+  }                                                        //  when we try to parse '[action' or ' action'.
+
+  for (t=0; ((_optStringLen > 0) &&                        //  Remove any ']' at the end and keep track
+             (_optString[_optStringLen-1] == ']')); t++)   //  of how many so we can terminate actions
+    _optString[--_optStringLen] = 0;                       //  after this word is processed.
+
+  return t;
+}
+
+
+bool
+merylCommandBuilder::decodeWord(char const *opt) {
+  char const *pn = nullptr;   //  Eventual location of parameter name in opt.
+
+  if (_curClass != opClass::clNone)   //  If we already have a class set,
+    return false;                     //  do not attempt to decode another one!
+
+  _curClass = opClass::clNone;
+  _curPname = opPname::pnNone;
+  _curParam = nullptr;
+
+  if      (matchToken(opt, pn, "output:")     == true)  _curClass = opClass::clOutput;
+  else if (matchToken(opt, pn, "assign:")     == true)  _curClass = opClass::clAssign;
+  else if (matchToken(opt, pn, "set:", true)  == true)  _curClass = opClass::clAssign;
+  else if (matchToken(opt, pn, "select:")     == true)  _curClass = opClass::clSelect;
+  else if (matchToken(opt, pn, "get:", true)  == true)  _curClass = opClass::clSelect;
+  else if (matchToken(opt, pn, "input:")      == true)  _curClass = opClass::clInput;
+  else
+    return false;
+
+
+  if (_curClass == opClass::clOutput) {
+    if      (matchToken(pn, _curParam, "database")     == true)  _curPname = opPname::pnDB;
+    else if (matchToken(pn, _curParam, "db", true)     == true)  _curPname = opPname::pnDB;
+    else if (matchToken(pn, _curParam, "list")         == true)  _curPname = opPname::pnList;
+    else if (matchToken(pn, _curParam, "show")         == true)  _curPname = opPname::pnShow;
+    else if (matchToken(pn, _curParam, "stdout", true) == true)  _curPname = opPname::pnShow;
+    else if (matchToken(pn, _curParam, "pipe")         == true)  _curPname = opPname::pnPipe;
+    else if (matchToken(pn, _curParam, "histogram")    == true)  _curPname = opPname::pnHisto;
+    else if (matchToken(pn, _curParam, "statistics")   == true)  _curPname = opPname::pnStats;
+    else
+      return false;
+  }
+
+  if (_curClass == opClass::clAssign) {
+    if      (matchToken(pn, _curParam, "value=")    == true)  _curPname = opPname::pnValue;
+    else if (matchToken(pn, _curParam, "label=")    == true)  _curPname = opPname::pnLabel;
+    else
+      return false;
+  }
+
+  if (_curClass == opClass::clSelect) {
+    if      (matchToken(pn, _curParam, "value:")    == true)  _curPname = opPname::pnValue;
+    else if (matchToken(pn, _curParam, "label:")    == true)  _curPname = opPname::pnLabel;
+    else if (matchToken(pn, _curParam, "bases:")    == true)  _curPname = opPname::pnBases;
+    else if (matchToken(pn, _curParam, "input:")    == true)  _curPname = opPname::pnInput;
+    else
+      return false;
+  }
+
+  if (_curClass == opClass::clInput) {
+    if      (matchToken(pn, _curParam, "database")  == true)  _curPname = opPname::pnDB;
+    else if (matchToken(pn, _curParam, "list")      == true)  _curPname = opPname::pnList;
+    else if (matchToken(pn, _curParam, "pipe")      == true)  _curPname = opPname::pnPipe;
+    else if (matchToken(pn, _curParam, "action")    == true)  _curPname = opPname::pnAction;
+    else
+      return false;
+  }
+
+  return true;
+}
+
 
 
 
 void
-merylCommandBuilder::processWord(char const *opt) {
-  uint32  terminate = 0;
+merylCommandBuilder::processWord(char const *rawWord) {
 
-  if (verbosity.showConstruction() == true)
-    fprintf(stderr, "processWord()- arg '%s'\n", opt);
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "processWord()- arg '%s'\n", rawWord);
 
-  //  Save a copy of the string.
+  duplicateString(rawWord,    //  Make a copy of the word and count the length.
+                  _optString, _optStringLen, _optStringMax);
 
-  _optStringLen = 0;
+  uint32 terminate = findCreateTerminate();
 
-  while ((_optStringLen < FILENAME_MAX) && (opt[_optStringLen] != 0)) {
-    _optString[_optStringLen] = opt[_optStringLen];
-    _optStringLen++;
+  if ((globals.showConstruction() == true) && (terminate > 0))
+    fprintf(stderr, "processWord()- Found %s terminator%s.\n",
+            (terminate == 1) ? "a" : toDec(terminate),
+            (terminate == 1) ? ""  : "s");
+
+  if (_opStack.size() == 0)             //  If stack is still empty, tsk, tsk, user didn't
+    addNewOperation();                  //  explicitly make an action, so make one for them.
+
+  if ((isEmpty()  == true) ||           //  If the word is now empty (it was a single '[' or
+      (isOption() == true))             //  multiple ']'), or if the word is a recognized option,
+    goto finishWord;                    //  we're done.
+
+  if (_curClass != opClass::clNone) {   //  If we already have a class/pname set, we're waiting
+    if ((isInOut()  == false) &&        //  for another argument for a previous word - usually
+        (isAssign() == false) &&        //  an input or output path - so take care of it now.
+        (isSelect() == false) &&        //  If nobody returns true, then we have failed to
+        (isInput()  == false))          //  parse an expected parameter.
+      fprintf(stderr, "Failed to decode second word '%s'.\n", rawWord);
+    goto finishWord;
   }
 
-  _optString[_optStringLen] = 0;
+#warning o:stats and o:histo need special case here when no file is supplied
 
-  //  Clear the name strings.  This is just so that we can call isPrinter()
-  //  etc below without them 'finding' a file to output to.
+  if (isInput() == true)                //  Handle merylDBs, canu seqStores and sequence
+    goto finishWord;                    //  files.  This MUST come after _curClass != clNone!
 
-  _inoutName[0] = 0;
-  _indexName[0] = 0;
-  _sqInfName[0] = 0;
-  _sqRdsName[0] = 0;
+  if ((isAlias()      == true) ||       //  Handle aliases and count operations.  Ideally,
+      (isCount()      == true))         //  these are only encountered with a completely empty
+    goto finishWord;                    //  operation on the stack, but that isn't enforced.
 
-  //  If there is a '[' at the start of the string, push on a new operation and
-  //  remove the bracket from the string.
-
-  if (_optString[0] == '[') {
-    terminateOperation();
-    addNewOperation();
-
-    for (uint32 ii=0; ii<_optStringLen; ii++)
-      _optString[ii] = _optString[ii+1];
-
-    _optStringLen--;
+  if (decodeWord(_optString) == true) { //  If we decode a word, try to parse it.
+    if ((isInOut()  == false) &&        //  If all fail, report an error but still
+        (isAssign() == false) &&        //  consume the word (since we decoded
+        (isSelect() == false))          //  successfully).
+      fprintf(stderr, "Failed to parse decoded word '%s'.\n", rawWord);
+    goto finishWord;
   }
 
-  //  If the stack is still empty, tsk tsk, the dear user didn't supply
-  //  an initial command creating '[' -- which usually happens with the
-  //  legacy usage, e.g., 'meryl output x.meryl union ....'.
+  sprintf(_errors, "Can't interpret '%s': not a meryl command, option, or recognized input file.", rawWord);
 
-  if (_opStack.size() == 0)
-    addNewOperation();
+ finishWord:
+  if (terminateOperations(terminate, true) == false)
+    sprintf(_errors, "processWord()- Extra ']' encountered in command line.");
 
-  //  If there are ']' at the end of the string, strip them off and remember that
-  //  we need to close the command on the stack after we process this arg.
-  //  We can get any number of closing brackets.
-
-  while ((_optStringLen > 0) &&
-         (_optString[_optStringLen-1] == ']')) {
-    _optString[_optStringLen-1] = 0;
-    _optStringLen--;
-
-    terminate++;
-  }
-
-  if (verbosity.showConstruction() == true) {
-    if (terminate == 1)
-      fprintf(stderr, "processWord()- Found a terminator.\n");
-    else if (terminate > 1)
-      fprintf(stderr, "processWord()- Found %u terminators.\n", terminate);
-  }
-
-  //  Save a few copies of the command line word expanded to useful paths.
-
-  strncpy(_inoutName, _optString, FILENAME_MAX + 1);
-
-  snprintf(_indexName, FILENAME_MAX, "%s/merylIndex", _optString);
-  snprintf(_sqInfName, FILENAME_MAX, "%s/info",       _optString);
-  snprintf(_sqRdsName, FILENAME_MAX, "%s/reads",      _optString);
-
-  //  Now use a gigantic short-circuiting if test to actually parse the word.
-  //  Each isFunction() will return true if it consumed the word we're trying
-  //  to parse, and that will cause the whole test to fail.  If all of the
-  //  isFunctions() return false, the word isn't recognized and an error is
-  //  generated.
-  //
-  //  isInput() MUST come after isPrinter() so we can correctly handle
-  //  'print some.meryl'.
-
-  if ((isEmpty()            == false) &&   //  Consumes empty words.
-      (isOption()           == false) &&   //  Consumes key=value and single-word options.
-      (isAlias()            == false) &&   //  Consumes 'union', 'intersect', et cetera, aliases
-      (isSelect()           == false) &&   //  Consumes selection 'value=' and 'label='
-      (isFilter()           == false) &&   //  Consumes filters   'value:', 'label:', 'bases:' and 'input:'; 'not', 'and' and 'or'.
-      (isCount()            == false) &&   //  Consumes 'count', 'count-forward', 'count-reverse'
-      (isOutput()           == false) &&   //  Consumes 'output' and related database name
-      (isPrinter()          == false) &&   //  Consumes 'print' and related output name
-      (isHistogram()        == false) &&   //  Consumes 'histogram' and related output name
-      (isStatistics()       == false) &&   //  Consumes 'statistics' and related output name
-      (isInput()            == false))     //  Consumes inputs
-    sprintf(_errors, "Can't interpret '%s': not a meryl command, option, or recognized input file.", _optString);
-
-  //  Process any operation close events (']') that were at the end of this
-  //  word.  We discovered and stripped them out above.
-
-  for (; terminate > 0; terminate--) {
-    if (verbosity.showConstruction() == true)
-      fprintf(stderr, "processWord()- Pop operation from top of stack.\n");
-
-    if (_opStack.size() > 0) {
-      terminateOperation();
-      _opStack.pop();
-    } else {
-      sprintf(_errors, "processWord()- Extra ']' encountered in command line.");
-    }
-  }
-
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "----------\n");
-
-#if 0
-  if (verbosity.showConstruction() == true)
-    for (uint32 rr=0; rr<numTrees(); rr++)
-      printTree(getTree(rr), 0, 0);
-#endif
 }
 
 

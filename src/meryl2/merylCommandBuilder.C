@@ -17,6 +17,7 @@
  */
 
 #include "meryl.H"
+#include "matchToken.H"
 
 
 //  This is called by processWord() when an '[' is encountered in the input.
@@ -32,7 +33,7 @@ merylCommandBuilder::addNewOperation(void) {
   //  If the stack is empty, just add 'nop' to it as a root node.
 
   if (_opStack.size() == 0) {
-    if (verbosity.showConstruction() == true)
+    if (globals.showConstruction() == true)
       fprintf(stderr, "addOperation()- Add new operation as root operation.\n");
 
     _opStack.push(nop);
@@ -46,7 +47,7 @@ merylCommandBuilder::addNewOperation(void) {
 
   merylOpTemplate *eop = getCurrent();
 
-  if (verbosity.showConstruction() == true) {
+  if (globals.showConstruction() == true) {
     fprintf(stderr, "addOperation()- Existing op: type '%s' ident %u value %s/%u label %s/%lu\n",
             toString(eop->_type),        eop->_ident,
             toString(eop->_valueSelect), eop->_valueConstant,
@@ -69,7 +70,7 @@ merylCommandBuilder::addNewOperation(void) {
 
   eop->addInputFromOp(nop, _errors);
 
-  if (verbosity.showConstruction() == true)
+  if (globals.showConstruction() == true)
     fprintf(stderr, "addOperation()- Add new operation to stack at position %ld.\n",
             _opStack.size());
 
@@ -79,53 +80,54 @@ merylCommandBuilder::addNewOperation(void) {
 
 
 
-//  Finish setting up the operation, but leave it on the stack.
-void
-merylCommandBuilder::terminateOperation(void) {
+//  Terminate up to n (default 1) operations.
+//
+//  Returns false if n is larger than the number of operations on the stack,
+//  which is probably from too many ']'s on the command line.
+//
+bool
+merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
 
-  if (_opStack.size() == 0)
-    return;
+  assert(_curClass == opClass::clNone);       //  If either of these are set, the action
+  assert(_curPname == opPname::pnNone);       //  was never fully parsed/added.
+
+  if (nter == 0)              return true;    //  Successfully terminated the requested number.
+  if (_opStack.size() == 0)   return false;   //  Oops, too many terminates requested.
 
   merylOpTemplate  *op = getCurrent();
 
-  if (verbosity.showConstruction() == true)
-    fprintf(stderr, "terminateOperation()- Terminate operation #%u at stack position %ld.\n",
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "terminateOperations()- Terminate operation #%u at stack position %ld.\n",
             op->_ident, _opStack.size()-1);
 
-  if (op->_type == merylOpType::opNothing) {
-    if (verbosity.showConstruction() == true)
-      fprintf(stderr, "terminateOperation()-- action #%u <- opPrint\n", op->_ident);
-    op->_type        = merylOpType::opFilter;
-  }
+  //  Set unset things in the action to defaults.
 
-  if (op->_valueSelect == merylModifyValue::valueNOP) {
-    if (verbosity.showConstruction() == true)
-      fprintf(stderr, "termiateOperation()-- action #%u <- valueFirst\n", op->_ident);
-    op->_valueSelect = merylModifyValue::valueFirst;
-  }
+  if (op->_type        == merylOpType::opNothing)      op->_type        = merylOpType::opFilter;
+  if (op->_valueSelect == merylModifyValue::valueNOP)  op->_valueSelect = merylModifyValue::valueFirst;
+  if (op->_labelSelect == merylModifyLabel::labelNOP)  op->_labelSelect = merylModifyLabel::labelFirst;
 
-  if (op->_labelSelect == merylModifyLabel::labelNOP) {
-    if (verbosity.showConstruction() == true)
-      fprintf(stderr, "terminateOperation()-- action #%u <- labelFirst\n", op->_ident);
-    op->_labelSelect = merylModifyLabel::labelFirst;
-  }
+  //  Finish file operations.
 
-  if (_isPrint) {
-    op->addPrinter(nullptr, _printACGTorder, _errors);
-  }
+#if 0
+  if (_isPrint)       op->addPrinter(nullptr, _printACGTorder, _errors);
+  if (_isHistogram)   op->addHistogram("-", false, _errors);
+  if (_isStatistics)  op->addHistogram("-", true, _errors);
+#endif
 
-  if (_isHistogram) {
-    op->addHistogram("-", false, _errors);
-  }
-
-  if (_isStatistics) {
-    op->addHistogram("-", true, _errors);
-  }
+  //  Forget any files we've been remembering.
 
   _isPrint        = false;
   _printACGTorder = false;
   _isHistogram    = false;
   _isStatistics   = false;
+
+  //  Pop the action if told to, then recursively call to handle the
+  //  remaining terminates.
+
+  if (pop == true)
+    _opStack.pop();
+
+  return terminateOperations(nter-1, pop);
 }
 
 
@@ -150,251 +152,10 @@ merylCommandBuilder::isCount(void) {
 
 
 
-bool
-merylCommandBuilder::isOutput(void) {
-  merylOpTemplate  *op = getCurrent();
 
-  //  If we see 'output=' we can immediately add an output file.
 
-  if (strncasecmp(_optString, "output=", 7) == 0) {
-    op->addOutput(_optString+7, _errors);
-    return(true);
-  }
 
-  //  If we see 'output' remember that the next arg is expected to be the
-  //  database or filename.
 
-  if (strcasecmp(_optString, "output") == 0) {
-    _isOutput       = true;
-    return(true);
-  }
-
-  //  If not expecting an output database in this word, return that we didn't
-  //  consume the word.
-
-  if (_isOutput == false)
-    return(false);
-
-  //  Otherwise, we're expecting an output database name.  Add it to the
-  //  operation and return that we consumed the word.
-
-  _isOutput = false;
-
-  op->addOutput(_inoutName, _errors);
-
-  return(true);
-}
-
-
-
-bool
-merylCommandBuilder::isPrinter(void) {
-  merylOpTemplate  *op = getCurrent();
-
-  if (strncasecmp(_optString, "print=", 6) == 0) {
-    op->addPrinter(_optString+6, false, _errors);
-    return(true);
-  }
-
-  if (strncasecmp(_optString, "printacgt=", 10) == 0) {
-    op->addPrinter(_optString+10, true, _errors);
-    return(true);
-  }
-
-  //  If we see 'print' or 'printacgt', remember that the next
-  //  arg is expected to be the database or filename.
-
-  if (strcasecmp(_optString, "print") == 0) {
-    _printACGTorder = false;
-    _isPrint        = true;
-
-    if (verbosity.showConstruction() == true)
-      fprintf(stderr, "isPrinter()-- action #%u -> print (phase 1)\n",
-              getCurrent()->_ident);
-
-    return(true);
-  }
-
-  if (strcasecmp(_optString, "printACGT") == 0) {
-    _printACGTorder = true;
-    _isPrint        = true;
-
-    if (verbosity.showConstruction() == true)
-      fprintf(stderr, "isPrinter()-- action #%u -> printACGT (phase 1)\n",
-              getCurrent()->_ident);
-
-    return(true);
-  }
-
-  //  If not expecting a printer outpot name, return that we didn't
-  //  consume the word.
-
-  if (_isPrint == false)
-    return(false);
-
-  _isPrint        = false;
-
-  if (verbosity.showConstruction() == true)
-    fprintf(stderr, "isPrinter()-- action #%u -> print (phase 2)\n",
-            getCurrent()->_ident);
-
-  //  Otherwise, we're expecting a printer name.  This is complicated by
-  //  wanting to allow 'print database.meryl' (to print the kmers to stdout),
-  //  and 'print kmers.txt database.meryl' (to print to a file).
-  //
-  //  The former is handled by noticing that this word is a meryl database,
-  //  adding the print option to the current operation and returning FALSE to
-  //  let merylInput() catch the db and add it to the command as normal.
-  //
-  //  The latter simply adds the output name as a printer output.
-
-  if (fileExists(_indexName) == true) {
-    op->addPrinter(nullptr, _printACGTorder, _errors);
-    return(false);
-  }
-
-  op->addPrinter(_inoutName, _printACGTorder, _errors);
-
-  return(true);
-}
-
-
-
-bool
-merylCommandBuilder::isHistogram(void) {
-  merylOpTemplate  *op = getCurrent();
-
-  //  If we see 'histogram' remember that the next arg is expected to be the
-  //  database or filename.
-
-  if (strcasecmp(_optString, "histogram") == 0) {
-    _isHistogram       = true;
-    return(true);
-  }
-
-  //  If not expecting an output filename in this word, return that we didn't
-  //  consume the word.
-
-  if (_isHistogram == false)
-    return(false);
-
-  _isHistogram = false;
-
-  //  Otherwise, we're expecting an output filename.  Add it to the
-  //  operation and return that we consumed the word.
-  //
-  //  See isPrinter() for comments on the fileExists() call.
-
-  if (fileExists(_indexName) == true) {
-    op->addHistogram("-", false, _errors);
-    return(false);
-  }
-
-  op->addHistogram(_inoutName, false, _errors);
-
-  return(true);
-}
-
-
-
-bool
-merylCommandBuilder::isStatistics(void) {
-  merylOpTemplate  *op = getCurrent();
-
-  //  If we see 'statistics' remember that the next arg is expected to be the
-  //  database or filename.
-
-  if (strcasecmp(_optString, "statistics") == 0) {
-    _isStatistics       = true;
-    return(true);
-  }
-
-  //  If not expecting an output filename in this word, return that we didn't
-  //  consume the word.
-
-  if (_isStatistics == false)
-    return(false);
-
-  _isStatistics = false;
-
-  //  Otherwise, we're expecting an output filename.  Add it to the
-  //  operation and return that we consumed the word.
-  //
-  //  See isPrinter() for comments on the fileExists() call.
-
-  if (fileExists(_indexName) == true) {
-    op->addHistogram("-", true, _errors);
-    return(false);
-  }
-
-  op->addHistogram(_inoutName, true, _errors);
-
-  return(true);
-}
-
-
-
-
-
-
-//  If this word is a meryl database, add it as an input to the current
-//  operation.  If the current operation isn't defined yet, define it
-//  to accept exactly one input.
-//
-//  This MUST come after isPrinter() so we can handle 'print some.meryl'
-//  correctly.
-bool
-merylCommandBuilder::isInput(void) {
-  merylOpTemplate  *op = getCurrent();
-
-  bool   merylInput = ((fileExists(_indexName) == true));
-  bool   canuInput  = ((fileExists(_sqInfName) == true) &&
-                       (fileExists(_sqRdsName) == true));
-  bool   seqInput   = ((fileExists(_inoutName) == true));
-
-  //  If not an input, don't consume the word.
-  if ((merylInput == false) &&
-      (canuInput  == false) &&
-      (seqInput   == false))
-    return(false);
-
-  //  Otherwise, it's an input.  If the op isn't set up yet, set it up to
-  //  take exactly one input.  This _should_ be a print operation.
-  //
-  //if (op->_operation == merylOp::opNothing) {
-  //}
-
-  //  Now we can add the input to the operation.
-
-  if (merylInput == true) {
-    op->addInputFromDB(_inoutName, _errors);
-  }
-
-#ifdef CANU
-
-  if (canuInput == true) {
-    op->addInputFromCanu(_inoutName, _segment, _segmentMax, _errors);
-
-    _segment    = 1;
-    _segmentMax = 1;
-  }
-
-#else
-
-  if (canuInput == true) {
-    sprintf(_errors, "ERROR: Detected Canu seqStore input '%s', but no Canu support is available.\n", _inoutName);
-  }
-
-#endif
-
-  if (seqInput == true) {
-    op->addInputFromSeq(_inoutName, _doCompression, _errors);
-  }
-
-  //  Reset state.
-
-  return(true);
-}
 
 
 //  This doesn't really build the trees, since they're built as words are
@@ -407,11 +168,16 @@ merylCommandBuilder::isInput(void) {
 void
 merylCommandBuilder::buildTrees(void) {
 
-  //  Clear the stack, we're done with it.
-  while (_opStack.size() > 0) {
-    terminateOperation();
-    _opStack.pop();
-  }
+  //
+  //  Clear the stack, we're done with it.  This handles, I think, only the
+  //  case where the command line has no '[' or ']' symbols:
+  //    meryl act in1 in2
+  //  but does allow technically invalid commands that do not explicitly
+  //  terminate any actions:
+  //    meryl [ act1 [ act2 in1 in2
+  //
+
+  terminateOperations(_opStack.size(), true);
 
   //  Tell each action that it has all the inputs it is going to get,
   //  and add errors if there are too many or too few of them.
@@ -497,249 +263,29 @@ merylCommandBuilder::performCounting(uint64 allowedMemory, uint32 allowedThreads
 
 
 
-void
-merylCommandBuilder::printTree(merylOpTemplate *op, uint32 inputNum, uint32 indent) {
-  char   sA[1024];
 
-  //
-  //  Scan the list of roots to decide if this is the root of a tree.
-  //
-  //  If it is a root, the stream output is ignored;
-  //  if it not, the stream output is the input to some other action.
-  //
+bool
+merylCommandBuilder::displayTreesAndErrors(void) {
 
-  bool   isTree  = false;
-  uint32 rootNum = 0;
-
-  for (uint32 rr=0; rr<numTrees(); rr++) {
-    if (getTree(rr) == op) {
-      isTree  = true;
-      rootNum = rr;
-    }
-  }
-
-  if (isTree == true) {
-    switch (op->_type) {
-      case merylOpType::opNothing:      fprintf(stderr, "\n%*s|- TREE %u: action #%u <empty>\n",           indent, "", rootNum, op->_ident);   break;
-      case merylOpType::opCounting:     fprintf(stderr, "\n%*s|- TREE %u: action #%u count kmers\n",       indent, "", rootNum, op->_ident);   break;
-      case merylOpType::opStatistics:   fprintf(stderr, "\n%*s|- TREE %u: action #%u report statistics\n", indent, "", rootNum, op->_ident);   break;
-      case merylOpType::opHistogram:    fprintf(stderr, "\n%*s|- TREE %u: action #%u report histogram\n",  indent, "", rootNum, op->_ident);   break;
-      case merylOpType::opPrint:        fprintf(stderr, "\n%*s|- TREE %u: action #%u print kmers\n",       indent, "", rootNum, op->_ident);   break;
-      case merylOpType::opFilter:       fprintf(stderr, "\n%*s|- TREE %u: action #%u filter kmers\n",      indent, "", rootNum, op->_ident);   break;
-    }
-  }
-  else {
-    switch (op->_type) {
-      case merylOpType::opNothing:      fprintf(stderr, "%*s^- INPUT @%u: action #%u <empty>\n",           indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opCounting:     fprintf(stderr, "%*s^- INPUT @%u: action #%u count kmers\n",       indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opStatistics:   fprintf(stderr, "%*s^- INPUT @%u: action #%u report statistics\n", indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opHistogram:    fprintf(stderr, "%*s^- INPUT @%u: action #%u report histogram\n",  indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opPrint:        fprintf(stderr, "%*s^- INPUT @%u: action #%u print kmers\n",       indent, "", inputNum, op->_ident);   break;
-      case merylOpType::opFilter:       fprintf(stderr, "%*s^- INPUT @%u: action #%u filter kmers\n",      indent, "", inputNum, op->_ident);   break;
-    }
-  }
-
-  //
-  //  Report database, printing, histogram and statistics outputs.
-  //
-
-  if (op->_writer != nullptr) {
-    fprintf(stderr, "%*s|> database '%s'\n", indent+3, "", op->_writer->filename());
-  }
-
-  if (op->_printerName != nullptr) {
-    fprintf(stderr, "%*s|> text file '%s'\n", indent+3, "", op->_printerName);
-  }
-
-  if (op->_statsFile != nullptr) {
-    fprintf(stderr, "%*s|> statistics to file '%s'\n", indent+3, "", op->_statsFile->filename());
-  }
-
-  if (op->_histoFile != nullptr) {
-    fprintf(stderr, "%*s|> histogram to file '%s'\n", indent+3, "", op->_histoFile->filename());
-  }
-
-  //
-  //  Report kmer/value/label selection.
-  //
-
-  switch (op->_valueSelect) {
-    case merylModifyValue::valueNOP:
-      break;
-    case merylModifyValue::valueSet:
-      fprintf(stderr, "%*s|- SET value to constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueSelected:
-      fprintf(stderr, "%*s|- SET value to that of the kmer selected by label filter\n", indent+3, "");
-      break;
-    case merylModifyValue::valueFirst:
-      fprintf(stderr, "%*s|- SET value to that of the kmer in the first input\n", indent+3, "");
-      break;
-    case merylModifyValue::valueMin:
-      fprintf(stderr, "%*s|- SET value to the minimum of all kmers and constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueMax:
-      fprintf(stderr, "%*s|- SET value to the maximum of all kmers and constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueAdd:
-      fprintf(stderr, "%*s|- SET value to the sum of all kmers and constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueSub:
-      fprintf(stderr, "%*s|- SET value to the selected kmer minus all others and constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueMul:
-      fprintf(stderr, "%*s|- SET value to the product of all kmers and constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueDiv:
-      fprintf(stderr, "%*s|- SET value to the selected kmer divided by all others and constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueDivZ:
-      fprintf(stderr, "%*s|- SET value to the selected kmer divided by all others and constant %u\n", indent+3, "", op->_valueConstant);
-      fprintf(stderr, "%*s    (rounding zero up to one)\n", indent+3, "");
-      break;
-    case merylModifyValue::valueMod:
-      fprintf(stderr, "%*s|- SET value to the remainder of the selected kmer divided by all others and constant %u\n", indent+3, "", op->_valueConstant);
-      break;
-    case merylModifyValue::valueCount:
-      fprintf(stderr, "%*s|- SET value to the number of input databases the kmer is present in\n", indent+3, "");
-      break;
-    default:
-      break;
-  }
-
-  switch (op->_labelSelect) {
-    case merylModifyLabel::labelNOP:
-      break;
-    case merylModifyLabel::labelSet:
-      fprintf(stderr, "%*s|- SET label to constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelSelected:
-      fprintf(stderr, "%*s|- SET label to selected -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelFirst:
-      fprintf(stderr, "%*s|- SET label to first -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelMin:
-      fprintf(stderr, "%*s|- SET label to min -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelMax:
-      fprintf(stderr, "%*s|- SET label to max -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelAnd:
-      fprintf(stderr, "%*s|- SET label to and -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelOr:
-      fprintf(stderr, "%*s|- SET label to or -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelXor:
-      fprintf(stderr, "%*s|- SET label to xor -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelDifference:
-      fprintf(stderr, "%*s|- SET label to difference -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelLightest:
-      fprintf(stderr, "%*s|- SET label to lightest -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelHeaviest:
-      fprintf(stderr, "%*s|- SET label to heaviest -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelInvert:
-      fprintf(stderr, "%*s|- SET label to invert -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelShiftLeft:
-      fprintf(stderr, "%*s|- SET label to shift left -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelShiftRight:
-      fprintf(stderr, "%*s|- SET label to shift right -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelRotateLeft:
-      fprintf(stderr, "%*s|- SET label to rotate left -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    case merylModifyLabel::labelRotateRight:
-      fprintf(stderr, "%*s|- SET label to rotate right -- constant %lu\n", indent+3, "", op->_labelConstant);
-      break;
-    default:
-      break;
-  }
-
-  //
-  //  Report filters
-  //
-
-  for (uint32 ii=0; ii<op->_filter    .size(); ii++) {
-    fprintf(stderr, "%*s|- FILTER %u\n", indent+3, "", ii+1);
-    for (uint32 jj=0; jj<op->_filter[ii].size(); jj++) {
-      fprintf(stderr, "%*s|- %s", indent+6, "", op->_filter[ii][jj].describe(sA));
-    }
-
-    //if (ii + 1 < op->_filter.size())
-    //  fprintf(stderr, "%*sor\n", indent+4, "");
-  }
-
-  //
-  //  Report inputs
-  //
-
-  for (uint32 ii=0; ii<op->_inputs.size(); ii++) {
-    merylInput  *in = op->_inputs[ii];
-
-    if (in->isFromTemplate() == true) {
-      //  The following line is printed by the recursive call to printTree().
-      //fprintf(stderr, "%*s<- INPUT @%u: action #%u\n", indent+3, "", ii+1, in->_template->_ident);
-      printTree(in->_template, ii+1, indent+3);
-    }
-
-    if (in->isFromDatabase() == true) {
-      fprintf(stderr, "%*s^- INPUT @%u: meryl database '%s'\n", indent+3, "", ii+1, in->name());
-    }
-
-    if (in->isFromSequence() == true) {
-      fprintf(stderr, "%*s^- INPUT @%u: sequence file '%s'%s\n", indent+3, "", ii+1, in->name(), in->_homopolyCompress ? " (homopoly compressed)" : "");
-    }
-
-    if (in->isFromStore() == true) {
-      fprintf(stderr, "%*s^- INPUT @%u: Canu sqStore '%s' (using reads %u through %u)\n", indent+3, "", ii+1, in->name(), in->_sqBgn, in->_sqEnd);
-    }
-  }
-
-
-#if 0
-  if (op->_presentInFirst == true)
-    fprintf(stderr, "%*s|-kmer must be present in first input\n", indent+3, "");
-
-  if (op->_presentInAll == true)
-    fprintf(stderr, "%*s|-kmer has no database presence requirements\n", indent+3, "");
-
-  if (op->_presentInAll == true)
-    fprintf(stderr, "%*s|-kmer must be present in all inputs\n", indent+3, "");
-
-  for (uint32 pp=0; pp<op->_inputs.size(); pp++)
-    if (op->_presentIn[pp] == true)
-      fprintf(stderr, "%*s|-kmer must be present in %u inputs\n", indent+3, "", pp);
-#endif
-
-#if 0
-  if (op->_mathConstant > 0)
-    fprintf(stderr, "%*sconstant=%lu\n", indent+3, "", op->_mathConstant);
-
-  if (op->_threshold != UINT64_MAX)
-    fprintf(stderr, "%*sthreshold=%lu\n", indent+3, "", op->_threshold);
-
-  if (op->_fracDist != DBL_MAX)
-    fprintf(stderr, "%*sfraction-distinct=%f\n", indent+3, "", op->_fracDist);
-
-  if (op->_wordFreq != DBL_MAX)
-    fprintf(stderr, "%*sword-frequenct=%f\n", indent+3, "", op->_wordFreq);
-#endif
-
-  //
-  //  If a tree, flag the end.
-  //
-
-  if (isTree == true) {
-    fprintf(stderr, "%*s|- TREE %u ends.\n", indent, "", rootNum);
+  if (globals.showStandard() == true) {
     fprintf(stderr, "\n");
+    fprintf(stderr, "Found %u command tree%s.\n", numTrees(), (numTrees() == 1) ? "" : "s");
+
+    for (uint32 ii=0; ii<numTrees(); ii++)
+      printTree(getTree(ii), 0, 0);
   }
+
+  if (numErrors() == 0)
+    return false;
+
+  fprintf(stderr, "Errors detected in the action tree%s:\n", (numTrees() == 1) ? "" : "s");
+  fprintf(stderr, "\n");
+
+  for (uint32 ii=0; ii<numErrors(); ii++)
+    if (getErrors()[ii] != nullptr)
+      fprintf(stderr, "  %s\n", getErrors()[ii]);
+
+  return true;
 }
 
 
@@ -832,3 +378,51 @@ merylCommandBuilder::spawnThreads(uint32 allowedThreads) {
   }
 }
 
+
+
+void
+merylCommandBuilder::runThreads(uint32 allowedThreads) {
+
+  setNumThreads(globals.allowedThreads());
+
+  for (uint32 rr=0; rr<numTrees(); rr++) {
+    merylOpTemplate *tpl = getTree(rr);
+
+    //  Actions that were previously a count or a histo/stats on a database
+    //  are all done and do not need to process their inputs.
+    //
+    //  Better - just remove the inputs from them?  But then we need to know
+    //  if it supplies input to anything else.
+
+#warning remove empty trees
+    if (tpl->_type == merylOpType::opNothing)   //  Was previously a count, histo or stats
+      continue;                                 //  operation, but it's all done now.
+
+    if (globals.showStandard() == true) {
+      fprintf(stderr, "\n");
+      fprintf(stderr, "PROCESSING TREE #%u using %u thread%s.\n", rr+1, getMaxThreadsAllowed(), getMaxThreadsAllowed() == 1 ? "" : "s");
+    }
+    //printTree(tpl, 0, 11);
+
+#pragma omp parallel for schedule(dynamic, 1)
+    for (uint32 ff=0; ff<64; ff++) {
+      merylOpCompute *cpu = getTree(rr, ff);
+
+      while (cpu->nextMer() == true)
+        ;
+    }
+
+    //  Signal that we're done processing.  This will (recursively) collect
+    //  any statistics the user has requested be generated.
+
+    tpl->finishAction();
+
+    //  Simply deleting the root template node is enough to delete the entire
+    //  tree, including the compute nodes.
+    //
+    //  NOTE that the pointers in _opList and _thList are left dangling!
+
+    delete tpl;
+  }
+
+}

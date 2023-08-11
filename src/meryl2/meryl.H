@@ -35,29 +35,50 @@ using namespace merylutil::kmers::v2;
 
 //  A global (variable 'verbosity') to tell what messages to output.
 //
-class merylVerbosity {
+class merylGlobals {
 public:
-  merylVerbosity()  {};
-  ~merylVerbosity() {};
+  merylGlobals()  {};
+  ~merylGlobals() {};
 
-  void   beQuiet(void)               { _v = 0; }
-  void   increaseVerbosity(void)     { _v++;   }
+  int    initialize(int argc, char **argv) {
+    int a = AS_configure(argc, argv);
 
-  void   enableProgressReport(void)  { _p = true; }
+    _aM = getMaxMemoryAllowed();   //  Remember any system-imposed
+    _aT = getMaxThreadsAllowed();  //  limit on cpu/threads.
 
-  bool   showNothing     (void)   { return(_v == 0); }
-  bool   showStandard    (void)   { return(_v >= 1); }
-  bool   showProgress    (void)   { return(_v >= 2); }
-  bool   showConstruction(void)   { return(_v >= 3); }
-  bool   showDetails     (void)   { return(_v >= 4); }
-  bool   showEverything  (void)   { return(_v >= 5); }
+    return a;
+  };
+
+  void    beQuiet(void)               { _v = 0; }
+  void    increaseVerbosity(void)     { _v++;   }
+
+  bool    showNothing     (void)      { return(_v == 0); }
+  bool    showStandard    (void)      { return(_v >= 1); }
+  bool    showProgress    (void)      { return(_v >= 2); }
+  bool    showConstruction(void)      { return(_v >= 3); }
+  bool    showDetails     (void)      { return(_v >= 4); }
+  bool    showEverything  (void)      { return(_v >= 5); }
+
+  void    enableProgressReport(void)  { _p = true; }
+  bool    showProgressReport(void)    { return _p; }
+
+  void    enableConfigureOnly(void)   { _c = true; }
+  bool    stopAfterConfigure(void)    { return _c; }
+
+  uint64 &allowedMemory(void)         { return _aM; }
+  uint32 &allowedThreads(void)        { return _aT; }
 
 private:
-  uint32 _v = 1;       //  Verbosity level.
-  bool   _p = false;   //  Show progress, does nothing yet.
+  uint32 _v  = 1;       //  Verbosity level, 'standard'.
+  bool   _p  = false;   //  Show progress, does nothing yet.
+
+  bool   _c  = false;   //  Stop after configure.
+
+  uint64 _aM = 0;       //  Max amount of memory to use.
+  uint32 _aT = 0;       //  Max number of threads to use.
 };
 
-extern merylVerbosity verbosity;
+extern merylGlobals globals;
 
 
 //  Each node in the tree is assigned a type.  Most of the nodes will be

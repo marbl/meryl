@@ -26,13 +26,14 @@ public:
   merylCommandBuilder()  {
   }
   ~merylCommandBuilder() {
+    delete [] _optString;
     for (uint32 ss=0; ss<64; ss++)   //  Delete the arrays of pointers to compute
       delete [] _thList[ss];         //  objects; the objects are deleted elsewhere
   }
 
 private:
   void    addNewOperation(void);
-  void    terminateOperation(void);
+  bool    terminateOperations(uint32 nter=1, bool pop=false);
 
 private:
   bool    processValueModifier(char const *val, bool failIfBad);
@@ -47,21 +48,40 @@ private:
 
 public:
   void    printTree(merylOpTemplate *op, uint32 inputNum, uint32 indent);
+  bool    displayTreesAndErrors(void);
 
+private:
+  enum class opClass { clNone, clOutput, clAssign, clSelect, clInput };
+  enum class opPname { pnNone, pnDB, pnList, pnShow, pnPipe, pnAction, pnHisto, pnStats, pnValue, pnLabel, pnBases, pnInput };
+
+  opClass     _curClass = opClass::clNone;
+  opPname     _curPname = opPname::pnNone;
+  char const *_curParam = nullptr;
+
+  bool    decodeWord(char const *opt);
+
+private:
+  uint32  findCreateTerminate(void);
 public:
   void    processWord(char const *opt);         //  Add a command line word to the builder
   void    buildTrees(void);                     //  Notify us that all words have been added
   void    performCounting(uint64 allowedMemory,
                           uint32 allowedThreads);
   void    spawnThreads(uint32 allowedThreads);  //  Build 64 trees for processing kmers.
+  void    runThreads(uint32 allowedThreads);
 
 private:
   bool    isEmpty(void)      { return(_optString[0] == 0); }
   bool    isOption(void);
   bool    isAlias(void);
 
+  bool    isInOut(void);
+  bool    isInput(void);
+
+  bool    isAssignValue(char const *str);
+  bool    isAssignLabel(char const *str);
+  bool    isAssign(void);
   bool    isSelect(void);
-  bool    isFilter(void);
 
   bool    isValueFilter(void);
   bool    isLabelFilter(void);
@@ -72,13 +92,9 @@ private:
 
   bool    isCount(void);
 
-  bool    isOutput(void);
-  bool    isPrinter(void);
-
   bool    isHistogram(void);
   bool    isStatistics(void);
 
-  bool    isInput(void);
 
 
 public:
@@ -100,16 +116,12 @@ public:
 
   //  Storage and flags we use for processing a command line word.
 private:
-  uint32    _optStringLen = 0;
-  char      _optString[FILENAME_MAX + 1] = {0};
-
-  char      _inoutName[FILENAME_MAX + 1] = {0};   //  Generic input or output name.
-  char      _indexName[FILENAME_MAX + 1] = {0};   //  'merylIndex' in a meryl DB.
-  char      _sqInfName[FILENAME_MAX + 1] = {0};   //  'info' in a Canu seqStore.
-  char      _sqRdsName[FILENAME_MAX + 1] = {0};   //  'reads' in a Canu seqStore.
+  uint32    _optStringLen = 0;              //  A copy of the command line word,
+  uint32    _optStringMax = 0;              //  with any '[' and ']' removed.
+  char     *_optString = nullptr;           //
 
   uint32    _segment       = 1;             //  for Canu seqStore inputs
-  uint32    _segmentMax    = 1;             //  for Canu seqStore inputs
+  uint32    _segmentMax    = 1;             //
 
   bool      _doCompression = false;         //  for FASTA or FASTQ file inputs
 

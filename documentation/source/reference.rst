@@ -15,18 +15,19 @@ bits could be used to `unary encode
 <https://en.wikipedia.org/wiki/Unary_coding>`_ the `melting temperature
 <https://www.sigmaaldrich.com/US/en/technical-documents/protocol/genomics/pcr/oligos-melting-temp>`_
 of the k-mer.  Databases are filtered and combined using **actions**.  An
-action tells how to **select** the output value and label of a k-mer, and how
-to **filter** undesired k-mers from the output database.
+action tells how to **assign** the output value and label of a k-mer, and how
+to **select** desired k-mers for output to an output **database**.
 
 .. note::
   The original meryl used order ACTG for a reason that turned out to be
   incorrect.  It was believed that complementing a binary sequence would be
   easier in that order, but it is just as easy in the normal order.  The
-  revised order also has the appealing property that GC content can be
-  computed by counting the number of low-order bits set in each base.
+  revised order does have the appealing property that GC content can be
+  computed by counting the number of low-order bits set in each base, where the
+  more standard ACGT order requires additional operations.
 
-  In the revised order, we need to flip the first bit to perform a base
-  complementation, which can be done with an XOR of b101010.
+  In the revised (ACTG) order, flipping the first bit of each two-bit encoded base will
+  complement the base.  This can be done with an exclusive or against b101010.
 
   .. code-block:: none
 
@@ -39,9 +40,12 @@ to **filter** undesired k-mers from the output database.
     compl = kmer ^ 0b101010
     NumGC = popcount(kmer & b010101)
 
-  In the usual order, we just need to flip every bit; XOR with b111111.  GC
-  can be computed by counting bits also, but the operations is a little more
-  complicated.
+  In the usual (ACGT) order, complementation can be accomplished by flipping
+  every bit; an exclusive-or against b111111.  GC content can be computed by
+  counting bits also, but we need to count the number of two-bit encoded
+  bases where the first and second bits differ.  This requires shifting the
+  encoded k-mer one place, comparing the -- now overlapping -- adjacent bits
+  with XOR, and finally counting the number of set bits.
 
   .. code-block:: none
 
@@ -55,30 +59,40 @@ to **filter** undesired k-mers from the output database.
     NumGC = popcount( (kmer>>1 ^ kmer) & 0b010101 )
 
   It is yet to be decided if meryl2 will also use the same order (maintaining
-  compatibility with meryl1) or if it will use the more typical order.
+  compatibility with meryl1) or if it will use the more typical order
+  (maintaining compatibility with the rest of the world)..
 
-A k-mer is a short sequence of nucleotide bases.  A canonical k-mer is the
-lexicographically smaller of the forward-mer and reverse-mer.  The sequence
-GATCTCA has five forward 3-mers: GAT, ATC, TCT, CTC and TCA.  The canonical k-mers
-are found by reverse-complementing each of those and picking the
-lexicographically smaller:
 
-.. code-block:: none
-  :caption: Forward, reverse and canonical 3-mers.
-  :linenos:
 
-  (GAT, ATC) -> ATC
-  (ATC, GAT) -> ATC
-  (TCT, AGA) -> AGA
-  (CTC, GAG) -> CTC
-  (TCA, TGA) -> TCA
 
-In meryl, k-mers can be up to 64 bases long and are canonical by default.
+.. note::
+  A k-mer is a short sequence of nucleotide bases.  The **forward k-mer** is
+  from the supplied sequence orientation, while the **reverse-k-mer** is from
+  the reverse-complemented sequence.  The **canonical k-mer** is the
+  lexicographically smaller of the forward-mer and reverse-mer.
+
+  For example, the sequence GATCTCA has five forward 3-mers: GAT, ATC, TCT,
+  CTC and TCA.  The canonical k-mers are found by reverse-complementing each
+  of those and picking the lexicographically smaller:
+
+  .. code-block:: none
+    :caption: Forward, reverse and canonical 3-mers.
+    :linenos:
+
+    G
+    A (GAT, ATC) -> ATC
+    T (ATC, GAT) -> ATC
+    C (TCT, AGA) -> AGA
+    T (CTC, GAG) -> CTC
+    C (TCA, TGA) -> TCA
+    A
+
+  In meryl, k-mers can be up to 64 bases long and are canonical by default.
 
 Given at least one sequence file, meryl will find the list of k-mers present
 in it and count how many times each one occurs.  The count becomes the
-``value`` of the k-mer.  These are stored in a meryl database.  The above
-example would store:
+``value`` of the k-mer.  These are stored in a meryl database.  The example
+in the sidebar would store:
 
 .. code-block:: none
 
@@ -87,25 +101,23 @@ example would store:
    CTC 1
    TCA 1
 
-Values are treated as unsigned 32-bit integers (the max value is
-4,294,967,295).  Values can be operated on by the usual arithmetic
-operations.
+While values are typically interpreted as the frequency of the k-mer
+in some set of sequences, they are simply unsigned 32-bit integers (a maximum value of
+4,294,967,295) and cane be used to store any arithmetic data.
 
-Each k-mer can optionally have a 64-bit ``label`` associated with it.  The
-label can, for example, be used to assign a ``type`` or ``class`` to certain
-k-mers, or to mark k-mers as coming from a specific source, etc.  Labels are
-operated on by the binary logic operations (AND, OR, XOR, NOT) and can also
-be shifted to the left or right.
+The (optional) label of a k-mer can contain up to 64 bits worth of
+non-arithmetic data.  The label can, for example, be used to assign a
+``type`` or ``class`` to certain k-mers, or to mark k-mers as coming from a
+specific source, etc.  Labels are operated on by the binary logic operations
+(AND, OR, XOR, NOT) and can also be shifted to the left or right.
 
 The primary purpose of meryl is to combine multiple k-mer databases into a
-single output database by computing new values and labels and filtering k-mers
-based on their value, label, base composition and presence or absence from
-specific databases.  It does this by passing each k-mer through a tree of
-``actions``.  A leaf node of the tree reads k-mers from input databases (or by
-counting k-mers in input sequence files), filtering k-mers via an action, and
-emitting k-mers to other nodes.  Eventually the k-mers pass through a root node
-and are output to a new database.  (Any node can create output databases, not
-just the root node.)
+single output database by computing new values and labels and filtering
+k-mers based on their value, label, base composition and presence or absence
+from specific databases.  It does this by passing each k-mer through a tree
+of ``actions``.  A leaf node of the tree reads k-mers from input databases
+(or by counting k-mers in input sequence files), filtering k-mers via an
+action, and emitting k-mers to other nodes or output databases.
 
 =========
 Databases
@@ -113,15 +125,15 @@ Databases
 
 .. sidebar:: Database Implementation Details
 
-  Each kmer is stored by breaking the binary represntation into three
+  Each k-mer is stored by breaking the binary represntation into three
   pieces: a file prefix, a block prefix, and a suffix.  A k-mer needs 2*k bits
   to represent it.  The file prefix is 6 bits wide, representing one of the 64
-  possible files in a database.  Inside a file, kmers are stored in blocks,
-  each kmer in a block will have the same block prefix.  The suffix data for a
+  possible files in a database.  Inside a file, k-mers are stored in blocks,
+  each k-mer in a block will have the same block prefix.  The suffix data for a
   block is stored using Elias-Fano encoding (CITE) where each suffix is split
   into two pieces.  The first piece is encoded as a unary offset from the last
   piece, and the second piece is a N-log2(N)+1 binary value.  At present,
-  values are stored as plain 32-bit integers, stored immediately after the kmer
+  values are stored as plain 32-bit integers, stored immediately after the k-mer
   data.
 
 A set of k-mers, each k-mer with a value and a label, is stored in a
@@ -145,13 +157,9 @@ Counting K-mers
 ===============
 
 The **count** action reads sequence from any number of input files and counts
-the number of times each k-mer occurs.
-
-By default, meryl uses **canonical** k-mers.  A canonical k-mer is the
-lexicographically smaller of the forward-complement and revese-complement
-k-mer.  Actions **count-forward** and **count-reverse** will instead count
-k-mers as they are oriented in the input or the reverse-complement,
-respectively.
+the number of times each (canonical) k-mer occurs.  Actions **count-forward**
+and **count-reverse** will instead count k-mers as they are oriented in the
+input sequence or the reverse-complement sequence, respectively.
 
 Input sequences can be in either FASTA, FASTQ, raw bases, or if compiled with
 Canu support, in a Canu seqStore database.  Sequence files can be gzip, bzip2
@@ -164,9 +172,9 @@ Count actions, unless accompanied by an action that reads input from an
 existing database, MUST specify the k-mer size on the command line with the
 **-k** option.
 
-Count actions can include a value or label selector, but cannot include any
-filters.  A value selector could be used to assign each k-mer a constant value
-instead of the count; a label selector could be used to assign each k-mer
+Count actions can include a value or label assignment, but cannot include any
+selectors.  A value assignment could be used to assign each k-mer a constant value
+instead of the count; a label assignment could be used to assign each k-mer
 a constant representing the input file.
 
 Counting is resource intense.  Meryl will use memory and threads up to a
@@ -241,17 +249,18 @@ Actions
 
 Meryl processing is built around **actions**.  An action loads a k-mer from
 one or multiple databases (or, for counting actions, computes the k-mer from
-a sequence file) selects a new value and label for it, decides if it should
-be output or discarded (e.g., "if the new value is more than 100, output the
-k-mer"), and prints it to the screen, saves it to a new database, or
-passes it on to another action for further processing.
+a sequence file) computes value and label for it (based on the input kmer
+values and labels), decides if it should be output or discarded (e.g., "if
+the new value is more than 100, output the k-mer"), and saves it to an output
+database or text file or displays it on the screen or passes it to
+another action for further processing.
 
 An action is specified as an alias (listed below) or by explicitly stating
 all parameters.  The parameters describe:
 
- * what value to select for each output k-mer
- * what label to select for each output k-mer
- * conditions when a k-mer should be filtered from output:
+ * how to compute the value of the k-mer
+ * how to compute the label of the k-mer
+ * conditions when a k-mer should be output or discarded:
     - based on which input databases it came from
     - based on the input and/or output values of the k-mer
     - based on the input and/or output labels of the k-mer
@@ -260,9 +269,9 @@ all parameters.  The parameters describe:
     - output them to a new database
     - print them to ASCII output files
     - display them on the terminal
+    - pass them to other actions
 
 .. note::
-
   K-mers are read "in order" from the inputs.  If an input does not contain
   the "next" k-mer, it does not participate in the action processing.  For example,
   suppose we have three input databases with the following 4-mers and their counts:
@@ -289,16 +298,15 @@ all parameters.  The parameters describe:
     CCCC/3 (... from input-3)
     GGGG/4 (... from input-1 and input-3)
 
-A **selector** selects or computes the output value (label) for each k-mer
-from among the input values (labels), or computes an output value (label)
-from the input values (labels).  At most one selector can be supplied for the
-value or label.
+An **assignment** computes the output value (label) for each k-mer from among
+the input values (labels).  At most one assignment can be supplied for the
+value and one for the label.
 
-A **filter** decides if the k-mer should be output or discarded.  Filters can
-use input values (labels), the new output value (label), the base composition
-of the k-mer and how many and which specific inputs the k-mer was present in.
-Any number of filters can be supplied, linked with **and**, **or** and
-**not** operators.  See FILTERS.
+A **selector** decides if the k-mer should be output or discarded.  Selectors can
+use input values (labels), the computed output value (label), the base composition
+of the k-mer and which specific inputs the k-mer was present in.
+Any number of selectors can be supplied, linked with **and**, **or** and
+**not** operators.  See SELECTORS.
 
 Though it is possible to specify all those choices explicitly, **aliases** are
 provided for most common operations.
@@ -372,22 +380,22 @@ aliases.  Examples of aliases and their explicit configuration:
   +----------------+---------------------------------------------------------------------------------+
   |                |                                    Action                                       |
   | Alias          +------------------------------------+--------------------------------------------+
-  |                + Selectors                          | Filters                                    |
+  |                + Assignment                         | Selector                                   |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
   | union          | value=sum         | label=or       | input:any    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
-  | union-min      | value=min         | label=selected | input:any    | value:       | label:       |
+  | union-min      | value=min         | label=min-value| input:any    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
-  | union-max      | value=max         | label=selected | input:any    | value:       | label:       |
+  | union-max      | value=max         | label=max-value| input:any    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
   | union-sum      | value=sum         | label=or       | input:any    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
   +----------------+-------------------+----------------+--------------+--------------+--------------+
   | intersect      | value=first       | label=and      | input:all    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
-  | intersect-min  | value=min         | label=selected | input:all    | value:       | label:       |
+  | intersect-min  | value=min         | label=min-value| input:all    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
-  | intersect-max  | value=max         | label=selected | input:all    | value:       | label:       |
+  | intersect-max  | value=max         | label=max-value| input:all    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
   | intersext-sum  | value=sum         | label=and      | input:all    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
@@ -432,42 +440,169 @@ A full action is:
   :linenos:
 
   [ action-name
-      output=<database.meryl>
-      print=<files.##.mers>
-      display
-      value=rule-to-create-output-value
-      label=rule-to-create-output-label
-      value:rule-to-select-k-mer-for-output
-      label:rule-to-select-k-mer-for-output
-      bases:rule-to-select-k-mer-for-output
-      input:rule-to-select-k-mer-for-output
-      input-1
-      input-2
+      output:database=<database.meryl>            # to a binary database
+      output:list=<files.##.mers>                 # to ascii files
+      output:show                                 # to stdout
+      output:pipe=<label>                         # to a 'named pipe' action input
+      output:histogram=<hist-file>                # compute a histogram
+      output:statistics=<stats-file>              # compute statistics
+      assign:value=<rule-to-create-output-value>
+      assign:label=<rule-to-create-output-label>
+      [not] select:value:<rule-to-select-k-mer-for-output> [or | and]  # if none specified
+      [not] select:label:<rule-to-select-k-mer-for-output> [or | and]  # and is assumed
+      [not] select:bases:<rule-to-select-k-mer-for-output> [or | and]
+      [not] select:input:<rule-to-select-k-mer-for-output>
+      [input:database] input-1                           # from a database or
+      [input:list]     input-2                           # list file
+      [input:pipe]     input-3                           # 'named pipe' label
+      [input:action]   [ action-name ... ]
       ...
   ]
+
+The 'action-name' is used to either set default values from an alias, or to
+define a new alias (when no inputs are supplied, see ALIASES).
+
+Notice that each parameter is described by a parameter-class ('output') and a
+parameter-name ('database').  There are four parameter-classes: 'output',
+'assign', 'select' and 'input'.  Parameter-class 'input' is optional as meryl
+can query the input source to determine what type it is.  Parameter-classes
+and parameter-names may be shortened to any prefix of the class or name, all
+the way to a single letter.  In some cases, a different word can be
+substituted, however, these may not be shortened and must be used as shown:
+
+.. table:: Parameter class abbreviations and aliases
+  :widths: 34 33 33
+
+  +-----------------+---------------------------+------------------------------+
+  | Parameter Class | Suggested Abbreviations   | Aliases                      |
+  +-----------------+---------------------------+------------------------------+
+  | output          | o, out,                   |                              |
+  +-----------------+---------------------------+------------------------------+
+  | assign          | a                         | set                          |
+  +-----------------+---------------------------+------------------------------+
+  | select          | s, sel                    | get                          |
+  +-----------------+---------------------------+------------------------------+
+  | input           | i, inp, in                |                              |
+  +-----------------+---------------------------+------------------------------+
+
+.. table:: Parameter name abbreviations and aliases
+  :widths: 34 33 33
+
+  +-----------------+---------------------------+------------------------------+
+  | Parameter Name  | Suggested Abbreviations   | Aliases                      |
+  +-----------------+---------------------------+------------------------------+
+  | database        | d, dat                    | db                           |
+  +-----------------+---------------------------+------------------------------+
+  | list            | l, lis                    | t, txt, text                 |
+  +-----------------+---------------------------+------------------------------+
+  | show            | s, sho                    | display, dis, print, stdout  |
+  +-----------------+---------------------------+------------------------------+
+  | pipe            | p, pip                    |                              |
+  +-----------------+---------------------------+------------------------------+
+  | histogram       | h, hist, histo            |                              |
+  +-----------------+---------------------------+------------------------------+
+  | statistics      | st, stats                 | NOTE: 's' is NOT an abbrev.  |
+  +-----------------+---------------------------+------------------------------+
+  | action          | a, act                    |                              |
+  +-----------------+---------------------------+------------------------------+
+  | value           | v, val                    |                              |
+  +-----------------+---------------------------+------------------------------+
+  | label           | l, lab                    |                              |
+  +-----------------+---------------------------+------------------------------+
+  | bases           | b, bas                    | acgt, bp                     |
+  +-----------------+---------------------------+------------------------------+
+  | input           | i, inp, in                |                              |
+  +-----------------+---------------------------+------------------------------+
+
+
+.. note::
+
+  Selectors are 'positive-sense', meaning they initially assume every k-mer
+  is to be discarded, then 'select' only those k-mers that (positively) match
+  some set of conditions.  A 'negative-sense' scheme would initially assume
+  all k-mers are selected, and then de-select those that match the set of
+  conditions.  One can always convert selectors between senses, but the two
+  styles cannot be mixed.  Here's why.
+
+  We'll use 'select' for a positive-sense selector and 'reject' for a
+  negative-sense selector.  These following two sets are equivalent:
+
+  .. code-block:: none
+    :linenos:
+
+    select:value:>=3 and select:value:<=10
+    reject:value:<3  or  reject:value:>10
+
+  either will unambiguously discard items with value less than three, accept
+  items with value between 3 and 10, and discard items with value more
+  than 10.
+
+  De Morgan rests comfortably; these are all equivalent:
+
+  .. code-block:: none
+    :linenos:
+
+    select:value:>=3 and select:value:<=10
+    not (not (select:value:>=3 and select:value:<=10))
+    not (not select:value:>=3) or (not select:value:<=10)
+    not (select:value:<3) or (select:value:>10)
+
+  But something odd happens if we replace a single 'select' term with a
+  seemingly equivalent 'reject' term.  Replcing the first term
+  (`select:value:>=3`) in the positive-sense selector (line 1 in both examples
+  above) with an 'equivalent' reject term (`reject:value:<3`) results in a
+  contradiction:
+
+  .. code-block:: none
+    :linenos:
+
+    reject:value:<3 or select:value:<=10
+
+  For values less than three, we're told to both 'reject' and 'select' the k-mer!
+  We could probably devise rules of precedence to resolve this problem, but
+  that would quickly lead to confusion.
+
+  A more sinister contradiction is that the 'reject' term implicitly accepts
+  items with value 3 or larger unless some other term says to discard it; the
+  'select' term does the opposite - it implicitly discards items with value
+  more than ten.  Values greater than ten are both (implicitly) discarded and
+  accepted!  discarding and implicitly accepting them.
+
+  For simplicity, we chose to implement only one sense of select term.  It
+  might be possible to later implement the other sense, or even add
+  'exceptions' of the form `select:value>=3 except reject:label=2`.
+
+
+
 
 Square brackets MUST surround every action (exception: the first action in a
 command tree can omit the brackets).
 
-``output`` is optional.  If present, the k-mers generated by this action will
+``output:database`` (``o:d``) is optional, but may occur at most once per
+action.  If present, the k-mers generated by this action will
 be written to the specified meryl database.  If an existing database is
 supplied, it will be overwritten.
 
-``print`` is optional.  If present, the k-mers will be written to ASCII
-file(s) in the format ``<k-mer><tab><value><tab><label>``, one k-mer per
-line.  The k-mers will be in sorted order: A, C, T, G.  If the file name
-includes the string ``##``, the data will be written to 64 files, in
-parallel, using up to 64 threads.  Appending suffix ``.gz``, ``.bz2`` or
+``output:list`` (``o:l``) is optional.  If present, the k-mers generated by this action will be
+written to ASCII file(s) in the format ``<k-mer><tab><value><tab><label>``,
+one k-mer per line.  The k-mers will be in sorted order: A, C, T, G.  If the
+file name includes the string ``##``, the data will be written to 64 files,
+in parallel, using up to 64 threads.  Appending suffix ``.gz``, ``.bz2`` or
 ``.xz`` will cause the output file to be compressed.
 
-``display`` is optional.  It behaves like ``print``, except the k-mers are
-written to the terminal.
+``output:show`` (``o:s``) is optional.  It behaves like ``output:list``,
+except the k-mers are written to the ``stdout``, the terminal, unless
+redirected.
+
+``output:pipe`` (``o:p``) is optional.  If present, the k-mers generated by
+this acction will be supplied to other meryl actions that read input from the
+same pipe name.
 
 .. note::
 
-  ``printACGT`` is the same as ``print``, but modifies the ordering of kmers
-  from ``A < C < T < G`` to ``A < C < G < T`` when forming canonical kmers.
-  While this generates correct canonical kmers, the output kmers are not
+  ``listACGT`` is the same as ``list``, but modifies the ordering of k-mers
+  from ``A < C < T < G`` to ``A < C < G < T`` when forming canonical k-mers.
+  While this generates correct canonical k-mers, the output k-mers are not
   sorted.
 
   Consider 3-mers from string ``GGAGAGCT``:
@@ -476,7 +611,7 @@ written to the terminal.
     :widths: 20 20 20 20 20
 
     +------------+---------+---------+---------------------------+
-    |            |         |         |     canonical kmer in     |
+    |            |         |         |     canonical k-mer in    |
     |            |         |         +-------------+-------------+
     | ``GGAGCT`` | forward | reverse |  ACTG order |  ACGT order |
     +------------+---------+---------+-------------+-------------+
@@ -490,34 +625,36 @@ written to the terminal.
     +------------+---------+---------+-------------+-------------+
 
   When meryl builds the datase, it uses the ``A < C < T < G`` order.  These
-  kmers will be stored in the database in order: ``AGC``, ``CTC``, ``TCC``,
-  ``GCT``.  But when output using **printACGT**, the kmers will be reported as
+  k-mers will be stored in the database in order: ``AGC``, ``CTC``, ``TCC``,
+  ``GCT``.  But when output using ``listACGT``, the k-mers will be reported as
   ``AGC``, ``CTC``, ``GGA``, ``GCT``.  Notice that because of the change in
-  canonical kmer from ``TCC`` to ``GGA`` the last kmer is not in sorted order.
+  canonical k-mer from ``TCC`` to ``GGA`` the last k-mer is not in sorted order.
 
-``value=`` and ``label=`` describe how to combine the input values and labels
-into a single output value and label.
+``assign:value=`` (``a:v=``) and ``assign:label=`` (``a:l=``) describe how to
+combine the input values and labels into a single output value and label.
 
-``value:``, ``label:``, ``bases:`` and ``input:`` describe the conditions
-required for a k-mer to output.  Any number of these may be supplied.  They
-form a
+``select:value:`` (``s:v``), ``select:label:`` (``s:l``), ``select:bases:``
+(``s:b``) and ``select:input:`` (``s:i``) describe the conditions required
+for a k-mer to output.  Any number of these may be supplied.
 
-An ``input`` is either a meryl database or another meryl action.  Some
-actions require exactly one input, others require more than one - this is
-specified in the ``input:`` rule.
+An ``input`` is either a meryl database, a list of k-mers, or another meryl
+action.
 
-=========
-Selectors
-=========
+Some actions require exactly one input, others require more than
+one - this is specified in the ``select:input:`` rule.
+
+===========
+Assignments
+===========
 
 .. warning::
   HOW IS THIS IMPLEMENTED?
 
   When value:#c, value:first, value:min or value:max are used, the label
-  operation acts ONLY on the kmers matching the value selection.  For example,
+  operation acts ONLY on the k-mers matching the value selection.  For example,
   if value:min finds value=5 is the minimu, label=or would combine the labels
-  of all kmers with value=5.  Contrast this with value:add (which would set the
-  output value to the sum of the kmer values in all databases) and label:and
+  of all k-mers with value=5.  Contrast this with value:add (which would set the
+  output value to the sum of the k-mer values in all databases) and label:and
   (which would set each bit in the output label to true if the corresponding
   bit is true in all inputs).
 
@@ -527,10 +664,10 @@ Selectors
 
 
 
-Value Selectors
----------------
+Value Assignment
+----------------
 
-A **value selector** selects (or computes) the output value of the k-mer
+A **value assignment** computes the output value of the k-mer
 based on the input values and possibly a single integer constant.
 
 .. note::
@@ -559,7 +696,7 @@ based on the input values and possibly a single integer constant.
   :widths: 20 80
 
   +--------------------+-------------------------------------------------+
-  | Selector           | Set value to ...                                |
+  | Assignment         | Set value to ...                                |
   +====================+=================================================+
   | value=#X           | ...constant X.                                  |
   +--------------------+-------------------------------------------------+
@@ -603,20 +740,20 @@ based on the input values and possibly a single integer constant.
   | value=count        | ...the number of inputs the k-mer is present in.|
   +--------------------+-------------------------------------------------+
 
-Label Selectors
----------------
+Label Assignment
+----------------
 
-A **label selector** selects (or computes) the output label of the k-mer
+A **label assignment** computes the output label of the k-mer
 based on the input label and possibly a single 64-bit constant.
 
 .. warning::
   How to form complex expressions?
 
-.. table:: Value Selectors
+.. table:: Value Assignments
   :widths: 20 80
 
   +------------------------+-------------------------------------------------+
-  | Selector               | Set label to ...                                |
+  | Assignment             | Set label to ...                                |
   +========================+=================================================+
   | label=#X               | ...constant X.                                  |
   +------------------------+-------------------------------------------------+
@@ -656,14 +793,14 @@ based on the input label and possibly a single 64-bit constant.
   | label=rotate-right(#X) | ...the first input rotated right by X places.   |
   +------------------------+-------------------------------------------------+
 
-=======
-Filters
-=======
+=========
+Selectors
+=========
 
-Filters decide if the k-mer should be output.  They can use the values and
+A selector decide if the k-mer should be output.  They can use the values and
 labels of the input k-mers, the computed value and label of the k-mer to be
 output, the number and location of inputs that supplied an input k-mer, and
-the base composition of the k-mer.  A single filter term tests one condition,
+the base composition of the k-mer.  A single select term tests one condition,
 e.g., ``value:>3``, and multiple terms are connected together in a
 sum-of-products form (e.g., 'and' has higher precedence than 'or'):
 
@@ -688,15 +825,15 @@ of the next term, and only the next term.  While this seems restrictive,
     not (A and B) = (not A) or  (not B)
     not (A or  B) = (not A) and (not B)
 
-Do not confuse filters ('value:', 'label:', 'input:', 'bases:') with
-selectors ('value=' and 'label=').
+Do not confuse selectors (which use a ``:`` - 'select:value:', 'select:label:', 'select:input:', 'select:bases:') with
+assignments (which use an ``=`` - 'assign:value=' and 'assign:label=').
 
-Value Filters
--------------
+Value Selectors
+---------------
 
-A value filter discards the k-mer from output if the input or output values
-are undesired.  When the filter is TRUE the k-mer is output.  The syntax and
-options are similar to **label filters**, but value filters are typically
+A value selector discards the k-mer from output if the input or output values
+are undesired.  When the selector is TRUE the k-mer is output.  The syntax and
+options are similar to **label selectors**, but value selectors are typically
 integer functions.
 
 .. code-block:: none
@@ -775,12 +912,12 @@ Examples:
 
 
 
-Label Filters
--------------
+Label Selectors
+---------------
 
-A label filter discards the k-mer from output if the input or output labels
-are undesired.  When the filter is TRUE the k-mer is output.  The syntax and
-options are similar to **value filters**, but label filters are typically
+A label selector discards the k-mer from output if the input or output labels
+are undesired.  When the selector is TRUE the k-mer is output.  The syntax and
+options are similar to **value selectors**, but label selectors are typically
 binary functions.
 
 .. code-block:: none
@@ -838,7 +975,7 @@ that file.
   :widths: 20 80
 
   +--------------------+------------------------------------------------------------+
-  | Filter             | TRUE if...                                                 |
+  | Selector           | TRUE if...                                                 |
   +====================+============================================================+
   | label:all#c        | ...all bits set in c are also set in the label             |
   |                    |                                                            |
@@ -984,10 +1121,10 @@ their actual value.  Finally, ``intersect`` returns a list of k-mers that
 are both "well-supported in at least three inputs" and "in any input" and
 sets the output value to whatever was in the second input.
 
-A Generalized Label Filter
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+A Generalized Label Selector
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A general label filter can be devised by supplying a function that converts
+A general label selector can be devised by supplying a function that converts
 each bit in the label to some testable output bit, then testing those output
 bits.
 
@@ -1027,7 +1164,7 @@ And the five tests are:
   | don't care        | x    | Bit is not tested.                    |
   +-------------------+------+---------------------------------------+
 
-Example: With a five-bit label, the filter ``label:+--++:FttTT`` will output
+Example: With a five-bit label, the selector ``label:+--++:FttTT`` will output
 the k-mer if its label begins with ``0``, has at least one ``0`` in the next
 two bits, and ends with ``11``.
 
@@ -1036,10 +1173,10 @@ Aliases ``all`` (all tests are ``T``), any (all tests are ``t``), and none
 
 The default function is ``+`` and the default test is ``T``.
 
-A filter ``label:0101011`` needs to be special case interpreted to
+A selector ``label:0101011`` needs to be special case interpreted to
 mean "the label equals 0101011".
 
-A filter ``label:....011`` likewise should be special cased to mean "the
+A selector ``label:....011`` likewise should be special cased to mean "the
 label ends in 011".
 
 Examples on 2-bit labels:
@@ -1047,7 +1184,7 @@ Examples on 2-bit labels:
 .. table:: 
 
   +----------------+-----------------------+-------------------+
-  | Filter         | Meaning               | Label Example     |
+  | Selector       | Meaning               | Label Example     |
   |                |                       +----+----+----+----+
   |                |                       | 00 | 01 | 10 | 11 |
   +================+=======================+====+====+====+====+
@@ -1145,7 +1282,7 @@ B. ``L & C == L`` or ``L | C == C``
    fail.  When L=0, a 0 is outpout, and the check passes.
 
    If instead of testing that no bit is set, we test that any bit is set, the
-   sense of the filter is inverted; we test that C does not dominate L; that
+   sense of the selector is inverted; we test that C does not dominate L; that
    there is a bit set in L that is not set in C.
 
 C. ``L & C == C`` or ``L | C == L``
@@ -1155,7 +1292,7 @@ C. ``L & C == C`` or ``L | C == L``
    Convert the constant c into a string of +'s (for 1 bits) and 1's (for 0
    bits), then check that all bits are set.
 
-   The filter is inverted if we test that some testable bit is false.
+   The selector is inverted if we test that some testable bit is false.
    
 D. ``L & C == 0`` or ``L & C != 0``
 
@@ -1169,18 +1306,18 @@ D. ``L & C == 0`` or ``L & C != 0``
 
 
 
-Base Composition Filters
-------------------------
+Base Composition Selectors
+--------------------------
 
-The base composition filter selects kmers for output based on the number of
-A's, C's, G's and T's in the kmer sequence.
+The base composition selector selects k-mers for output based on the number of
+A's, C's, G's and T's in the k-mer sequence.
 
 .. code-block:: none
 
   bases:<BASES>:<OP><NUMBER>
 
 Where ``<BASES>`` is a string containing ``A``, ``C``, ``G`` and ``T``
-letters; case, order and quantity are unimportant.  The filter will count the
+letters; case, order and quantity are unimportant.  The selector will count the
 number of the specified letters in the k-mer and compare aginst ``<NUMBER>``
 using the specified numeric comparison operator ``<OP>``.
 
@@ -1221,10 +1358,10 @@ using the specified numeric comparison operator ``<OP>``.
 
 
 
-Input Filters
--------------
+Input Selectors
+---------------
 
-The input filter selects k-mers for output based on which inputs
+The input selector selects k-mers for output based on which inputs
 supplied the k-mer.
 
 .. code-block:: none
@@ -1232,7 +1369,7 @@ supplied the k-mer.
   input:<CONDITION>[:<CONDITION>[...]]
 
 A ``<CONDITION>`` is either an input number (``@n``) or input count (``n`` or ``n-m``).
-For the filter to be TRUE, all the CONDITIONS must be met.
+For the selector to be TRUE, all the CONDITIONS must be met.
 
 .. warning::
   Do input-counts require ``#n`` or just integers ``n``?
@@ -1245,7 +1382,7 @@ Assuming 9 input files, some examples are:
   :widths: 30 70
 
   +----------------+------------------------------------------------------+
-  | Filter         | Output k-mer if it is present in...                  |
+  | Selector       | Output k-mer if it is present in...                  |
   +----------------+------------------------------------------------------+
   | input:@1       | ...the first input file.                             |
   +----------------+------------------------------------------------------+
@@ -1266,7 +1403,7 @@ A few aliases exist:
   :widths: 25 25 50
 
   +-------------+-------------+---------------------------------------------------------+
-  | Alias       | Filter      | Meaning                                                 |
+  | Alias       | Selector    | Meaning                                                 |
   +=============+=============+=========================================================+
   | input:any   | input:#1-#9 | k-mer is in any number of inputs.                       |
   +-------------+-------------+---------------------------------------------------------+

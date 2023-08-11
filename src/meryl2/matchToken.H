@@ -18,31 +18,35 @@
 
 
 //  Expects inputs of
-//    opt='<option>[:=]'
-//    str='<string>[:=]'
-//  and returns true if <option> is a prefix of <string> and the separator
+//    opt='<option>[:=]<value>' - the input word to test
+//    pat='<pattrn>[:=]'        - the pattern to test against
+//  and returns true if <option> is a prefix of <pattern> and the separator
 //  matches.  optout is set to the letter after the separator.
 //
-//  Of note, opt='word' and str='word:' are NOT matches.  We're expecting opt
-//  to end in a ':'.
+//  Examples: 1) matchToken("out:", optout, "output:") == true
+//            2) matchToken("out",  optout, "output:") == false
+//
+//  Example 1 is true because 'out' is a prefix of 'output' and both end
+//  with a ':'; likewise, example 2 is false because the <opt> string
+//  doesn't end with a ':'.
 //
 inline
 bool
-matchToken(char const *opt, char const *&optout, char const *str, bool exact=false) {
+matchToken(char const *opt, char const *&optout, char const *pat, bool exact=false) {
 
-  while ((*opt !=  0) && (*opt != ':') && (*opt != '=') &&   //  Advance opt and str
-         (*str !=  0) &&                                     //  to the separator or
-         (*opt == *str))                                     //  first disagreement.
-    opt++, str++;
+  while ((*opt !=  0) && (*opt != ':') && (*opt != '=') &&   //  Advance opt and pat
+         (*pat !=  0) &&                                     //  to the separator or
+         (*opt == *pat))                                     //  first disagreement.
+    opt++, pat++;
 
   if ((*opt != 0) && (*opt != ':') && (*opt != '='))         //  If opt isn't at its end,
     return false;                                            //  there is no match.
 
-  if (exact == false)                                        //  Advance str to its end
-    while ((*str != 0) && (*str != ':') && (*str != '='))    //  unless we're looking
-      str++;                                                 //  for an exact match.
+  if (exact == false)                                        //  Advance pat to its end
+    while ((*pat != 0) && (*pat != ':') && (*pat != '='))    //  unless we're looking
+      pat++;                                                 //  for an exact match.
 
-  if (*opt != *str)                                          //  If they disagree, the
+  if (*opt != *pat)                                          //  If they disagree, the
     return false;                                            //  separators don't match.
 
   if (*opt)  optout = opt + 1;                               //  Return the next letter,

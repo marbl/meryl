@@ -244,7 +244,7 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
 //
 void
 merylFilter::finalizeFilterParameters(merylOpTemplate *mot) {
-  bool  verbose = verbosity.showConstruction();
+  bool  verbose = globals.showConstruction();
 
   if ((_vValue2Distinct < 0) &&
       (_vValue2WordFreq < 0))
