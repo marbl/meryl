@@ -50,8 +50,8 @@ merylCommandBuilder::addNewOperation(void) {
   if (globals.showConstruction() == true) {
     fprintf(stderr, "addOperation()- Existing op: type '%s' ident %u value %s/%u label %s/%lu\n",
             toString(eop->_type),        eop->_ident,
-            toString(eop->_valueSelect), eop->_valueConstant,
-            toString(eop->_labelSelect), eop->_labelConstant);
+            toString(eop->_valueAssign), eop->_valueConstant,
+            toString(eop->_labelAssign), eop->_labelConstant);
   }
 
   //  If tht operation hasn't been used yet, do not add a new operation, just
@@ -88,11 +88,11 @@ merylCommandBuilder::addNewOperation(void) {
 bool
 merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
 
-  assert(_curClass == opClass::clNone);       //  If either of these are set, the action
-  assert(_curPname == opPname::pnNone);       //  was never fully parsed/added.
-
   if (nter == 0)              return true;    //  Successfully terminated the requested number.
   if (_opStack.size() == 0)   return false;   //  Oops, too many terminates requested.
+
+  assert(_curClass == opClass::clNone);       //  If either of these are set, the action
+  assert(_curPname == opPname::pnNone);       //  was never fully parsed/added.
 
   merylOpTemplate  *op = getCurrent();
 
@@ -103,8 +103,8 @@ merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
   //  Set unset things in the action to defaults.
 
   if (op->_type        == merylOpType::opNothing)      op->_type        = merylOpType::opFilter;
-  if (op->_valueSelect == merylModifyValue::valueNOP)  op->_valueSelect = merylModifyValue::valueFirst;
-  if (op->_labelSelect == merylModifyLabel::labelNOP)  op->_labelSelect = merylModifyLabel::labelFirst;
+  if (op->_valueAssign == merylAssignValue::valueNOP)  op->_valueAssign = merylAssignValue::valueFirst;
+  if (op->_labelAssign == merylAssignLabel::labelNOP)  op->_labelAssign = merylAssignLabel::labelFirst;
 
   //  Finish file operations.
 
@@ -162,7 +162,7 @@ merylCommandBuilder::isCount(void) {
 //  added.
 //
 //  This does go through all the actions to make sure the inputs, outputs and
-//  filters are appropriate for that action, generating error messagess if
+//  selectors are appropriate for that action, generating error messagess if
 //  needed.
 //
 void
@@ -210,7 +210,7 @@ merylCommandBuilder::buildTrees(void) {
     if (kmer::merSize() == 0)  //  ERROR: Kmer size not supplied with modifier k=<kmer-size>
       sprintf(_errors, "ERROR: counting operation at position %u doesn't have a mer size set.\n", oo);
 
-    if (ot->_writer == nullptr)
+    if (ot->_outDbseName == nullptr)
       sprintf(_errors, "ERROR: counting operation at position %u must have an output database.\n", oo);
 
     for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
@@ -235,7 +235,7 @@ merylCommandBuilder::buildTrees(void) {
         sprintf(_errors, "ERROR: stats/histo operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
   }
 
-  //  Check FILTER operations:
+  //  Check SELECTOR operations:
   //   - inputs must not be 'sequence' type
 
   for (uint32 oo=0; oo<_opList.size(); oo++) {
@@ -247,7 +247,7 @@ merylCommandBuilder::buildTrees(void) {
     for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
       if ((ot->_inputs[ii]->isFromTemplate() == false) &&
           (ot->_inputs[ii]->isFromDatabase() == false))
-        sprintf(_errors, "ERROR: filter operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
+        sprintf(_errors, "ERROR: select operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
   }
 }
 
@@ -272,7 +272,7 @@ merylCommandBuilder::displayTreesAndErrors(void) {
     fprintf(stderr, "Found %u command tree%s.\n", numTrees(), (numTrees() == 1) ? "" : "s");
 
     for (uint32 ii=0; ii<numTrees(); ii++)
-      printTree(getTree(ii), 0, 0);
+      printTree(ii);
   }
 
   if (numErrors() == 0)
@@ -290,93 +290,6 @@ merylCommandBuilder::displayTreesAndErrors(void) {
 
 
 
-//  Clone the command tree(s) into thread-specific copies, one tree per thread.
-//
-//
-void
-merylCommandBuilder::spawnThreads(uint32 allowedThreads) {
-
-  //  Tell all the actions to do their final initialization - this will
-  //  create master input/output objects, query histograms to get any
-  //  paramters based on those, and anything else that needs to be done once
-  //  per action.
-
-  for (uint32 rr=0; rr<numTrees(); rr++)
-    getTree(rr)->finalizeTemplateParameters();
-
-  //  Allocate compute objects for each of our 64 file slices, then copy the
-  //  list of templates into each slice.  These need to exist before we start
-  //  creating inputs.
-
-  for (uint32 ss=0; ss<64; ss++) {
-    _thList[ss] = new merylOpCompute * [_opList.size()];
-
-    for (uint32 oo=0; oo<_opList.size(); oo++)
-      _thList[ss][oo] = new merylOpCompute(_opList[oo], ss, _opList[oo]->_inputs.size());
-  }
-
-  //  Save pointers to all the compute objects in each template.  This is
-  //  used to collect statistics when we're done.  The arrays are annoyingly
-  //  perpendicular to each other and so we need to save each of the 64
-  //  pointers, instead of just pointing to an array of 64 elements.
-
-  for (uint32 oo=0; oo<_opList.size(); oo++)
-    for (uint32 ss=0; ss<64; ss++)
-      _opList[oo]->_computes[ss] = _thList[ss][oo];
-
-  //  Update all the input/output objects to be per-thread.
-
-  for (uint32 ss=0; ss<64; ss++) {
-    for (uint32 oo=0; oo<_opList.size(); oo++) {
-      merylOpTemplate  *tpl = _opList[oo];       //  The template operation
-      merylOpCompute   *cpu = _thList[ss][oo];   //  The per-thread operation we're creating.
-
-      //  For each input to the template, add a new input to the compute.
-      //
-      for (uint32 ii=0; ii<tpl->_inputs.size(); ii++) {
-        merylInput  *in = tpl->_inputs[ii];
-
-        //  If the template input is from an action, we need to search for
-        //  that action in the master list of templates, then set the
-        //  per-thread input to be the corresponding object in the per-thread
-        //  list.
-        //
-
-        if (in->isFromTemplate() == true) {
-          uint32  inidx = UINT32_MAX;
-
-          for (uint32 xx=0; xx<_opList.size(); xx++)
-            if (in->_template == _opList[xx])
-              inidx = xx;
-
-          if (inidx == UINT32_MAX)
-            fprintf(stderr, "Failed to find corresponding operation.\n"), exit(1);
-
-          cpu->addInputFromOp(_thList[ss][inidx]);
-        }
-
-        //  If the template input is from a database, make a new input for
-        //  just the piece we're processing in this thread - this is done in
-        //  addInputFromDB().
-        //
-        if (in->isFromDatabase() == true) {
-          cpu->addInputFromDB(in->name(), ss);
-        }
-
-        //  If the template input is from anything else, it's an error.
-        //
-        assert(in->isFromSequence() == false);
-        assert(in->isFromStore()    == false);
-      }
-
-      //  Add a writer or printer (if needed) for the slice we're operating on.
-      //
-      cpu->addOutput    (tpl, ss);
-      cpu->addPrinter   (tpl, ss);
-      cpu->addStatistics(tpl, ss);
-    }
-  }
-}
 
 
 

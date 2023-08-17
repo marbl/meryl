@@ -21,6 +21,51 @@
 
 #include "meryl.H"
 
+
+enum class opClass { clNone, clOutput, clAssign, clSelect, clInput };
+enum class opPname { pnNone, pnDB, pnList, pnShow, pnPipe, pnAction, pnHisto, pnStats, pnValue, pnLabel, pnBases, pnInput };
+
+class merylOpTemplate;
+class merylOpCompute;
+
+inline
+char const *toString(opClass c) {
+  char const *r = "invalid";
+
+  switch (c) {
+    case opClass::clNone:    r = "clNone";    break;
+    case opClass::clOutput:  r = "clOutput";  break;
+    case opClass::clAssign:  r = "clAssign";  break;
+    case opClass::clSelect:  r = "clSelect";  break;
+    case opClass::clInput:   r = "clInput";   break;
+  }
+
+  return r;
+}
+
+inline
+char const *toString(opPname n) {
+  char const *r = "invalid";
+
+  switch (n) {
+    case opPname::pnNone:    r = "pnNone";    break;
+    case opPname::pnDB:      r = "pnDB";      break;
+    case opPname::pnList:    r = "pnList";    break;
+    case opPname::pnShow:    r = "pnShow";    break;
+    case opPname::pnPipe:    r = "pnPipe";    break;
+    case opPname::pnAction:  r = "pnAction";  break;
+    case opPname::pnHisto:   r = "pnHisto";   break;
+    case opPname::pnStats:   r = "pnStats";   break;
+    case opPname::pnValue:   r = "pnValue";   break;
+    case opPname::pnLabel:   r = "pnLabel";   break;
+    case opPname::pnBases:   r = "pnBases";   break;
+    case opPname::pnInput:   r = "pnInput";   break;
+  }
+
+  return r;
+}
+
+
 class merylCommandBuilder {
 public:
   merylCommandBuilder()  {
@@ -40,25 +85,28 @@ private:
   bool    processLabelModifier(char const *val, bool failIfBad);
   bool    processBasesModifier(char const *val, bool failIfBad);
 
-  uint32               isRelation(uint32 bgn);
-  merylFilterRelation  decodeRelation(uint32 bgn);
+  uint32                 isRelation(uint32 bgn);
+  merylSelectorRelation  decodeRelation(uint32 bgn);
 
-  void                 decodeFilter(uint32 bgn,
-                                    merylFilter &f);
+  void                   decodeSelector(uint32 bgn,
+                                        merylSelector &f);
 
 public:
-  void    printTree(merylOpTemplate *op, uint32 inputNum, uint32 indent);
+  void    printTree(uint32 tID, uint32 indent=0);
+  void    printTree(merylOpTemplate *op, uint32 tID, uint32 iID, uint32 indent);
   bool    displayTreesAndErrors(void);
 
 private:
-  enum class opClass { clNone, clOutput, clAssign, clSelect, clInput };
-  enum class opPname { pnNone, pnDB, pnList, pnShow, pnPipe, pnAction, pnHisto, pnStats, pnValue, pnLabel, pnBases, pnInput };
-
   opClass     _curClass = opClass::clNone;
   opPname     _curPname = opPname::pnNone;
   char const *_curParam = nullptr;
 
   bool    decodeWord(char const *opt);
+  void    resetClass(void) {
+    _curClass = opClass::clNone;
+    _curPname = opPname::pnNone;
+    _curParam = nullptr;
+  }
 
 private:
   uint32  findCreateTerminate(void);
@@ -78,17 +126,17 @@ private:
   bool    isInOut(void);
   bool    isInput(void);
 
-  bool    isAssignValue(char const *str);
-  bool    isAssignLabel(char const *str);
+  bool    isAssignValue(void);
+  bool    isAssignLabel(void);
   bool    isAssign(void);
   bool    isSelect(void);
 
-  bool    isValueFilter(void);
-  bool    isLabelFilter(void);
-  bool    isBasesFilter(void);
-  bool    isInputFilter(void);
+  bool    isValueSelector(void);
+  bool    isLabelSelector(void);
+  bool    isBasesSelector(void);
+  bool    isInputSelector(void);
 
-  bool    isFilterConnective(void);
+  bool    isSelectorConnective(void);
 
   bool    isCount(void);
 
@@ -133,16 +181,16 @@ private:
   bool      _isHistogram    = false;        //  enable histogram output
   bool      _isStatistics   = false;        //  enable statistics output
 
-  //  If _needsValue or _needsConstant is set, the current filter or current
+  //  If _needsValue or _needsConstant is set, the current selector or current
   //  action needs an integer parameter in the next word.
 
   bool      _needsValue     = false;
   bool      _needsConstant  = false;
 
-  //  If _invertNextFilter is set, the sense of the next filter encountered
-  //  is inverted.  Example: 'filter1 and not filter2'.
+  //  If _invertNextSelector is set, the sense of the next selector encountered
+  //  is inverted.  Example: 's1 and not s2'.
 
-  bool      _invertNextFilter = false;
+  bool      _invertNextSelector = false;
 
   //  _opStack is a stack of operations, used when constructing the tree of operations.
   //  _opList is a list of operations.

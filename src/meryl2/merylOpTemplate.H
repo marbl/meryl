@@ -31,21 +31,21 @@
 //
 //  Counting operations are also done here.
 
-//  The filters are a sum-of-products expression returning TRUE if the kmer should
+//  The selectors are a sum-of-products expression returning TRUE if the kmer should
 //  be output and FALSE if the kmer should be ignored.
 //
-//  isKmerFilteredOut() computes the sum of those product filters applied
+//  isKmerSelectoredOut() computes the sum of those product selectors applied
 //  to the kmer we are thinking of outputting (_kmer).
 //
 //  Ideally, this should be captured in its own object, but it needs access
 //  to the _act lists.
 //
 //  isTrue(k) returns true if the output kmer 'k' meets the conditions of
-//  the filter and should be passed to the output.  It has access to all
+//  the selector and should be passed to the output.  It has access to all
 //  the other input kmers through the _act inputs.
 //
-//  addNewFilterProduct() will add a new product term to the sum list.
-//  addFilterToProduce()  will add a new filter to the most recent product term.
+//  addNewSelectorProduct() will add a new product term to the sum list.
+//  addSelectorToProduce()  will add a new selector to the most recent product term.
 
 class merylOpTemplate {
 public:
@@ -54,22 +54,23 @@ public:
   ~merylOpTemplate();
 
 public:
-  void    addInputFromDB  (char const *dbName,   std::vector<char const *> &err);
-  void    addInputFromDB  (char const *dbName);
-  void    addInputFromList(char const *dbName,   std::vector<char const *> &err) {};
-  void    addInputFromPipe(char const *pipeName, std::vector<char const *> &err) {};
-
+  void    addInputFromDB  (char const      *dbName,    std::vector<char const *> &err);
+  void    addInputFromList(char const      *listName,  std::vector<char const *> &err);
+  void    addInputFromPipe(char const      *pipeName,  std::vector<char const *> &err);
   void    addInputFromOp  (merylOpTemplate *operation, std::vector<char const *> &err);
 
-  void    addInputFromCanu(char const *stName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err);
   void    addInputFromSeq (char const *sqName, bool doCompression, std::vector<char const *> &err);
+  void    addInputFromCanu(char const *stName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err);
+
 
   void    addOutputToDB  (char const *wrName,                 std::vector<char const *> &err);
   void    addOutputToList(char const *prName, bool ACGTorder, std::vector<char const *> &err);
   void    addOutputToPipe(char const *pipeName,               std::vector<char const *> &err) {};
 
-  void    addHistogram   (char const *hiName, bool asStats,   std::vector<char const *> &err);
+  void    addStatsOutput (char const *hiName,                 std::vector<char const *> &err);
+  void    addHistoOutput (char const *hiName,                 std::vector<char const *> &err);
 
+public:
   void    finalizeTemplateInputs(std::vector<char const *> &err);
   void    finalizeTemplateParameters(void);
 
@@ -85,7 +86,7 @@ public:
   merylOpCounting               *_counting = nullptr;
 
   //
-  //  Inputs.  The minimum and maximum are set by the action or filter:
+  //  Inputs.  The minimum and maximum are set by the action or selector:
   //    Histograms must have exactly one input
   //    Subtract needs two
   //
@@ -106,39 +107,51 @@ public:
 
   merylOpCompute                *_computes[64]  = { nullptr };
 
-  merylModifyValue               _valueSelect   = merylModifyValue::valueNOP;
+  merylAssignValue               _valueAssign   = merylAssignValue::valueNOP;
   kmvalu                         _valueConstant = 0;
 
-  merylModifyLabel               _labelSelect   = merylModifyLabel::labelNOP;
+  merylAssignLabel               _labelAssign   = merylAssignLabel::labelNOP;
   kmlabl                         _labelConstant = 0;
 
   //
-  //  Filters.
+  //  Selectors.
   //
 
-  bool          addNewFilterProduct(void);
-  void          addFilterToProduct(merylFilter const f);
-  merylFilter  &getFilter(uint32 p, uint32 t);
-  merylFilter  &getLastFilter(void);
+  bool            addNewSelectorProduct(void);
+  void            addSelectorToProduct(merylSelector const f);
+  merylSelector  &getSelector(uint32 p, uint32 t);
+  merylSelector  &getLastSelector(void);
 
 private:
-  std::vector< std::vector<merylFilter> >  _filter;
+  std::vector< std::vector<merylSelector> >  _select;
+
 
   //
-  //  Outputs.
+  //  OUTPUTS.
   //
-
 public:
-  compressedFileWriter          *_statsFile      = nullptr;
-  compressedFileWriter          *_histoFile      = nullptr;
+  char const                    *_outDbseName    = nullptr;   //  Pointers to command
+  char const                    *_outListName    = nullptr;   //  line memory.
+  char const                    *_outShowName    = nullptr;
+  char const                    *_outPipeName    = nullptr;
 
-  merylFileWriter               *_writer         = nullptr;
-  compressedFileWriter          *_printer        = nullptr;
-  char                          *_printerName    = nullptr;
-  bool                           _printACGTorder = false;
+  char const                    *_outStatsName   = nullptr;
+  char const                    *_outHistoName   = nullptr;
+
+  merylFileWriter               *_outDbse        = nullptr;   //  Master outputs.
+  compressedFileWriter          *_outList        = nullptr;
+  compressedFileWriter          *_outShow        = nullptr;
+  //ar const                    *_outPipe        = nullptr;
+
+  compressedFileWriter          *_outStats       = nullptr;
+  compressedFileWriter          *_outHisto       = nullptr;
+
+  //  deprecated
+  bool _printACGTorder = false;
 
 
-  //  Only so it can access _filter when displaying the command tree.
+
+  //  Only so it can access _select when displaying the command tree.
   friend class merylCommandBuilder;
   friend class merylOpCompute;
 };
@@ -150,38 +163,38 @@ public:
 
 inline
 bool
-merylOpTemplate::addNewFilterProduct(void) {
+merylOpTemplate::addNewSelectorProduct(void) {
 
-  if ((_filter.size() == 0) ||
-      (_filter.back().size() == 0))
+  if ((_select.size() == 0) ||
+      (_select.back().size() == 0))
     return(true);
 
-  _filter.emplace_back();
+  _select.emplace_back();
   return(false);
 }
 
 inline
 void
-merylOpTemplate::addFilterToProduct(merylFilter const f) {
+merylOpTemplate::addSelectorToProduct(merylSelector const f) {
 
-  _type = merylOpType::opFilter;   //  This op processes kmers.
+  _type = merylOpType::opFilter;    //  This op processes kmers.
 
-  if (_filter.size() == 0)         //  If there are no filters yet,
-    _filter.emplace_back();        //  add a new product term.
+  if (_select.size() == 0)          //  If there are no selectors yet,
+    _select.emplace_back();         //  add a new product term.
 
-  _filter.back().emplace_back(f);  //  Add 'f' to the last product term.
+  _select.back().emplace_back(f);   //  Add 'f' to the last product term.
 }
 
 inline
-merylFilter &
-merylOpTemplate::getFilter(uint32 p, uint32 t) {
-  return(_filter[p][t]);
+merylSelector &
+merylOpTemplate::getSelector(uint32 p, uint32 t) {
+  return(_select[p][t]);
 }
 
 inline
-merylFilter &
-merylOpTemplate::getLastFilter(void) {
-  return(_filter.back().back());
+merylSelector &
+merylOpTemplate::getLastSelector(void) {
+  return(_select.back().back());
 }
 
 

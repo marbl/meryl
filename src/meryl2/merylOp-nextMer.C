@@ -51,8 +51,8 @@ printKmer(FILE *f, kmer pk, bool printACGTorder) {
 
 
 
-//  Return true if a single filter product term (_filter[ii]) is true.  A
-//  single term is true if all of it's terms (_filter[ii][0], _filter[ii][1],
+//  Return true if a single selector product term (_select[ii]) is true.  A
+//  single term is true if all of it's terms (_select[ii][0], _select[ii][1],
 //  ...) are true.
 //
 inline
@@ -61,31 +61,31 @@ merylOpCompute::shouldKmerBeOutput(uint32 ii) {
 
 #if 1
 
-  switch (_ot->_filter[ii].size()) {
+  switch (_ot->_select[ii].size()) {
     case 0:
       return(true);
       break;
     case 1:
-      return((_ot->_filter[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)));
+      return((_ot->_select[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)));
       break;
     case 2:
-      return((_ot->_filter[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)) &&
-             (_ot->_filter[ii][1].isTrue(_kmer, _actLen, _acta, _inpa)));
+      return((_ot->_select[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)) &&
+             (_ot->_select[ii][1].isTrue(_kmer, _actLen, _acta, _inpa)));
       break;
     case 3:
-      return((_ot->_filter[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)) &&
-             (_ot->_filter[ii][1].isTrue(_kmer, _actLen, _acta, _inpa)) &&
-             (_ot->_filter[ii][2].isTrue(_kmer, _actLen, _acta, _inpa)));
+      return((_ot->_select[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)) &&
+             (_ot->_select[ii][1].isTrue(_kmer, _actLen, _acta, _inpa)) &&
+             (_ot->_select[ii][2].isTrue(_kmer, _actLen, _acta, _inpa)));
       break;
     case 4:
-      return((_ot->_filter[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)) &&
-             (_ot->_filter[ii][1].isTrue(_kmer, _actLen, _acta, _inpa)) &&
-             (_ot->_filter[ii][2].isTrue(_kmer, _actLen, _acta, _inpa)) &&
-             (_ot->_filter[ii][3].isTrue(_kmer, _actLen, _acta, _inpa)));
+      return((_ot->_select[ii][0].isTrue(_kmer, _actLen, _acta, _inpa)) &&
+             (_ot->_select[ii][1].isTrue(_kmer, _actLen, _acta, _inpa)) &&
+             (_ot->_select[ii][2].isTrue(_kmer, _actLen, _acta, _inpa)) &&
+             (_ot->_select[ii][3].isTrue(_kmer, _actLen, _acta, _inpa)));
       break;
     default:
-      for (uint32 tt=0; tt<_ot->_filter[ii].size(); tt++)
-        if (_ot->_filter[ii][tt].isTrue(_kmer, _actLen, _acta, _inpa) == false)
+      for (uint32 tt=0; tt<_ot->_select[ii].size(); tt++)
+        if (_ot->_select[ii][tt].isTrue(_kmer, _actLen, _acta, _inpa) == false)
           return(false);
       return(true);
       break;
@@ -93,8 +93,8 @@ merylOpCompute::shouldKmerBeOutput(uint32 ii) {
 
 #else
 
-  for (uint32 tt=0; tt<_ot->_filter[ii].size(); tt++)
-    if (_ot->_filter[ii][tt].isTrue(_kmer, _actLen, _acta, _inpa) == false)
+  for (uint32 tt=0; tt<_ot->_select[ii].size(); tt++)
+    if (_ot->_select[ii][tt].isTrue(_kmer, _actLen, _acta, _inpa) == false)
       return(false);
   return(true);
 
@@ -103,35 +103,35 @@ merylOpCompute::shouldKmerBeOutput(uint32 ii) {
 
 
 
-//  Returns true if the kmer should be output, based on the filters.
+//  Returns true if the kmer should be output, based on the selectors.
 //
-//  This function is true of ANY of the filter product terms (_filter[0],
-//  _filter[1], ...) are true.
+//  This function is true of ANY of the selector product terms (_select[0],
+//  _select[1], ...) are true.
 //
 inline
 bool
 merylOpCompute::shouldKmerBeOutput(void) {
 
   //  Simple end cases (note that order is important):
-  //    the kmer IS     filtered out if the value is zero
-  //    the kmer is NOT filtered out if there are no filters
+  //    the kmer IS     selected out if the value is zero
+  //    the kmer is NOT selected out if there are no selectors
   //
   if (_kmer._val == 0)            return(false);
-  if (_ot->_filter.size() == 0)   return(true);
+  if (_ot->_select.size() == 0)   return(true);
 
-  //  Test each filter.  A filter will return true if the kmer should
+  //  Test each selector.  A selector will return true if the kmer should
   //  be output; false if the kmer should be skipped.
   //
-  //  A kmer should be output if ANY filter[ii] is true.
+  //  A kmer should be output if ANY selector[ii] is true.
   //
-  //  A single filter[ii] is true if ALL of it's pieces are true.
+  //  A single selector[ii] is true if ALL of it's pieces are true.
 
 #if 1
 
   //  The switches are significantly faster than a for loop!
   //
   //  Looking at user time for a run with three product terms, the first two
-  //  with one filter, the last with N filters:
+  //  with one selector, the last with N selectors:
   //
   //    SWITCH  FOR-LOOP  DIFF        time \
   //    ------  --------  ----        /work/meryl-redo/build/bin/meryl -Q \
@@ -143,7 +143,7 @@ merylOpCompute::shouldKmerBeOutput(void) {
   //     77.57     78.31  0.74          fArcCen1.k21.gt1.meryl
   //     81.55     82.36  0.81
 
-  switch (_ot->_filter.size()) {
+  switch (_ot->_select.size()) {
     case 1:
       return((shouldKmerBeOutput(0) == true));
       break;
@@ -163,7 +163,7 @@ merylOpCompute::shouldKmerBeOutput(void) {
              (shouldKmerBeOutput(3) == true));
       break;
     default:
-      for (uint32 ii=0; ii<_ot->_filter.size(); ii++)
+      for (uint32 ii=0; ii<_ot->_select.size(); ii++)
         if (shouldKmerBeOutput(ii) == true)
           return(true);
       return(false);
@@ -177,11 +177,11 @@ merylOpCompute::shouldKmerBeOutput(void) {
 
   bool   r = false;
 
-  for (uint32 ii=0; ii<_ot->_filter.size(); ii++) {
+  for (uint32 ii=0; ii<_ot->_select.size(); ii++) {
     bool t = true;
 
-    for (uint32 tt=0; tt<_ot->_filter[ii].size(); tt++)
-      t &= _ot->_filter[ii][tt].isTrue(_kmer, _actLen, _acta, _inpa);
+    for (uint32 tt=0; tt<_ot->_select[ii].size(); tt++)
+      t &= _ot->_select[ii][tt].isTrue(_kmer, _actLen, _acta, _inpa);
 
     r |= t;
   }
@@ -220,21 +220,26 @@ merylOpCompute::nextMer(void) {
   findOutputValue();
   findOutputLabel();
 
-  //  If this kmer is filtered, go back and get another kmer from the inputs.
+  //  If this kmer is selected, go back and get another kmer from the inputs.
 
   if (shouldKmerBeOutput() == false)
     goto nextMerAgain;
 
-  //  Output the fully processed kmer to whatever outputs exist.
+  //  Analyze the kmer.
 
-  if (_writerSlice != nullptr)
-    _writerSlice->addMer(_kmer);
+  if (_statsAcc)
+    _statsAcc->addValue(_kmer._val);
 
-  if (_printer != nullptr)
-    printKmer(_printer->file(), _kmer, _ot->_printACGTorder);
+  //  Output the kmer to whatever outputs exist.
 
-  if (_stats)
-    _stats->addValue(_kmer._val);
+  if (_outDbse != nullptr)
+    _outDbse->addMer(_kmer);
+
+  if (_outList != nullptr)
+    printKmer(_outList->file(), _kmer, _ot->_printACGTorder);
+
+  if (_outShow != nullptr)
+    printKmer(_outShow->file(), _kmer, _ot->_printACGTorder);
 
   //  We have now loaded the nextMer; return and let our clients query us.
 

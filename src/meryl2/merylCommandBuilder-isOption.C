@@ -33,7 +33,7 @@ merylCommandBuilder::isOption(void) {
   bool  isNum = isDecNumber(_optString, 0);
 
   //  Compatibility mode might need this.
-  //     greater-than ### ----> add a new filter action 'filter value:>#'
+  //     greater-than ### ----> add a new selector action 'select value:>#'
   if ((op->needsThreshold() == true) && (isNum == true)) {
     op->setThreshold(strtouint64(_optString));
     return(true);
@@ -76,7 +76,7 @@ merylCommandBuilder::isOption(void) {
     return(true);
   }
 
-  //  A suffix to filter kmers by when counting.
+  //  A suffix to select kmers by when counting.
   if (strcmp(key, "count-suffix") == 0) {
     if (op->_type == merylOpType::opCounting)
       op->_counting->setCountSuffix(val);

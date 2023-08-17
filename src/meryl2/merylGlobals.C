@@ -18,15 +18,13 @@
 
 #include "meryl.H"
 
-//
-//  Handles debug options and any computation they want to perform.
-//
-//  Returns true if the option was processed.  Updates argc as needed.
-//
+merylGlobals  globals;
+
+
 
 bool
-processDebugOption(int &arg, char **argv,
-                   std::vector<char const *> &err) {
+merylGlobals::processDebugOption(int &arg, char **argv,
+                                 std::vector<char const *> &err) {
 
   if (strcmp(argv[arg], "dumpIndex") == 0) {         //  Report the index for the dataset.
     arg++;                                           //  It's just the parameters used for encoding.
@@ -38,6 +36,59 @@ processDebugOption(int &arg, char **argv,
     arg++;                                           //  Expects a meryl file prefix as a parameter.
     dumpMerylDataFile(argv[arg++]);                  //  (e.g., db.meryl/0x000000)
     exit(0);
+  }
+
+  return false;
+}
+
+
+bool
+merylGlobals::processGlobalOption(int &arg, char **argv,
+                                  std::vector<char const *> &err) {
+
+  if (strcmp(argv[arg], "-k") == 0) {
+    kmerTiny::setSize(strtouint32(argv[++arg]));
+    return true;
+  }
+
+  if (strcmp(argv[arg], "-l") == 0) {
+    kmerTiny::setLabelSize(strtouint32(argv[++arg]));
+    return true;
+  }
+
+  if ((strcmp(argv[arg],  "-m")      == 0) ||
+      (strcmp(argv[arg],  "-memory") == 0) ||
+      (strcmp(argv[arg], "--memory") == 0)) {
+    allowedMemory() = getAllowedMemory(argv[++arg], err);
+    return true;
+  }
+
+  if ((strcmp(argv[arg],  "-t")       == 0) ||
+      (strcmp(argv[arg],  "-threads") == 0) ||
+      (strcmp(argv[arg], "--threads") == 0)) {
+    allowedThreads() = getAllowedThreads(argv[++arg], err);
+    return true;
+  }
+
+  if (strncmp(argv[arg], "-V", 2) == 0) {          //  Anything that starts with -V
+    for (uint32 vv=1; vv<strlen(argv[arg]); vv++)  //  increases verbosity by the
+      increaseVerbosity();                         //  number of letters.
+    return true;
+  }
+
+  if (strcmp(argv[arg], "-Q") == 0) {
+    beQuiet();
+    return true;
+  }
+
+  if (strcmp(argv[arg], "-P") == 0) {
+    enableProgressReport();
+    return true;
+  }
+
+  if (strcmp(argv[arg], "-C") == 0) {
+    enableConfigureOnly();
+    return true;
   }
 
   if ((strcmp(argv[arg], "-h")     == 0) ||
@@ -53,61 +104,8 @@ processDebugOption(int &arg, char **argv,
 
 
 bool
-processGlobalOption(int &arg, char **argv,
-                    std::vector<char const *> &err) {
-
-  if (strcmp(argv[arg], "-k") == 0) {
-    kmerTiny::setSize(strtouint32(argv[++arg]));
-    return true;
-  }
-
-  if (strcmp(argv[arg], "-l") == 0) {
-    kmerTiny::setLabelSize(strtouint32(argv[++arg]));
-    return true;
-  }
-
-  if ((strcmp(argv[arg],  "-m")      == 0) ||
-      (strcmp(argv[arg],  "-memory") == 0) ||
-      (strcmp(argv[arg], "--memory") == 0)) {
-    globals.allowedMemory() = getAllowedMemory(argv[++arg], err);
-    return true;
-  }
-
-  if ((strcmp(argv[arg],  "-t")       == 0) ||
-      (strcmp(argv[arg],  "-threads") == 0) ||
-      (strcmp(argv[arg], "--threads") == 0)) {
-    globals.allowedThreads() = getAllowedThreads(argv[++arg], err);
-    return true;
-  }
-
-  if (strncmp(argv[arg], "-V", 2) == 0) {          //  Anything that starts with -V
-    for (uint32 vv=1; vv<strlen(argv[arg]); vv++)  //  increases verbosity by the
-      globals.increaseVerbosity();                 //  number of letters.
-    return true;
-  }
-
-  if (strcmp(argv[arg], "-Q") == 0) {
-    globals.beQuiet();
-    return true;
-  }
-
-  if (strcmp(argv[arg], "-P") == 0) {
-    globals.enableProgressReport();
-    return true;
-  }
-
-  if (strcmp(argv[arg], "-C") == 0) {
-    globals.enableConfigureOnly();
-    return true;
-  }
-
-  return false;
-}
-
-
-bool
-processLegacyOption(int &arg, char **argv,
-                    std::vector<char const *> &err) {
+merylGlobals::processLegacyOption(int &arg, char **argv,
+                                  std::vector<char const *> &err) {
 
   if (strncmp(argv[arg], "k=", 2) == 0) {
     fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-k %s' instead.\n",
@@ -119,14 +117,14 @@ processLegacyOption(int &arg, char **argv,
   if (strncmp(argv[arg], "memory=", 7) == 0) {
     fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-m %s' instead.\n",
             argv[arg], argv[arg]+7);
-    globals.allowedMemory() = getAllowedMemory(argv[arg]+7, err);
+    allowedMemory() = getAllowedMemory(argv[arg]+7, err);
     return true;
   }
 
   if (strncmp(argv[arg], "threads=", 8) == 0) {
     fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-t %s' instead.\n",
             argv[arg], argv[arg]+8);
-    globals.allowedThreads() = getAllowedThreads(argv[arg]+8, err);
+    allowedThreads() = getAllowedThreads(argv[arg]+8, err);
     return true;
   }
 

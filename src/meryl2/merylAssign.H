@@ -16,24 +16,24 @@
  *  contains full conditions and disclaimers.
  */
 
-#ifndef MERYLMODIFY_H
-#define MERYLMODIFY_H
+#ifndef MERYLASSIGN_H
+#define MERYLASSIGN_H
 
 #ifndef MERYLINCLUDE
-#error "Do not use merylModify.H, use meryl.H instead."
+#error "Do not use merylAssign.H, use meryl.H instead."
 #endif
 
 
-//  Each filter action needs to know how to set the value/label given the
+//  Each action needs to know how to set the value/label given the
 //  various input values and labels.  These describe how to do so.
 
 
-enum class merylModifyValue {
+enum class merylAssignValue {
   valueNOP,         //  Do absoluately nothing.
 
   valueSet,         //  Set to _valueConstant
 
-  valueSelected,    //  Set to the value of the kmer selected by the label filter
+  valueSelected,    //  Set to the value of the kmer selected by the label selector
   valueFirst,       //  Set to the value of the kmer in the first input file
 
   valueMin,         //  Set to the minimum of all values and _valueConstant
@@ -51,21 +51,21 @@ enum class merylModifyValue {
 
 inline
 char const *
-toString(merylModifyValue m) {
+toString(merylAssignValue m) {
   switch (m) {
-    case merylModifyValue::valueNOP:       return("valueNOP");       break;
-    case merylModifyValue::valueSet:       return("valueSet");       break;
-    case merylModifyValue::valueSelected:  return("valueSelected");  break;
-    case merylModifyValue::valueFirst:     return("valueFirst");     break;
-    case merylModifyValue::valueMin:       return("valueMin");       break;
-    case merylModifyValue::valueMax:       return("valueMax");       break;
-    case merylModifyValue::valueAdd:       return("valueAdd");       break;
-    case merylModifyValue::valueSub:       return("valueSub");       break;
-    case merylModifyValue::valueMul:       return("valueMul");       break;
-    case merylModifyValue::valueDiv:       return("valueDiv");       break;
-    case merylModifyValue::valueDivZ:      return("valueDivZ");      break;
-    case merylModifyValue::valueMod:       return("valueMod");       break;
-    case merylModifyValue::valueCount:     return("valueCount");     break;
+    case merylAssignValue::valueNOP:       return("valueNOP");       break;
+    case merylAssignValue::valueSet:       return("valueSet");       break;
+    case merylAssignValue::valueSelected:  return("valueSelected");  break;
+    case merylAssignValue::valueFirst:     return("valueFirst");     break;
+    case merylAssignValue::valueMin:       return("valueMin");       break;
+    case merylAssignValue::valueMax:       return("valueMax");       break;
+    case merylAssignValue::valueAdd:       return("valueAdd");       break;
+    case merylAssignValue::valueSub:       return("valueSub");       break;
+    case merylAssignValue::valueMul:       return("valueMul");       break;
+    case merylAssignValue::valueDiv:       return("valueDiv");       break;
+    case merylAssignValue::valueDivZ:      return("valueDivZ");      break;
+    case merylAssignValue::valueMod:       return("valueMod");       break;
+    case merylAssignValue::valueCount:     return("valueCount");     break;
     default:
       break;
   }
@@ -75,12 +75,12 @@ toString(merylModifyValue m) {
 }
 
 
-enum class merylModifyLabel {
+enum class merylAssignLabel {
   labelNOP,         //  Do absoluately nothing.
 
   labelSet,         //  Set to _labelConstant.
 
-  labelSelected,    //  Set to the label of the selected input file.
+  labelSelected,    //  Set to the label of the kmer selected by the value selector.
   labelFirst,       //  Set to the label of the kmer in the first input file.
 
   labelMin,         //  Set to the label of the kmer with the minimum value (e.g., valueMin).
@@ -105,25 +105,25 @@ enum class merylModifyLabel {
 
 inline
 char const *
-toString(merylModifyLabel m) {
+toString(merylAssignLabel m) {
   switch (m) {
-    case merylModifyLabel::labelNOP:          return("labelNOP");          break;
-    case merylModifyLabel::labelSet:          return("labelSet");          break;
-    case merylModifyLabel::labelSelected:     return("labelSelected");     break;
-    case merylModifyLabel::labelFirst:        return("labelFirst");        break;
-    case merylModifyLabel::labelMin:          return("labelMin");          break;
-    case merylModifyLabel::labelMax:          return("labelMax");          break;
-    case merylModifyLabel::labelAnd:          return("labelAnd");          break;
-    case merylModifyLabel::labelOr:           return("labelOr");           break;
-    case merylModifyLabel::labelXor:          return("labelXor");          break;
-    case merylModifyLabel::labelDifference:   return("labelDifference");   break;
-    case merylModifyLabel::labelLightest:     return("labelLightest");     break;
-    case merylModifyLabel::labelHeaviest:     return("labelHeaviest");     break;
-    case merylModifyLabel::labelInvert:       return("labelInvert");       break;
-    case merylModifyLabel::labelShiftLeft:    return("labelShiftLeft");    break;
-    case merylModifyLabel::labelShiftRight:   return("labelShiftRight");   break;
-    case merylModifyLabel::labelRotateLeft:   return("labelRotateLeft");   break;
-    case merylModifyLabel::labelRotateRight:  return("labelRotateRight");  break;
+    case merylAssignLabel::labelNOP:          return("labelNOP");          break;
+    case merylAssignLabel::labelSet:          return("labelSet");          break;
+    case merylAssignLabel::labelSelected:     return("labelSelected");     break;
+    case merylAssignLabel::labelFirst:        return("labelFirst");        break;
+    case merylAssignLabel::labelMin:          return("labelMin");          break;
+    case merylAssignLabel::labelMax:          return("labelMax");          break;
+    case merylAssignLabel::labelAnd:          return("labelAnd");          break;
+    case merylAssignLabel::labelOr:           return("labelOr");           break;
+    case merylAssignLabel::labelXor:          return("labelXor");          break;
+    case merylAssignLabel::labelDifference:   return("labelDifference");   break;
+    case merylAssignLabel::labelLightest:     return("labelLightest");     break;
+    case merylAssignLabel::labelHeaviest:     return("labelHeaviest");     break;
+    case merylAssignLabel::labelInvert:       return("labelInvert");       break;
+    case merylAssignLabel::labelShiftLeft:    return("labelShiftLeft");    break;
+    case merylAssignLabel::labelShiftRight:   return("labelShiftRight");   break;
+    case merylAssignLabel::labelRotateLeft:   return("labelRotateLeft");   break;
+    case merylAssignLabel::labelRotateRight:  return("labelRotateRight");  break;
     default:
       break;
   }
@@ -133,4 +133,4 @@ toString(merylModifyLabel m) {
 }
 
 
-#endif  //  MERYLMODIFY_H
+#endif  //  MERYLASSIGN_H

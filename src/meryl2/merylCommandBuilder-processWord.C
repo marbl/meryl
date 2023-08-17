@@ -20,28 +20,9 @@
 #include "matchToken.H"
 
 
-//
-//  Parameter Class:     Parameter Name:
-//    output               database, db
-//                         list
-//                         show, stdout
-//                         pipe
-//
-//    assign, set          value
-//                         label
-//
-//    select, get          value
-//                         label
-//
-//    input                database, db
-//                         list
-//                         pipe
-//                         action
-//
-//
-
-//
-//  Detect and strip action create '[' and terminate ']' symbols from the word.
+//  
+//  Detect and strip action create '[' and terminate ']' symbols from the
+//  word, returning the number of terminate symbols found.
 //
 uint32
 merylCommandBuilder::findCreateTerminate(void) {
@@ -60,20 +41,33 @@ merylCommandBuilder::findCreateTerminate(void) {
              (_optString[_optStringLen-1] == ']')); t++)   //  of how many so we can terminate actions
     _optString[--_optStringLen] = 0;                       //  after this word is processed.
 
-  return t;
+  return t;                                                //  Return the number of terminate encountered.
 }
 
 
+
+//
+//  Decode a word of the form 'class:name[:=]value'.
+//
 bool
 merylCommandBuilder::decodeWord(char const *opt) {
-  char const *pn = nullptr;   //  Eventual location of parameter name in opt.
+  char const *pn = nullptr;             //  Eventual location of parameter name in opt.
+  char const *pv = nullptr;             //  Eventual location of parameter value in opt.
 
-  if (_curClass != opClass::clNone)   //  If we already have a class set,
-    return false;                     //  do not attempt to decode another one!
+  if (_curClass != opClass::clNone)     //  If we already have a class set, do not attempt
+    return false;                       //  to decode the word; we're waiting for the value.
 
   _curClass = opClass::clNone;
   _curPname = opPname::pnNone;
   _curParam = nullptr;
+
+  if ((strcmp(opt, "output") == 0) ||   //  If we see just 'output' or 'out', instead of
+      (strcmp(opt, "out")    == 0)) {   //  output:database, assume this is a database
+    _curClass = opClass::clOutput;      //  output and a well-trained meryl-v1 user.
+    _curPname = opPname::pnDB;
+  }
+
+  //  Decode the parameter class.
 
   if      (matchToken(opt, pn, "output:")     == true)  _curClass = opClass::clOutput;
   else if (matchToken(opt, pn, "assign:")     == true)  _curClass = opClass::clAssign;
@@ -84,43 +78,72 @@ merylCommandBuilder::decodeWord(char const *opt) {
   else
     return false;
 
+  if ((pn == nullptr) ||                //  If we matched something without a separator,
+      (*pn == 0))                       //  or with a missing Pname,
+    return false;                       //  we didn't decode the word successfully.
+
+  //  Decode the OUTPUT parameter name.
 
   if (_curClass == opClass::clOutput) {
-    if      (matchToken(pn, _curParam, "database")     == true)  _curPname = opPname::pnDB;
-    else if (matchToken(pn, _curParam, "db", true)     == true)  _curPname = opPname::pnDB;
-    else if (matchToken(pn, _curParam, "list")         == true)  _curPname = opPname::pnList;
-    else if (matchToken(pn, _curParam, "show")         == true)  _curPname = opPname::pnShow;
-    else if (matchToken(pn, _curParam, "stdout", true) == true)  _curPname = opPname::pnShow;
-    else if (matchToken(pn, _curParam, "pipe")         == true)  _curPname = opPname::pnPipe;
-    else if (matchToken(pn, _curParam, "histogram")    == true)  _curPname = opPname::pnHisto;
-    else if (matchToken(pn, _curParam, "statistics")   == true)  _curPname = opPname::pnStats;
-    else
+    if      (matchToken(pn, pv, "database=")    == true)  _curPname = opPname::pnDB;
+    else if (matchToken(pn, pv, "db=", true)    == true)  _curPname = opPname::pnDB;
+    else if (matchToken(pn, pv, "list=")        == true)  _curPname = opPname::pnList;
+    else if (matchToken(pn, pv, "show")         == true)  _curPname = opPname::pnShow;
+    else if (matchToken(pn, pv, "stdout", true) == true)  _curPname = opPname::pnShow;
+    else if (matchToken(pn, pv, "pipe=")        == true)  _curPname = opPname::pnPipe;
+    else if (matchToken(pn, pv, "histogram=")   == true)  _curPname = opPname::pnHisto;
+    else if (matchToken(pn, pv, "statistics=")  == true)  _curPname = opPname::pnStats;
+    else {
+      fprintf(stderr, "Expecting clOutput Pname in '%s'\n", opt);
       return false;
+    }
+
+    _curParam = pv;
   }
+
+  //  Decode the ASSIGN parameter name.
 
   if (_curClass == opClass::clAssign) {
-    if      (matchToken(pn, _curParam, "value=")    == true)  _curPname = opPname::pnValue;
-    else if (matchToken(pn, _curParam, "label=")    == true)  _curPname = opPname::pnLabel;
-    else
+    if      (matchToken(pn, pv, "value=")       == true)  _curPname = opPname::pnValue;
+    else if (matchToken(pn, pv, "label=")       == true)  _curPname = opPname::pnLabel;
+    else {
+      fprintf(stderr, "Expecting clAssign Pname in '%s'\n", opt);
       return false;
+    }
+
+    _curParam = pv;
   }
+
+  //  Decode the SELECT parameter name.
 
   if (_curClass == opClass::clSelect) {
-    if      (matchToken(pn, _curParam, "value:")    == true)  _curPname = opPname::pnValue;
-    else if (matchToken(pn, _curParam, "label:")    == true)  _curPname = opPname::pnLabel;
-    else if (matchToken(pn, _curParam, "bases:")    == true)  _curPname = opPname::pnBases;
-    else if (matchToken(pn, _curParam, "input:")    == true)  _curPname = opPname::pnInput;
-    else
+    if      (matchToken(pn, pv, "value:")       == true)  _curPname = opPname::pnValue;
+    else if (matchToken(pn, pv, "label:")       == true)  _curPname = opPname::pnLabel;
+    else if (matchToken(pn, pv, "bases:")       == true)  _curPname = opPname::pnBases;
+    else if (matchToken(pn, pv, "input:")       == true)  _curPname = opPname::pnInput;
+    else {
+      fprintf(stderr, "Expecting clSelect Pname in '%s'\n", opt);
       return false;
+    }
+
+    _curParam = pv;
   }
 
+  //  Decode the INPUT parameter name.
+
   if (_curClass == opClass::clInput) {
-    if      (matchToken(pn, _curParam, "database")  == true)  _curPname = opPname::pnDB;
-    else if (matchToken(pn, _curParam, "list")      == true)  _curPname = opPname::pnList;
-    else if (matchToken(pn, _curParam, "pipe")      == true)  _curPname = opPname::pnPipe;
-    else if (matchToken(pn, _curParam, "action")    == true)  _curPname = opPname::pnAction;
-    else
+    if      (matchToken(pn, pv, "database=")    == true)  _curPname = opPname::pnDB;
+    else if (matchToken(pn, pv, "db=", true)    == true)  _curPname = opPname::pnDB;
+    else if (matchToken(pn, pv, "list=")        == true)  _curPname = opPname::pnList;
+    else if (matchToken(pn, pv, "stdin", true)  == true)  _curPname = opPname::pnList;
+    else if (matchToken(pn, pv, "pipe=")        == true)  _curPname = opPname::pnPipe;
+    else if (matchToken(pn, pv, "action=")      == true)  _curPname = opPname::pnAction;
+    else {
+      fprintf(stderr, "Expecting clInput Pname in '%s'\n", opt);
       return false;
+    }
+
+    _curParam = pv;
   }
 
   return true;
@@ -128,14 +151,15 @@ merylCommandBuilder::decodeWord(char const *opt) {
 
 
 
-
+//
+//  
 void
 merylCommandBuilder::processWord(char const *rawWord) {
 
   if (globals.showConstruction() == true)
     fprintf(stderr, "processWord()- arg '%s'\n", rawWord);
 
-  duplicateString(rawWord,    //  Make a copy of the word and count the length.
+  duplicateString(rawWord,              //  Make a copy of the word and count the length.
                   _optString, _optStringLen, _optStringMax);
 
   uint32 terminate = findCreateTerminate();
@@ -166,8 +190,8 @@ merylCommandBuilder::processWord(char const *rawWord) {
   if (isInput() == true)                //  Handle merylDBs, canu seqStores and sequence
     goto finishWord;                    //  files.  This MUST come after _curClass != clNone!
 
-  if ((isAlias()      == true) ||       //  Handle aliases and count operations.  Ideally,
-      (isCount()      == true))         //  these are only encountered with a completely empty
+  if ((isAlias() == true) ||            //  Handle aliases and count operations.  Ideally,
+      (isCount() == true))              //  these are only encountered with a completely empty
     goto finishWord;                    //  operation on the stack, but that isn't enforced.
 
   if (decodeWord(_optString) == true) { //  If we decode a word, try to parse it.

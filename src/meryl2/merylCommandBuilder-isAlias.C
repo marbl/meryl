@@ -27,11 +27,11 @@ merylCommandBuilder::isAlias(void) {
   merylOpTemplate  *op = getCurrent();
 
   //  Check for _needsValue and _needsConstant.  If set, assume this word is
-  //  an integer constant, and copy the constant to the filter (_needsValue)
+  //  an integer constant, and copy the constant to the selector (_needsValue)
   //  or operation (_needsConstant).  For both, the word is always consumed,
   //  but we emit an error if it's not understood.
   //
-  //  _needsValue is used by filter aliases:
+  //  _needsValue is used by selector aliases:
   //    less-than,
   //    greater-than
   //    at-least
@@ -53,19 +53,19 @@ merylCommandBuilder::isAlias(void) {
     uint32  constant = 0;
 
     if      ((_needsValue == true) && (strncmp(_optString, "distinct=", 9) == 0))
-      op->getLastFilter()._vValue2Distinct = strtodouble(optstr + 9);
+      op->getLastSelector()._vValue2Distinct = strtodouble(optstr + 9);
 
     else if ((_needsValue == true) && (strncmp(_optString, "word-freq=", 10) == 0))
-      op->getLastFilter()._vValue2WordFreq = strtodouble(optstr + 10);
+      op->getLastSelector()._vValue2WordFreq = strtodouble(optstr + 10);
 
     else if ((_needsValue == true) && (strncmp(_optString, "word-frequency=", 15) == 0))
-      op->getLastFilter()._vValue2WordFreq = strtodouble(optstr + 15);
+      op->getLastSelector()._vValue2WordFreq = strtodouble(optstr + 15);
 
     else if ((_needsValue == true) && (strncmp(_optString, "threshold=", 10) == 0))
-      op->getLastFilter()._vValue2 = decodeInteger(optstr, 10, 0, constant, _errors);
+      op->getLastSelector()._vValue2 = decodeInteger(optstr, 10, 0, constant, _errors);
 
     else if (_needsValue == true)
-      op->getLastFilter()._vValue2 = decodeInteger(optstr, 0, 0, constant, _errors);
+      op->getLastSelector()._vValue2 = decodeInteger(optstr, 0, 0, constant, _errors);
 
     else if (_needsConstant == true)
       op->_valueConstant = decodeInteger(optstr, 0, 0, constant, _errors);
@@ -82,133 +82,133 @@ merylCommandBuilder::isAlias(void) {
   //  Decode the alias and set up the operation.
 
   if      (strcmp(_optString, "union") == 0) {
-    op->_valueSelect    = merylModifyValue::valueCount;
-    op->_labelSelect    = merylModifyLabel::labelOr;
+    op->_valueAssign    = merylAssignValue::valueCount;
+    op->_labelAssign    = merylAssignLabel::labelOr;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "union");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   else if (strcmp(_optString, "union-min") == 0) {
-    op->_valueSelect    = merylModifyValue::valueMin;
+    op->_valueAssign    = merylAssignValue::valueMin;
     op->_valueConstant  = kmvalumax;
-    op->_labelSelect    = merylModifyLabel::labelSelected;
+    op->_labelAssign    = merylAssignLabel::labelSelected;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "union");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   else if (strcmp(_optString, "union-max") == 0) {
-    op->_valueSelect    = merylModifyValue::valueMax;
+    op->_valueAssign    = merylAssignValue::valueMax;
     op->_valueConstant  = kmvalumin;
-    op->_labelSelect    = merylModifyLabel::labelSelected;
+    op->_labelAssign    = merylAssignLabel::labelSelected;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "union");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   else if (strcmp(_optString, "union-sum") == 0) {
-    op->_valueSelect    = merylModifyValue::valueAdd;
-    op->_labelSelect    = merylModifyLabel::labelOr;
+    op->_valueAssign    = merylAssignValue::valueAdd;
+    op->_labelAssign    = merylAssignLabel::labelOr;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "union");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "union");
 
     f._input_num_any    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
 
   else if (strcmp(_optString, "intersect") == 0) {
-    op->_valueSelect    = merylModifyValue::valueFirst;
-    op->_labelSelect    = merylModifyLabel::labelAnd;
+    op->_valueAssign    = merylAssignValue::valueFirst;
+    op->_labelAssign    = merylAssignLabel::labelAnd;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "intersect");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   else if (strcmp(_optString, "intersect-min") == 0) {
-    op->_valueSelect    = merylModifyValue::valueMin;
+    op->_valueAssign    = merylAssignValue::valueMin;
     op->_valueConstant  = kmvalumax;
-    op->_labelSelect    = merylModifyLabel::labelSelected;
+    op->_labelAssign    = merylAssignLabel::labelSelected;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "intersect");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   else if (strcmp(_optString, "intersect-max") == 0) {
-    op->_valueSelect    = merylModifyValue::valueMax;
+    op->_valueAssign    = merylAssignValue::valueMax;
     op->_valueConstant  = kmvalumin;
-    op->_labelSelect    = merylModifyLabel::labelSelected;
+    op->_labelAssign    = merylAssignLabel::labelSelected;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "intersect");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   else if (strcmp(_optString, "intersect-sum") == 0) {
-    op->_valueSelect    = merylModifyValue::valueAdd;
-    op->_labelSelect    = merylModifyLabel::labelAnd;
+    op->_valueAssign    = merylAssignValue::valueAdd;
+    op->_labelAssign    = merylAssignLabel::labelAnd;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "intersect");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "intersect");
 
     f._input_num_all    = true;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
 
   //  kmer occurs in the first input, subtract value of all other inputs
   else if (strcmp(_optString, "subtract") == 0) {
-    op->_valueSelect    = merylModifyValue::valueSub;
-    op->_labelSelect    = merylModifyLabel::labelDifference;
+    op->_valueAssign    = merylAssignValue::valueSub;
+    op->_labelAssign    = merylAssignLabel::labelDifference;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "subtract");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "subtract");
 
     f._input_num_any    = true;
     f._input_idx.push_back(1);
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   //  kmer must occur only in the first input
   else if (strcmp(_optString, "difference") == 0) {
-    op->_valueSelect    = merylModifyValue::valueFirst;
-    op->_labelSelect    = merylModifyLabel::labelFirst;
+    op->_valueAssign    = merylAssignValue::valueFirst;
+    op->_labelAssign    = merylAssignLabel::labelFirst;
 
-    merylFilter  f(merylFilterQuantity::isIndex,
-                   merylFilterRelation::isNOP, false, "difference");
+    merylSelector  f(merylSelectorQuantity::isIndex,
+                     merylSelectorRelation::isNOP, false, "difference");
 
     f._input_num.push_back(1);
     f._input_idx.push_back(1);
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
   }
 
   else if ((strcmp(_optString, "less-than")    == 0) ||
@@ -220,24 +220,24 @@ merylCommandBuilder::isAlias(void) {
     op->_inputsMin      = 1;
     op->_inputsMax      = 1;
 
-    op->_valueSelect    = merylModifyValue::valueFirst;
-    op->_labelSelect    = merylModifyLabel::labelFirst;
+    op->_valueAssign    = merylAssignValue::valueFirst;
+    op->_labelAssign    = merylAssignLabel::labelFirst;
 
-    merylFilterRelation   rel = merylFilterRelation::isNOP;
+    merylSelectorRelation   rel = merylSelectorRelation::isNOP;
 
-    if (strcmp(_optString, "less-than")    == 0)   rel = merylFilterRelation::isLt;
-    if (strcmp(_optString, "greater-than") == 0)   rel = merylFilterRelation::isGt;
-    if (strcmp(_optString, "at-least")     == 0)   rel = merylFilterRelation::isGeq;
-    if (strcmp(_optString, "at-most")      == 0)   rel = merylFilterRelation::isLeq;
-    if (strcmp(_optString, "equal-to")     == 0)   rel = merylFilterRelation::isEq;
-    if (strcmp(_optString, "not-equal-to") == 0)   rel = merylFilterRelation::isNeq;
+    if (strcmp(_optString, "less-than")    == 0)   rel = merylSelectorRelation::isLt;
+    if (strcmp(_optString, "greater-than") == 0)   rel = merylSelectorRelation::isGt;
+    if (strcmp(_optString, "at-least")     == 0)   rel = merylSelectorRelation::isGeq;
+    if (strcmp(_optString, "at-most")      == 0)   rel = merylSelectorRelation::isLeq;
+    if (strcmp(_optString, "equal-to")     == 0)   rel = merylSelectorRelation::isEq;
+    if (strcmp(_optString, "not-equal-to") == 0)   rel = merylSelectorRelation::isNeq;
 
-    merylFilter  f(merylFilterQuantity::isValue, rel, false, _optString);
+    merylSelector  f(merylSelectorQuantity::isValue, rel, false, _optString);
 
     f._vIndex1 = 0;
     f._vValue2 = 0;
 
-    op->addFilterToProduct(f);
+    op->addSelectorToProduct(f);
 
     _needsValue = true;
   }
@@ -252,16 +252,16 @@ merylCommandBuilder::isAlias(void) {
     op->_inputsMin      = 1;
     op->_inputsMax      = 1;
 
-    op->_valueSelect    = merylModifyValue::valueNOP;
+    op->_valueAssign    = merylAssignValue::valueNOP;
     op->_valueConstant  = 0;
-    op->_labelSelect    = merylModifyLabel::labelFirst;
+    op->_labelAssign    = merylAssignLabel::labelFirst;
 
-    if (strcmp(_optString, "increase")     == 0)   op->_valueSelect = merylModifyValue::valueAdd;
-    if (strcmp(_optString, "decrease")     == 0)   op->_valueSelect = merylModifyValue::valueSub;
-    if (strcmp(_optString, "multiply")     == 0)   op->_valueSelect = merylModifyValue::valueMul;
-    if (strcmp(_optString, "divide")       == 0)   op->_valueSelect = merylModifyValue::valueDiv;
-    if (strcmp(_optString, "divide-round") == 0)   op->_valueSelect = merylModifyValue::valueDivZ;
-    if (strcmp(_optString, "modulo")       == 0)   op->_valueSelect = merylModifyValue::valueMod;
+    if (strcmp(_optString, "increase")     == 0)   op->_valueAssign = merylAssignValue::valueAdd;
+    if (strcmp(_optString, "decrease")     == 0)   op->_valueAssign = merylAssignValue::valueSub;
+    if (strcmp(_optString, "multiply")     == 0)   op->_valueAssign = merylAssignValue::valueMul;
+    if (strcmp(_optString, "divide")       == 0)   op->_valueAssign = merylAssignValue::valueDiv;
+    if (strcmp(_optString, "divide-round") == 0)   op->_valueAssign = merylAssignValue::valueDivZ;
+    if (strcmp(_optString, "modulo")       == 0)   op->_valueAssign = merylAssignValue::valueMod;
 
     _needsConstant = true;
   }

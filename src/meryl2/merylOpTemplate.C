@@ -33,74 +33,71 @@ merylOpTemplate::~merylOpTemplate() {
   for (uint32 ii=0; ii<64; ii++)
     delete _computes[ii];
 
-  delete    _writer;
-  delete    _printer;
-  delete [] _printerName;
+  delete [] _outDbseName;   delete _outDbse;
+  delete [] _outListName;   delete _outList;
+  delete [] _outShowName;   delete _outShow;
+  delete [] _outPipeName;   //lete _outPipe;
 
-  delete    _statsFile;
-  delete    _histoFile;
+  delete [] _outStatsName;  delete _outStats;
+  delete [] _outHistoName;  delete _outHisto;
 }
 
 
 
 void
-merylOpTemplate::addInputFromOp(merylOpTemplate *otin, std::vector<char const *> &err) {
-
+merylOpTemplate::addInputFromDB(char const *dbName, std::vector<char const *> &err) {
   if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromOp()-- action #%u <- input from action #%u\n",
-            _ident, otin->_ident);
+    fprintf(stderr, "addInputFromDB()-- action #%u <- input from file '%s'\n", _ident, dbName);
+  _inputs.push_back(new merylInput(new merylFileReader(dbName)));
+}
 
+void
+merylOpTemplate::addInputFromList(char const *listName, std::vector<char const *> &err) {
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "addInputFromList()-- action #%u <- input from text list '%s' - NOT IMPLEMENTED!\n", _ident, listName);
+  //_inputs.push_back(new merylInput(otin));
+}
+
+void
+merylOpTemplate::addInputFromPipe(char const *pipeName, std::vector<char const *> &err) {
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "addInputFromPipe()-- action #%u <- input from pipe '%s' - NOT IMPLEMENTED!\n", _ident, pipeName);
+  //_inputs.push_back(new merylInput(otin));
+}
+
+void
+merylOpTemplate::addInputFromOp(merylOpTemplate *otin, std::vector<char const *> &err) {
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "addInputFromOp()-- action #%u <- input from action #%u\n", _ident, otin->_ident);
   _inputs.push_back(new merylInput(otin));
 }
 
 
 void
-merylOpTemplate::addInputFromDB(char const *dbName, std::vector<char const *> &err) {
-
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromDB()-- action #%u <- input from file '%s'\n",
-            _ident, dbName);
-
-  _inputs.push_back(new merylInput(new merylFileReader(dbName)));
-}
-
-
-
-//  Probably should go away if we can get rid of the err's on the other addInput methods.
-void
-merylOpTemplate::addInputFromDB(char const *dbName) {
-  _inputs.push_back(new merylInput(new merylFileReader(dbName)));
-}
-
-
-void
 merylOpTemplate::addInputFromSeq(char const *sqName, bool doCompression, std::vector<char const *> &err) {
-
   if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromSeq()-- action #%u <- input from file '%s'\n",
-            _ident, sqName);
-
+    fprintf(stderr, "addInputFromSeq()-- action #%u <- input from file '%s'\n", _ident, sqName);
   _inputs.push_back(new merylInput(new dnaSeqFile(sqName), doCompression));
 }
 
-
-
 void
 merylOpTemplate::addInputFromCanu(char const *sqName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err) {
-
 #ifdef CANU
-
   if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromCanu()-- action #%u <- input from sqStore '%s'\n",
-            _ident, sqName);
-
+    fprintf(stderr, "addInputFromCanu()-- action #%u <- input from sqStore '%s'\n", _ident, sqName);
   _inputs.push_back(new merylInput(new sqStore(sqName), segment, segmentMax));
-
+#else
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "addInputFromCanu()-- action #%u <- input from sqStore '%s' - NOT SUPPORTED!\n", _ident, sqName);
+  sprintf(err, "ERROR: Detected Canu seqStore input '%s', but no Canu support is available.\n", sqName);
 #endif
 }
 
 
 
+
+//  Add a 'database' output to the template command.
+//
 void
 merylOpTemplate::addOutputToDB(char const *wrName, std::vector<char const *> &err) {
 
@@ -108,74 +105,106 @@ merylOpTemplate::addOutputToDB(char const *wrName, std::vector<char const *> &er
     fprintf(stderr, "addOutputToDB()-- action #%u -> output to database '%s'\n",
             _ident, wrName);
 
-  if (_writer) {
-    sprintf(err, "Operation #%u already writes output to '%s',", _ident, _writer->filename());
+  if (_outDbse != nullptr) {
+    sprintf(err, "Operation #%u already writes output to '%s',", _ident, _outDbseName);
     sprintf(err, "  can't add another output to '%s'!", wrName);
     sprintf(err, "");
     return;
   }
 
-  _writer = new merylFileWriter(wrName);
+  _outDbseName = duplicateString(wrName);
+  _outDbse     = new merylFileWriter(wrName);
 }
 
 
 
-//  Add a printer to the template command.
+//  Add a 'list' output to the template command.
 //
-//  Three outcomes:
+//   If the name is '-':
+//    - output will go to stdout.
 //
-//   - The name is '-' and output will go to stdout.
+//   If the name does not contain two or more '#' symbols
+//    - and output will go to a single file with that name.
 //
-//   - The name does not contain two or more '#' symbols, and output will
-//     go to a single file with that name.
+//   If the name does contain two or more '#' symbols
+//    - and output will go to 64 files, one per slice, replacing
+//      the ##'s with digits.
 //
-//   - The name does contain two or more '#' symbols, and output will
-//     go to 64 files, one per slice, replacing ##'s with digits.
+//  See merylOpCompute::addLister() for how the last two cases are distinguished.
 //
-//  The first two cases both define _printer, while the third does not.
-//  merylOpCompute::addPrinter() uses this to decide if it should open
-//  per-slice output or use the global output.
 void
 merylOpTemplate::addOutputToList(char const *prName, bool ACGTorder, std::vector<char const *> &err) {
+  bool   isNormal = false;
+  bool   isStdout = false;
 
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addOutput()-- action #%u -> print to '%s'\n",
-            _ident, (prName == nullptr) ? "(stdout)" : prName);
+  //  Catch outputs to "-' and redirect them to 'stdout', by convention,
+  //  communicated as prName = nullptr.
 
-  //  Fail if we've already got a printer assigned.
+  if ((prName != nullptr) && (prName[0] == '-') && (prName[1] == 0))
+    prName = nullptr;
 
-  if (_printerName) {
-    sprintf(err, "Operation #%u is already printing to '%s',", _ident, _printerName);
-    sprintf(err, "  can't add another output to '%s'.", prName);
-    sprintf(err, "");
+  //  Decide if we're outputting to a single normal file, or to parallel files.
+  //  Note this only counts the first set of consecutive hashes.
+
+  uint32  nHash = 0;
+
+  if (prName)
+    for (char const *suf = strchr(prName, '#'); ((suf) && (*suf == '#')); suf++)
+      nHash++;
+
+  //
+  //  List kmers to stdout.
+  //
+  if (prName == nullptr) {
+    if (globals.showConstruction() == true)
+      fprintf(stderr, "addOutput()-- action #%u -> text list\n", _ident);
+
+    if (_outShow) {
+      sprintf(err, "Operation #%u is already showing kmers to '%s',", _ident, _outShowName);
+      sprintf(err, "  can't show them twice.");
+      sprintf(err, "");
+      return;
+    }
+
+    _outShowName = duplicateString("(stdout)");
+    _outShow     = new compressedFileWriter(nullptr);
+  }
+
+  //
+  //  List kmers to a single file.
+  //
+  else if (nHash == 0) {
+    if (globals.showConstruction() == true)
+      fprintf(stderr, "addOutput()-- action #%u -> text list '%s'\n", _ident, prName);
+
+    if (_outList) {
+      sprintf(err, "Operation #%u is already listing kmers to '%s',", _ident, _outListName);
+      sprintf(err, "  can't also list them to '%s'.", prName);
+      sprintf(err, "");
+      return;
+    }
+
+    _outListName = duplicateString(prName);
+    _outList     = new compressedFileWriter(prName);
     return;
   }
 
-  //  Decide if this is to stdout.
-
-  if ((prName == nullptr) || (strcmp("-", prName) == 0)) {
-    _printer        = new compressedFileWriter(prName);
-    _printerName    = duplicateString("(stdout)");
-    _printACGTorder = ACGTorder;
-    return;
-  }
-
-  //  Decide if this is a normal file.
-
-  uint32  len = 0;
-
-  for (char const *suf = strchr(prName, '#'); ((suf) && (*suf == '#')); suf++)
-    len++;
-
-  if (len < 2) {
-    _printer        = new compressedFileWriter(prName);
-    _printerName    = duplicateString(prName);
-    _printACGTorder = ACGTorder;
-  }
+  //
+  //  List kmers to parallel files.
+  //
   else {
-    _printer        = nullptr;
-    _printerName    = duplicateString(prName);
-    _printACGTorder = ACGTorder;
+    if (globals.showConstruction() == true)
+      fprintf(stderr, "addOutput()-- action #%u -> text list '%s' (parallel mode)\n", _ident, prName);
+
+    if (_outList) {
+      sprintf(err, "Operation #%u is already listing kmers to '%s',", _ident, _outListName);
+      sprintf(err, "  can't also list them to '%s'.", prName);
+      sprintf(err, "");
+      return;
+    }
+
+    _outListName = duplicateString(prName);
+    _outList     = nullptr;
   }
 }
 
@@ -186,31 +215,37 @@ merylOpTemplate::addOutputToList(char const *prName, bool ACGTorder, std::vector
 //  Fails if 
 
 void
-merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char const *> &err) {
+merylOpTemplate::addStatsOutput(char const *hiName, std::vector<char const *> &err) {
 
   if (globals.showConstruction() == true)
-    fprintf(stderr, "addOutput()-- action #%u -> %s to '%s'\n",
-            _ident, (asStats == true) ? "statistics" : "histogram", hiName);
+    fprintf(stderr, "addOutput()-- action #%u -> statistics to '%s'\n", _ident, hiName);
 
-  if (asStats == true) {
-    if (_statsFile != nullptr) {
-      sprintf(err, "Operation #%u already has 'statistics' output to file '%s',", _ident, _statsFile->filename());
-      sprintf(err, "  can't add another output to file '%s'.", hiName);
-      sprintf(err, "");
-      return;
-    }
-    _statsFile = new compressedFileWriter(hiName);
+  if (_outStats != nullptr) {
+    sprintf(err, "Operation #%u already has 'statistics' output to file '%s',", _ident, _outStats->filename());
+    sprintf(err, "  can't add another output to file '%s'.", hiName);
+    sprintf(err, "");
+    return;
   }
 
-  if (asStats == false) {
-    if (_histoFile != nullptr) {
-      sprintf(err, "Operation #%u already has 'histogram' output to file '%s',", _ident, _histoFile->filename());
-      sprintf(err, "  can't add another output to file '%s'.", hiName);
-      sprintf(err, "");
-      return;
-    }
-    _histoFile = new compressedFileWriter(hiName);
+  _outStatsName = duplicateString(hiName);
+  _outStats     = new compressedFileWriter(hiName);
+}
+
+void
+merylOpTemplate::addHistoOutput(char const *hiName, std::vector<char const *> &err) {
+
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "addOutput()-- action #%u -> histogram to '%s'\n", _ident, hiName);
+
+  if (_outHisto != nullptr) {
+    sprintf(err, "Operation #%u already has 'histogram' output to file '%s',", _ident, _outHisto->filename());
+    sprintf(err, "  can't add another output to file '%s'.", hiName);
+    sprintf(err, "");
+    return;
   }
+
+  _outHistoName = duplicateString(hiName);
+  _outHisto     = new compressedFileWriter(hiName);
 }
 
 
@@ -218,7 +253,7 @@ merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char
 //  This is called by merylCommandBuilder after the entire tree has been
 //  built.
 //
-//  The purpose is to allow the filters a chance to figure out what
+//  The purpose is to allow the selectors a chance to figure out what
 //  'all' means and to fail if there are any errors (like asking for input
 //  4 when there are only 3 available).
 //
@@ -228,9 +263,9 @@ merylOpTemplate::addHistogram(char const *hiName, bool asStats, std::vector<char
 void
 merylOpTemplate::finalizeTemplateInputs(std::vector<char const *> &err) {
 
-  for (uint32 f1=0; f1<_filter    .size(); f1++)
-    for (uint32 f2=0; f2<_filter[f1].size(); f2++)
-      _filter[f1][f2].finalizeFilterInputs(this, err);
+  for (uint32 f1=0; f1<_select    .size(); f1++)
+    for (uint32 f2=0; f2<_select[f1].size(); f2++)
+      _select[f1][f2].finalizeSelectorInputs(this, err);
 }
 
 
@@ -249,15 +284,15 @@ merylOpTemplate::finalizeTemplateParameters(void) {
     if (_inputs[ii]->_template != nullptr)         //  that are actions.
       _inputs[ii]->_template->finalizeTemplateParameters();
 
-  if (_writer)                                   //  Create the master output object.  We'll later
-    _writer->initialize(0, false);               //  request per-thread writer objects from this.
+  if (_outDbse)                                    //  Create the master output object.  We'll later
+    _outDbse->initialize(0, false);                //  request per-thread writer objects from this.
 
-  //  Any filters that need to query meryl databases for parameters
+  //  Any selectors that need to query meryl databases for parameters
   //  should do so now.
 
-  for (uint32 f1=0; f1<_filter    .size(); f1++)
-  for (uint32 f2=0; f2<_filter[f1].size(); f2++)
-    _filter[f1][f2].finalizeFilterParameters(this);
+  for (uint32 f1=0; f1<_select    .size(); f1++)
+  for (uint32 f2=0; f2<_select[f1].size(); f2++)
+    _select[f1][f2].finalizeSelectorParameters(this);
 }
 
 
@@ -273,18 +308,18 @@ merylOpTemplate::finishAction(void) {
 
   //  Gather stats from the compute threads then output.
 
-  if ((_statsFile != nullptr) ||
-      (_histoFile != nullptr)) {
-    merylHistogram  stats;
+  if ((_outStats != nullptr) ||
+      (_outHisto != nullptr)) {
+    merylHistogram  statsTot;
 
     for (uint32 ss=0; ss<64; ss++)
-      stats.insert( _computes[ss]->_stats );
+      statsTot.insert( _computes[ss]->_statsAcc );
 
-    if (_statsFile != nullptr)
-      stats.reportStatistics(_statsFile->file());
+    if (_outStats != nullptr)
+      statsTot.reportStatistics(_outStats->file());
 
-    if (_histoFile != nullptr)
-      stats.reportHistogram(_histoFile->file());
+    if (_outHisto != nullptr)
+      statsTot.reportHistogram(_outHisto->file());
   }
 
   //  Delete the compute objets.
@@ -299,16 +334,15 @@ merylOpTemplate::finishAction(void) {
 void
 merylOpTemplate::doCounting(uint64 allowedMemory,
                             uint32 allowedThreads) {
-  if (_counting == nullptr)
-    return;
 
-  if (_writer == nullptr)
+  if ((_counting == nullptr) ||
+      (_outDbse == nullptr))
     return;
 
   _counting->_lConstant = _labelConstant;
 
   //  Call the counting method.
-  _counting->doCounting(_inputs, allowedMemory, allowedThreads, _writer);
+  _counting->doCounting(_inputs, allowedMemory, allowedThreads, _outDbse);
 
   if (_onlyConfig == true)   //  If only configuring, stop now.
     return;
@@ -323,11 +357,11 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
 
   char name[FILENAME_MAX + 1];
 
-  strncpy(name, _writer->filename(), FILENAME_MAX + 1);   //  know which input to open later.
+  strncpy(name, _outDbse->filename(), FILENAME_MAX + 1);   //  know which input to open later.
 
   //  Close the output and forget about it.
-  delete _writer;
-  _writer = nullptr;
+  delete [] _outDbseName;   _outDbseName = nullptr;
+  delete    _outDbse;       _outDbse = nullptr;
 
   //  Close the inputs and forget about them too.
   for (uint32 ii=0; ii<_inputs.size(); ii++)
@@ -335,5 +369,6 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
   _inputs.clear();
 
   //  But now remember what that output was and make it an input.
-  addInputFromDB(name);
+  //    (see addInputFromDB())
+  _inputs.push_back(new merylInput(new merylFileReader(name)));
 };

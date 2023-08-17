@@ -56,27 +56,27 @@ merylCommandBuilder::isRelation(uint32 bgn) {
 //  single-letter relations will match bogus stuff like '451,<625' which in
 //  turn will fail to decode number '451,'.
 //
-merylFilterRelation
+merylSelectorRelation
 merylCommandBuilder::decodeRelation(uint32 bgn) {
-  merylFilterRelation  relation = merylFilterRelation::isNOP;
+  merylSelectorRelation  relation = merylSelectorRelation::isNOP;
 
-  if      (strncmp(_optString+bgn, "==", 2) == 0)   { relation = merylFilterRelation::isEq;  }
-  else if (strncmp(_optString+bgn, "=",  1) == 0)   { relation = merylFilterRelation::isEq;  }
-  else if (strncmp(_optString+bgn, "eq", 2) == 0)   { relation = merylFilterRelation::isEq;  }
+  if      (strncmp(_optString+bgn, "==", 2) == 0)   { relation = merylSelectorRelation::isEq;  }
+  else if (strncmp(_optString+bgn, "=",  1) == 0)   { relation = merylSelectorRelation::isEq;  }
+  else if (strncmp(_optString+bgn, "eq", 2) == 0)   { relation = merylSelectorRelation::isEq;  }
 
-  else if (strncmp(_optString+bgn, "!=", 2) == 0)   { relation = merylFilterRelation::isNeq; }
-  else if (strncmp(_optString+bgn, "<>", 2) == 0)   { relation = merylFilterRelation::isNeq; }
-  else if (strncmp(_optString+bgn, "ne", 2) == 0)   { relation = merylFilterRelation::isNeq; }
+  else if (strncmp(_optString+bgn, "!=", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
+  else if (strncmp(_optString+bgn, "<>", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
+  else if (strncmp(_optString+bgn, "ne", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
 
-  else if (strncmp(_optString+bgn, "<=", 2) == 0)   { relation = merylFilterRelation::isLeq; }
-  else if (strncmp(_optString+bgn, "le", 2) == 0)   { relation = merylFilterRelation::isLeq; }
-  else if (strncmp(_optString+bgn, ">=", 2) == 0)   { relation = merylFilterRelation::isGeq; }
-  else if (strncmp(_optString+bgn, "ge", 2) == 0)   { relation = merylFilterRelation::isGeq; }
+  else if (strncmp(_optString+bgn, "<=", 2) == 0)   { relation = merylSelectorRelation::isLeq; }
+  else if (strncmp(_optString+bgn, "le", 2) == 0)   { relation = merylSelectorRelation::isLeq; }
+  else if (strncmp(_optString+bgn, ">=", 2) == 0)   { relation = merylSelectorRelation::isGeq; }
+  else if (strncmp(_optString+bgn, "ge", 2) == 0)   { relation = merylSelectorRelation::isGeq; }
 
-  else if (strncmp(_optString+bgn, "<",  1) == 0)   { relation = merylFilterRelation::isLt;  }
-  else if (strncmp(_optString+bgn, "lt", 2) == 0)   { relation = merylFilterRelation::isLt;  }
-  else if (strncmp(_optString+bgn, ">",  1) == 0)   { relation = merylFilterRelation::isGt;  }
-  else if (strncmp(_optString+bgn, "gt", 2) == 0)   { relation = merylFilterRelation::isGt;  }
+  else if (strncmp(_optString+bgn, "<",  1) == 0)   { relation = merylSelectorRelation::isLt;  }
+  else if (strncmp(_optString+bgn, "lt", 2) == 0)   { relation = merylSelectorRelation::isLt;  }
+  else if (strncmp(_optString+bgn, ">",  1) == 0)   { relation = merylSelectorRelation::isGt;  }
+  else if (strncmp(_optString+bgn, "gt", 2) == 0)   { relation = merylSelectorRelation::isGt;  }
 
   else {
     sprintf(_errors, "No comparison operator found in '%s',", _optString);
@@ -90,7 +90,7 @@ merylCommandBuilder::decodeRelation(uint32 bgn) {
 
 
 void
-merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
+merylCommandBuilder::decodeSelector(uint32 bgn, merylSelector &f) {
 
   //  Output values.  Each arg is either a db-index or a constant.
 
@@ -122,10 +122,10 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
 
   //  Debug.
 #if 1
-  fprintf(stderr, "decodeFilter()- WORD          '%s'\n",       _optString);
-  fprintf(stderr, "decodeFilter()- ARG1  %3d-%3d '%s'\n", arg1b, arg1e, _optString + arg1b);
-  fprintf(stderr, "decodeFilter()- RELA  %3d     '%s'\n", relab,        _optString + relab);
-  fprintf(stderr, "decodeFilter()- ARG2  %3d-%3d '%s'\n", arg2b, arg2e, _optString + arg2b);
+  fprintf(stderr, "decodeSelector()- WORD          '%s'\n",       _optString);
+  fprintf(stderr, "decodeSelector()- ARG1  %3d-%3d '%s'\n", arg1b, arg1e, _optString + arg1b);
+  fprintf(stderr, "decodeSelector()- RELA  %3d     '%s'\n", relab,        _optString + relab);
+  fprintf(stderr, "decodeSelector()- ARG2  %3d-%3d '%s'\n", arg2b, arg2e, _optString + arg2b);
 #endif
 
   //  Decode 'arg1' if one exists.  If it doesn't exist, arg1 will be the
@@ -151,7 +151,7 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
   //  Decode 'arg2' if one exists.
 
   if      (arg2b == arg2e) {
-    sprintf(_errors, "Invalid filter '%s': no second argument to comparison operator found.", _optString);
+    sprintf(_errors, "Invalid selector '%s': no second argument to comparison operator found.", _optString);
     sprintf(_errors, "");
   }
   else if (_optString[arg2b] == '@') {
@@ -176,7 +176,7 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
     decodeInteger(_optString, arg2b+0, arg2e, const2, _errors);
   }
 
-  //  Set the index and constants in the filter.
+  //  Set the index and constants in the selector.
   //
   //  If an index was not specified, we'll set vIndex to uint32max (the
   //  default value for index1 and index2), which is code for 'use the
@@ -187,8 +187,8 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
   //  for 'use the value from the kmer in database i; the output kmer if i=0`
   //  and the constants will be at their default value of zero.
   //
-  //  Finally, if the two indexes are the same, the filter is constant true
-  //  of false.  They're either both uint32max, and so the filter is
+  //  Finally, if the two indexes are the same, the selector is constant true
+  //  of false.  They're either both uint32max, and so the selector is
   //  comparing two constants, or both database indeces refering to the same
   //  kmer.
 
@@ -196,27 +196,27 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
   f._vIndex2 = index2;
 
   if (f._vIndex1 == f._vIndex2) {
-    sprintf(_errors, "Invalid filter '%s': always true (or false).", _optString);
+    sprintf(_errors, "Invalid selector '%s': always true (or false).", _optString);
     sprintf(_errors, "");
   }
 
   switch (f._q) {
-    case merylFilterQuantity::isValue:
+    case merylSelectorQuantity::isValue:
       f._vValue1 = const1;
       f._vValue2 = const2;
       break;
-    case merylFilterQuantity::isLabel:
+    case merylSelectorQuantity::isLabel:
       f._vLabel1 = const1;
       f._vLabel2 = const2;
       break;
-    case merylFilterQuantity::isBases:
+    case merylSelectorQuantity::isBases:
       f._vBases1 = const1;
       f._vBases2 = const2;
       break;
-    //case merylFilterQuantity::isIndex:
-    //  f._vIndex1 = const1;
-    //  f._vIndex2 = const2;
-    //  break;
+      //case merylSelectorQuantity::isIndex:
+      //  f._vIndex1 = const1;
+      //  f._vIndex2 = const2;
+      //  break;
     default:
       assert(0);
       break;
@@ -227,10 +227,10 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
 
 
 
-//  Decide if _optString is a value filter.  If so, decode the
-//  stuff and add it to the current filter product term.
+//  Decide if _optString is a value selector.  If so, decode the
+//  stuff and add it to the current selector product term.
 //
-//  Value filters can look like (omitting the spaces):
+//  Value selectors can look like (omitting the spaces):
 //    value:          OP constant   - both of these use an implicit @1 on the
 //    value:          OP @index     - left side; and are 'more natural'
 //
@@ -242,67 +242,67 @@ merylCommandBuilder::decodeFilter(uint32 bgn, merylFilter &f) {
 //    value: @index   OP            - seem awkward to use
 //  
 bool
-merylCommandBuilder::isValueFilter(void) {
+merylCommandBuilder::isValueSelector(void) {
 
   if (strncmp(_optString, "value:", 6) != 0)
     return(false);
 
-  merylFilter  f(merylFilterQuantity::isValue,
-                 merylFilterRelation::isNOP,
-                 _invertNextFilter,
-                 _optString);
+  merylSelector  f(merylSelectorQuantity::isValue,
+                   merylSelectorRelation::isNOP,
+                   _invertNextSelector,
+                   _optString);
 
-  decodeFilter(6, f);
+  decodeSelector(6, f);
 
-  getCurrent()->addFilterToProduct(f);
+  getCurrent()->addSelectorToProduct(f);
 
   return(true);
 }
 
 
-//  Decide if _optString is a label filter.  If so, decode the
-//  stuff and add it to the current filter product term.
+//  Decide if _optString is a label selector.  If so, decode the
+//  stuff and add it to the current selector product term.
 //
-//  Label filters look like value filters.
+//  Label selectors look like value selectors.
 //
 bool
-merylCommandBuilder::isLabelFilter(void) {
+merylCommandBuilder::isLabelSelector(void) {
 
   if (strncmp(_optString, "label:", 6) != 0)
     return(false);
 
-  merylFilter  f(merylFilterQuantity::isLabel,
-                 merylFilterRelation::isNOP,
-                 _invertNextFilter,
-                 _optString);
+  merylSelector  f(merylSelectorQuantity::isLabel,
+                   merylSelectorRelation::isNOP,
+                   _invertNextSelector,
+                   _optString);
 
-  decodeFilter(6, f);
+  decodeSelector(6, f);
 
-  getCurrent()->addFilterToProduct(f);
+  getCurrent()->addSelectorToProduct(f);
 
   return(true);
 }
 
 
 
-//  Decide if _optString is a base content filter.  If so, decode the
-//  stuff and add it to the current filter product term.
+//  Decide if _optString is a base content selector.  If so, decode the
+//  stuff and add it to the current selector product term.
 //
-//  Base content filters are slightly different than value and label filters
+//  Base content selectors are slightly different than value and label selectors
 //  as they also specify what bases to count, and it makes no sense to
 //  compare kmers in different databases (they are all the same).
 //    bases:acgt: OP constant
 //
 bool
-merylCommandBuilder::isBasesFilter(void) {
+merylCommandBuilder::isBasesSelector(void) {
 
   if (strncmp(_optString, "bases:", 6) != 0)
     return(false);
 
-  merylFilter  f(merylFilterQuantity::isBases,
-                 merylFilterRelation::isNOP,
-                 _invertNextFilter,
-                 _optString);
+  merylSelector  f(merylSelectorQuantity::isBases,
+                   merylSelectorRelation::isNOP,
+                   _invertNextSelector,
+                   _optString);
 
   //  Decode the bases string itself.
 
@@ -327,7 +327,7 @@ merylCommandBuilder::isBasesFilter(void) {
         f._countG = true;
         break;
       default:
-        sprintf(_errors, "Invalid 'bases' letter in filter '%s'.", _optString);
+        sprintf(_errors, "Invalid 'bases' letter in selector '%s'.", _optString);
         sprintf(_errors, "");
         break;
     }
@@ -336,15 +336,15 @@ merylCommandBuilder::isBasesFilter(void) {
   }
 
   if (_optString[bpos] != ':') {
-    sprintf(_errors, "Failed to parse 'bases' filter '%s'.", _optString);
+    sprintf(_errors, "Failed to parse 'bases' selector '%s'.", _optString);
     sprintf(_errors, "");
     return(true);
   }
 
-  //  Pass the rest of the string to the usual filter decoding to get the
+  //  Pass the rest of the string to the usual selector decoding to get the
   //  operation and constant.
 
-  decodeFilter(bpos, f);
+  decodeSelector(bpos, f);
 
   //  Make sure the user didn't specify a useless index.
   //
@@ -353,17 +353,17 @@ merylCommandBuilder::isBasesFilter(void) {
 
   if      ((f._vIndex1 != uint32max) &&
            (f._vIndex1  > 0)) {
-    sprintf(_errors, "filter '%s' right hand side cannot specify a database input.", _optString);
+    sprintf(_errors, "selector '%s' right hand side cannot specify a database input.", _optString);
     sprintf(_errors, "");
   }
 
   if      ((f._vIndex2 != uint32max) &&
            (f._vIndex2  > 0)) {
-    sprintf(_errors, "filter '%s' left hand side cannot specify a database input.", _optString);
+    sprintf(_errors, "selector '%s' left hand side cannot specify a database input.", _optString);
     sprintf(_errors, "");
   }
   
-  getCurrent()->addFilterToProduct(f);
+  getCurrent()->addSelectorToProduct(f);
 
   return(true);
 }
@@ -371,17 +371,17 @@ merylCommandBuilder::isBasesFilter(void) {
 
 
 bool
-merylCommandBuilder::isInputFilter(void) {
+merylCommandBuilder::isInputSelector(void) {
 
   if (strncmp(_optString, "input:", 6) != 0)
     return(false);
 
-  merylFilter  f(merylFilterQuantity::isIndex,
-                 merylFilterRelation::isNOP,
-                 _invertNextFilter,
-                 _optString);
+  merylSelector  f(merylSelectorQuantity::isIndex,
+                   merylSelectorRelation::isNOP,
+                   _invertNextSelector,
+                   _optString);
 
-  //  The 'input' filter is a ':' or ',' separated list specifying how
+  //  The 'input' selector is a ':' or ',' separated list specifying how
   //  many and which input databases a kmer must be present in.
   //
   //  How many input databases the kmer must be present in:
@@ -481,27 +481,27 @@ merylCommandBuilder::isInputFilter(void) {
     }
 
     else {
-      sprintf(_errors, "filter '%s' cannot be decoded: unknown word '%s'.", _optString, W[ww]);
+      sprintf(_errors, "selector '%s' cannot be decoded: unknown word '%s'.", _optString, W[ww]);
       sprintf(_errors, "");
     }
   }
 
-  getCurrent()->addFilterToProduct(f);
+  getCurrent()->addSelectorToProduct(f);
 
   return(true);
 }
 
 
 
-//  Process any 'and', 'or' or 'not' filter connectives.
+//  Process any 'and', 'or' or 'not' selector connectives.
 //
 bool
-merylCommandBuilder::isFilterConnective(void) {
+merylCommandBuilder::isSelectorConnective(void) {
 
-  //  The word 'not' will invert the sense of the next filter.
+  //  The word 'not' will invert the sense of the next selector.
   //
   if (strcmp(_optString, "not") == 0) {
-    _invertNextFilter = !_invertNextFilter;
+    _invertNextSelector = !_invertNextSelector;
     return(true);
   }
 
@@ -512,8 +512,8 @@ merylCommandBuilder::isFilterConnective(void) {
 
   //  The word 'or' tells us to make a new product term.
   if (strcmp(_optString, "or") == 0) {
-    if (getCurrent()->addNewFilterProduct()) {
-      sprintf(_errors, "attempt to add new filter product when existing filter product is empty.");
+    if (getCurrent()->addNewSelectorProduct()) {
+      sprintf(_errors, "attempt to add new selector product when existing selector product is empty.");
       sprintf(_errors, "");
     }
     return(true);
@@ -525,7 +525,7 @@ merylCommandBuilder::isFilterConnective(void) {
 
 
 
-//  Handle all filter related words.
+//  Handle all selector related words.
 //
 //  This fails to detect some errors in the command line:
 //    f1 and and f2
@@ -540,20 +540,20 @@ merylCommandBuilder::isFilterConnective(void) {
 bool
 merylCommandBuilder::isSelect(void) {
 
-  //  If we find a filter word, process it and then reset
+  //  If we find a selector word, process it and then reset
   //  the invert flag.
   //
-  if ((isValueFilter()      == true) ||   //  Consumes 'value:' filters
-      (isLabelFilter()      == true) ||   //  Consumes 'label:' filters
-      (isBasesFilter()      == true) ||   //  Consumes 'bases:' filters
-      (isInputFilter()      == true)) {   //  Consumes 'input:' filters
-    _invertNextFilter = false;
+  if ((isValueSelector()      == true) ||   //  Consumes 'value:' selectors
+      (isLabelSelector()      == true) ||   //  Consumes 'label:' selectors
+      (isBasesSelector()      == true) ||   //  Consumes 'bases:' selectors
+      (isInputSelector()      == true)) {   //  Consumes 'input:' selectors
+    _invertNextSelector = false;
     return(true);
   }
 
-  //  Not a filter word.  Check if it's a connective.
+  //  Not a selector word.  Check if it's a connective.
 
-  if (isFilterConnective() == true)       //  Consumes 'and', 'or', 'not'
+  if (isSelectorConnective() == true)       //  Consumes 'and', 'or', 'not'
     return(true);
 
   return(false);

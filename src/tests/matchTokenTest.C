@@ -16,82 +16,121 @@
  *  contains full conditions and disclaimers.
  */
 
-#include "kmers.H"
-#include "sequence.H"
-#include "bits.H"
+#include "system.H"
 
 #include "matchToken.H"
-
-using namespace merylutil;
-using namespace merylutil::kmers::v1;
-
 
 int
 main(int argc, char **argv) {
   char const *optout = nullptr;
 
-  assert(matchToken("nope:",   optout, "output:") == false);
-  assert(matchToken("no:",     optout, "output:") == false);
-  assert(matchToken("n:",      optout, "output:") == false);
-  assert(matchToken("outpuy:", optout, "output:") == false);
+  //  True cases: <opt> is a prefix of <pat> and the separator matches.
 
-  assert((matchToken("output:", optout, "output:") == true) && (*optout == 0));
-  assert((matchToken("out:",    optout, "output:") == true) && (*optout == 0));
-  assert((matchToken("o:",      optout, "output:") == true) && (*optout == 0));
+  assert(matchToken("output:",  optout, "output:") == true);   assert(*optout == 0);
+  assert(matchToken("out:",     optout, "output:") == true);   assert(*optout == 0);
+  assert(matchToken("o:",       optout, "output:") == true);   assert(*optout == 0);
 
-  assert((matchToken("output:database", optout, "output:") == true) && (strcmp(optout, "database") == 0));
-  assert((matchToken("out:database",    optout, "output:") == true) && (strcmp(optout, "database") == 0));
-  assert((matchToken("o:database",      optout, "output:") == true) && (strcmp(optout, "database") == 0));
+  assert(matchToken("output:b", optout, "output:") == true);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("out:b",    optout, "output:") == true);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("o:b",      optout, "output:") == true);   assert(strcmp(optout, "b") == 0);
 
-  assert((matchToken("output:database", optout, "output:", true) == true) && (strcmp(optout, "database") == 0));
-  assert((matchToken("out:database",    optout, "output:", true) == false));
-  assert((matchToken("o:database",      optout, "output:", true) == false));
+  assert(matchToken("output=",  optout, "output=") == true);   assert(*optout == 0);
+  assert(matchToken("out=",     optout, "output=") == true);   assert(*optout == 0);
+  assert(matchToken("o=",       optout, "output=") == true);   assert(*optout == 0);
 
-  assert((matchToken("database",        optout, "database") == true));
-  assert((matchToken("database",        optout, "database") == true) && (*optout == 0));
+  assert(matchToken("output=b", optout, "output=") == true);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("out=b",    optout, "output=") == true);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("o=b",      optout, "output=") == true);   assert(strcmp(optout, "b") == 0);
 
-  assert(matchToken("database:", optout, "database:") == true);
-  assert(matchToken("database:", optout, "database")  == false);
-  assert(matchToken("database",  optout, "database:") == false);
-  assert(matchToken("database",  optout, "database")  == true);
+  //  True cases: opt does not end with a separator.
 
-  assert(matchToken("database=", optout, "database=") == true);
-  assert(matchToken("database=", optout, "database")  == false);
-  assert(matchToken("database",  optout, "database=") == false);
-  assert(matchToken("database",  optout, "database")  == true);
+  assert(matchToken("output", optout, "output:") == true);   assert(optout == nullptr);
+  assert(matchToken("out",    optout, "output:") == true);   assert(optout == nullptr);
+  assert(matchToken("o",      optout, "output:") == true);   assert(optout == nullptr);
 
-  assert(matchToken("database:", optout, "database=") == false);
-  assert(matchToken("database=", optout, "database:") == false);
+  assert(matchToken("output", optout, "output=") == true);   assert(optout == nullptr);
+  assert(matchToken("out",    optout, "output=") == true);   assert(optout == nullptr);
+  assert(matchToken("o",      optout, "output=") == true);   assert(optout == nullptr);
 
+  assert(matchToken("output", optout, "output")  == true);   assert(optout == nullptr);
+  assert(matchToken("out",    optout, "output")  == true);   assert(optout == nullptr);
+  assert(matchToken("o",      optout, "output")  == true);   assert(optout == nullptr);
 
-  assert(matchToken("database:", optout, "database:", true) == true);
-  assert(matchToken("database:", optout, "database",  true) == false);
-  assert(matchToken("database",  optout, "database:", true) == false);
-  assert(matchToken("database",  optout, "database",  true) == true);
+  //  False cases: opt ends with a separator and pat does not.
 
-  assert(matchToken("database=", optout, "database=", true) == true);
-  assert(matchToken("database=", optout, "database",  true) == false);
-  assert(matchToken("database",  optout, "database=", true) == false);
-  assert(matchToken("database",  optout, "database",  true) == true);
+  assert(matchToken("output:",  optout, "output") == false);
+  assert(matchToken("out:",     optout, "output") == false);
+  assert(matchToken("o:",       optout, "output") == false);
 
-  assert(matchToken("database:", optout, "database=", true) == false);
-  assert(matchToken("database=", optout, "database:", true) == false);
+  assert(matchToken("output:b", optout, "output") == false);
+  assert(matchToken("out:b",    optout, "output") == false);
+  assert(matchToken("o:b",      optout, "output") == false);
 
+  assert(matchToken("output=",  optout, "output") == false);
+  assert(matchToken("out=",     optout, "output") == false);
+  assert(matchToken("o=",       optout, "output") == false);
 
-  assert(matchToken("data:", optout, "database:", true) == false);
-  assert(matchToken("data:", optout, "database",  true) == false);
-  assert(matchToken("data",  optout, "database:", true) == false);
-  assert(matchToken("data",  optout, "database",  true) == false);
+  assert(matchToken("output=b", optout, "output") == false);
+  assert(matchToken("out=b",    optout, "output") == false);
+  assert(matchToken("o=b",      optout, "output") == false);
 
+  //  False cases: opt is not a prefix of pat.
 
-  if (argc > 1) {
-    if (matchToken(argv[1], optout, argv[2]) == true)
-      fprintf(stderr, "POSITIVE! '%s' matches '%s' with optout '%s'.\n", argv[1], argv[3], optout);
-    else
-      fprintf(stderr, "NEGATIVE. '%s' doesn't match '%s'.\n", argv[1], argv[3]);
+  assert(matchToken("outwit",   optout, "output:") == false);
+  assert(matchToken("outwit:",  optout, "output:") == false);
+  assert(matchToken("outwit=",  optout, "output:") == false);
+  assert(matchToken("outwit:a", optout, "output:") == false);
+  assert(matchToken("outwit=a", optout, "output:") == false);
+
+  assert(matchToken("outwit",   optout, "output=") == false);
+  assert(matchToken("outwit:",  optout, "output=") == false);
+  assert(matchToken("outwit=",  optout, "output=") == false);
+  assert(matchToken("outwit:a", optout, "output=") == false);
+  assert(matchToken("outwit=a", optout, "output=") == false);
+
+  assert(matchToken("outwit",   optout, "output") == false);
+  assert(matchToken("outwit:",  optout, "output") == false);
+  assert(matchToken("outwit=",  optout, "output") == false);
+  assert(matchToken("outwit:a", optout, "output") == false);
+  assert(matchToken("outwit=a", optout, "output") == false);
+
+  //  Exact cases.
+
+  assert(matchToken("output",    optout, "output:", true) == true);   assert( optout == nullptr);
+  assert(matchToken("output:b",  optout, "output:", true) == true);   assert(*optout == 'b');
+  assert(matchToken("out",       optout, "output:", true) == false);
+  assert(matchToken("out:b",     optout, "output:", true) == false);
+
+  assert(matchToken("output",    optout, "output",  true) == true);   assert( optout == nullptr);
+  assert(matchToken("output:b",  optout, "output",  true) == false);
+  assert(matchToken("out",       optout, "output",  true) == false);
+  assert(matchToken("out:b",     optout, "output",  true) == false);
+
+  assert(matchToken("outwit:b",  optout, "output:", true) == false);
+  assert(matchToken("outwit",    optout, "output:", true) == false);
+
+  assert(matchToken("outwit:b",  optout, "output",  true) == false);
+  assert(matchToken("outwit",    optout, "output",  true) == false);
+
+  //  Let the user try to break it.
+
+  if (argc == 1) {
+    fprintf(stderr, "usage: %s <option>[:=]<=value> <pattern>[:=]\n", argv[0]);
+    fprintf(stderr, "  Tests if 'option' matches 'pattern', reports the matching pieces.\n");
+    fprintf(stderr, "  (Also tests a bunch of built-in examples to ensure\n");
+    fprintf(stderr, "   basic sanity, and those tests HAVE passed.)\n");
+    return 0;
   }
 
-  fprintf(stdout, "matchToken() tests PASS!\n");
+  if (matchToken(argv[1], optout, argv[2]) == false) {
+    fprintf(stderr, "NEGATIVE. '%s' doesn't match '%s'.\n", argv[1], argv[2]);
+    return 1;
+  }
+
+  fprintf(stderr, "POSITIVE! '%s' matches '%s' with optout '%s'.\n",
+          argv[1],
+          argv[2],
+          (optout) ? optout : "<nullptr>");
 
   return 0;
 }

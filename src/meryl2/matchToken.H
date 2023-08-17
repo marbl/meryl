@@ -16,26 +16,36 @@
  *  contains full conditions and disclaimers.
  */
 
-
+//
 //  Expects inputs of
-//    opt='<option>[:=]<value>' - the input word to test
-//    pat='<pattrn>[:=]'        - the pattern to test against
-//  and returns true if <option> is a prefix of <pattern> and the separator
-//  matches.  optout is set to the letter after the separator.
+//    opt='<option>[:=]<value>' - the input word to decode
+//    pat='<pattrn>[:=]'        - the pattern we're expecting to find
 //
-//  Examples: 1) matchToken("out:", optout, "output:") == true
-//            2) matchToken("out",  optout, "output:") == false
+//  Returns true if <option> is a prefix of <pattrn> and the separator
+//  matches.  optout is set to the letter after the separator, e.g., <value>.
+//      opt='abc:xyz'  pat='abcde:'  ->  true, optout='xyz'
 //
-//  Example 1 is true because 'out' is a prefix of 'output' and both end
-//  with a ':'; likewise, example 2 is false because the <opt> string
-//  doesn't end with a ':'.
+//  If opt does not end with a separator but is still a prefix of <pattrn>,
+//  true is returned and optout is set to nullptr.  pat is not required to
+//  end with a separator.
+//      opt='abc'      pat='abcde:'  ->  true, optout=nullptr
+//      opt='abc'      pat='abcde'   ->  true, optout=nullptr
+//
+//  If pat does not end with a separator, opt must also not end with a
+//  separator.
+//      opt='abc:xyz'  pat='abcde'   ->  false
+//      opt='abc'      pat='abcde'   ->  true, optout=nullptr
+//
+//  If 'exact' is set, opt must equal pat; if opt has no separator, the
+//  separator on pat is ignored.
 //
 inline
 bool
 matchToken(char const *opt, char const *&optout, char const *pat, bool exact=false) {
+  optout = nullptr;
 
-  while ((*opt !=  0) && (*opt != ':') && (*opt != '=') &&   //  Advance opt and pat
-         (*pat !=  0) &&                                     //  to the separator or
+  while ((*opt !=  0) && (*opt != ':') && (*opt != '=') &&   //  Advance opt and pat to
+         (*pat !=  0) &&                                     //  the separator in opt or
          (*opt == *pat))                                     //  first disagreement.
     opt++, pat++;
 
@@ -46,11 +56,14 @@ matchToken(char const *opt, char const *&optout, char const *pat, bool exact=fal
     while ((*pat != 0) && (*pat != ':') && (*pat != '='))    //  unless we're looking
       pat++;                                                 //  for an exact match.
 
-  if (*opt != *pat)                                          //  If they disagree, the
-    return false;                                            //  separators don't match.
+  if ((*opt == 0) && ((*pat == ':') || (*pat == '=')))       //  If opt is at its end,
+    pat++;                                                   //  skip over any pat sep.
 
-  if (*opt)  optout = opt + 1;                               //  Return the next letter,
-  else       optout = opt;                                   //  if one exists.
+  if (*opt != *pat)                                          //  A match will be:
+    return false;                                            //    0, ':' or '='.
+
+  if (*opt)                                                  //  If a sep, return
+    optout = opt + 1;                                        //  the next letter.
 
   return true;
 }

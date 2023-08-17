@@ -18,7 +18,7 @@
 
 #include "meryl.H"
 
-
+#include <memory>
 
 merylOpCompute::merylOpCompute(merylOpTemplate *ot, uint32 dbSlice, uint32 nInputs) {
   _ot            = ot;
@@ -64,98 +64,9 @@ merylOpCompute::~merylOpCompute() {
 
   _inputs.clear();
 
-  delete    _stats;                            //  Close the outputs.
-  delete    _writerSlice;
-  delete    _printerSlice;
-}
-
-
-
-////////////////////////////////////////
-//
-//  INPUTS.
-//
-void
-merylOpCompute::addInputFromOp(merylOpCompute *ocin) {
-  _inputs.push_back(new merylInput(ocin));
-}
-
-
-
-void
-merylOpCompute::addInputFromDB(char const *dbName, uint32 slice) {
-  _inputs.push_back(new merylInput(new merylFileReader(dbName, slice)));
-}
-
-
-
-////////////////////////////////////////
-//
-//  OUTPUT to database.
-//
-void
-merylOpCompute::addOutput(merylOpTemplate *ot, uint32 slice) {
-  if (ot->_writer != nullptr)
-    _writerSlice = ot->_writer->getStreamWriter(slice);
-}
-
-
-
-////////////////////////////////////////
-//
-//  PRINTING to ASCII files.
-//
-void
-merylOpCompute::addPrinter(merylOpTemplate *ot, uint32 slice) {
-  char  T[FILENAME_MAX+1] = { 0 };
-  char  N[FILENAME_MAX+1] = { 0 };
-
-  if (ot->_printerName == nullptr)    //  If no name defined, no
-    return;                           //  print output requested.
-
-  if (ot->_printer != nullptr) {      //  If defined, we're to a single file
-    _printer = ot->_printer;          //  and use _ot->_printer.
-    return;
-  }
-
-  else {                              //  Otherwise, open a per-thread output.
-    strncpy(T, ot->_printerName, FILENAME_MAX);
-
-    char   *pre = T;
-    char   *suf = strchr(T, '#');
-    uint32  len = 0;
-
-    while ((suf) && (*suf == '#')) {
-      *suf = 0;
-      len++;
-      suf++;
-    }
-
-    snprintf(N, FILENAME_MAX, "%s%0*d%s", pre, len, slice, suf);
-
-    _printerSlice = new compressedFileWriter(N);
-    _printer      = _printerSlice;
-  }
-}
-
-
-
-////////////////////////////////////////
-//
-//  STATISTICS of kmer values.
-//
-//  Each thread will allocate a histogram, and this can get rather large.
-//  Storing the first million values in an array will take
-//    64 threads * 8 bytes/val * 1048576 values = 512 MB
-//
-void
-merylOpCompute::addStatistics(merylOpTemplate *ot, uint32 slice) {
-
-  if ((ot->_statsFile == nullptr) &&
-      (ot->_histoFile == nullptr))
-    return;
-
-  _stats = new merylHistogram(1048576);
+  delete    _statsAcc;                         //  Close per-slice stats accumulator.
+  delete    _outDbseSlice;                     //  Close per-slice output.
+  delete    _outListSlice;                     //  Close per-slice list.
 }
 
 
@@ -229,37 +140,37 @@ merylOpCompute::findOutputValue(void) {
   kmvalu  q = 0;
   kmvalu  r = 0;
 
-  switch (_ot->_valueSelect) {
-    case merylModifyValue::valueNOP:
+  switch (_ot->_valueAssign) {
+    case merylAssignValue::valueNOP:
       break;
 
-    case merylModifyValue::valueSet:
+    case merylAssignValue::valueSet:
       _kmer._val = _ot->_valueConstant;
       break;
 
-    case merylModifyValue::valueSelected:
+    case merylAssignValue::valueSelected:
 #warning wrong - need to figure out which input to select
       _kmer._val = _acta[0]._val;
       break;
 
-    case merylModifyValue::valueFirst:
+    case merylAssignValue::valueFirst:
 #warning wrong - do we need to verify that actIdx[0] is 0?
       _kmer._val = _acta[0]._val;
       break;
 
-    case merylModifyValue::valueMin:
+    case merylAssignValue::valueMin:
       _kmer._val = _ot->_valueConstant;
       for (uint32 ii=0; ii<_actLen; ii++)
         _kmer._val = std::min(_kmer._val, _acta[ii]._val);
       break;
 
-    case merylModifyValue::valueMax:
+    case merylAssignValue::valueMax:
       _kmer._val = _ot->_valueConstant;
       for (uint32 ii=0; ii<_actLen; ii++)
         _kmer._val = std::max(_kmer._val, _acta[ii]._val);
       break;
 
-    case merylModifyValue::valueAdd:
+    case merylAssignValue::valueAdd:
       _kmer._val = _ot->_valueConstant;
       for (uint32 ii=0; ii<_actLen; ii++)
         if (kmvalumax - _kmer._val < _acta[ii]._val)
@@ -268,7 +179,7 @@ merylOpCompute::findOutputValue(void) {
           _kmer._val = _kmer._val + _acta[ii]._val;
       break;
 
-    case merylModifyValue::valueSub:
+    case merylAssignValue::valueSub:
       _kmer._val = _acta[0]._val;
 
       for (uint32 ii=1; ii<_actLen; ii++)
@@ -284,7 +195,7 @@ merylOpCompute::findOutputValue(void) {
 
       break;
 
-    case merylModifyValue::valueMul:
+    case merylAssignValue::valueMul:
       _kmer._val = _ot->_valueConstant;
       for (uint32 ii=0; ii<_actLen; ii++)
         if (kmvalumax / _kmer._val < _acta[ii]._val)
@@ -294,7 +205,7 @@ merylOpCompute::findOutputValue(void) {
       break;
 
 
-    case merylModifyValue::valueDiv:
+    case merylAssignValue::valueDiv:
       _kmer._val = _acta[0]._val;
 
       for (uint32 ii=1; ii<_actLen; ii++)
@@ -315,7 +226,7 @@ merylOpCompute::findOutputValue(void) {
       //  Additionally, values between 0 and 0.5 are rounded up to 1.
       //
       //  However, division by zero results in a 0 output.
-    case merylModifyValue::valueDivZ:
+    case merylAssignValue::valueDivZ:
       _kmer._val = _acta[0]._val;
 
       for (uint32 ii=1; ii<_actLen; ii++)
@@ -336,7 +247,7 @@ merylOpCompute::findOutputValue(void) {
       break;
 
 
-    case merylModifyValue::valueMod:
+    case merylAssignValue::valueMod:
       q = _acta[0]._val;
       r = 0;
 
@@ -366,7 +277,7 @@ merylOpCompute::findOutputValue(void) {
       break;
 
 
-    case merylModifyValue::valueCount:
+    case merylAssignValue::valueCount:
       _kmer._val = _actLen;
       break;
   }
@@ -379,25 +290,25 @@ merylOpCompute::findOutputLabel(void) {
   kmlabl  l;
   kmvalu  v;
 
-  switch (_ot->_labelSelect) {
-    case merylModifyLabel::labelNOP:
+  switch (_ot->_labelAssign) {
+    case merylAssignLabel::labelNOP:
       break;
 
-    case merylModifyLabel::labelSet:
+    case merylAssignLabel::labelSet:
       _kmer._lab = _ot->_labelConstant;
       break;
 
-    case merylModifyLabel::labelSelected:
+    case merylAssignLabel::labelSelected:
 #warning wrong - need to figure out which input to select
       _kmer._lab = _acta[0]._lab;
       break;
 
-    case merylModifyLabel::labelFirst:
+    case merylAssignLabel::labelFirst:
 #warning wrong - do we need to verify that actIdx[0] is 0?
       _kmer._lab = _acta[0]._lab;
       break;
 
-    case merylModifyLabel::labelMin:
+    case merylAssignLabel::labelMin:
       l = _ot->_labelConstant;
       v = kmvalumax;
 
@@ -410,75 +321,75 @@ merylOpCompute::findOutputLabel(void) {
       _kmer._lab = l;
       break;
 
-    case merylModifyLabel::labelMax:
+    case merylAssignLabel::labelMax:
       _kmer._lab = _ot->_labelConstant;
       for (uint32 ll=0; ll<_actLen; ll++)
         _kmer._lab = std::max(_kmer._lab, _acta[ll]._lab);
       break;
 
 
-    case merylModifyLabel::labelAnd:
+    case merylAssignLabel::labelAnd:
       _kmer._lab = _ot->_labelConstant;
       for (uint32 ll=0; ll<_actLen; ll++)
         _kmer._lab &= _acta[ll]._lab;
       break;
 
-    case merylModifyLabel::labelOr:
+    case merylAssignLabel::labelOr:
       _kmer._lab = _ot->_labelConstant;
       for (uint32 ll=0; ll<_actLen; ll++)
         _kmer._lab |= _acta[ll]._lab;
       break;
 
-    case merylModifyLabel::labelXor:
+    case merylAssignLabel::labelXor:
       _kmer._lab = _ot->_labelConstant;
       for (uint32 ll=0; ll<_actLen; ll++)
         _kmer._lab ^= _acta[ll]._lab;
       break;
 
-    case merylModifyLabel::labelDifference:
+    case merylAssignLabel::labelDifference:
 #warning check this
       _kmer._lab = _acta[0]._lab & ~_ot->_labelConstant;
       for (uint32 ll=1; ll<_actLen; ll++)
         _kmer._lab &= ~_acta[ll]._lab;
       break;
 
-    case merylModifyLabel::labelLightest:
+    case merylAssignLabel::labelLightest:
       _kmer._lab = _ot->_labelConstant;
       for (uint32 ll=0; ll<_actLen; ll++)
         if (countNumberOfSetBits64(_acta[ll]._lab) < countNumberOfSetBits64(_kmer._lab))
           _kmer._lab = _acta[ll]._lab;
       break;
 
-    case merylModifyLabel::labelHeaviest:
+    case merylAssignLabel::labelHeaviest:
       _kmer._lab = _ot->_labelConstant;
       for (uint32 ll=0; ll<_actLen; ll++)
         if (countNumberOfSetBits64(_acta[ll]._lab) > countNumberOfSetBits64(_kmer._lab))
           _kmer._lab = _acta[ll]._lab;
       break;
 
-    case merylModifyLabel::labelInvert:
+    case merylAssignLabel::labelInvert:
       assert(_actLen == 1);
       _kmer._lab = ~_acta[0]._lab;
       break;
 
-    case merylModifyLabel::labelShiftLeft:
+    case merylAssignLabel::labelShiftLeft:
       assert(_actLen == 1);
       _kmer._lab = _acta[0]._lab >> _ot->_labelConstant;
       break;
 
-    case merylModifyLabel::labelShiftRight:
+    case merylAssignLabel::labelShiftRight:
       assert(_actLen == 1);
       _kmer._lab = _acta[0]._lab << _ot->_labelConstant;
       break;
 
 #warning wrong
-    case merylModifyLabel::labelRotateLeft:
+    case merylAssignLabel::labelRotateLeft:
       assert(_actLen == 1);
       _kmer._lab = _acta[0]._lab >> _ot->_labelConstant;
       break;
 
 #warning wrong
-    case merylModifyLabel::labelRotateRight:
+    case merylAssignLabel::labelRotateRight:
       assert(_actLen == 1);
       _kmer._lab = _acta[0]._lab << _ot->_labelConstant;
       break;

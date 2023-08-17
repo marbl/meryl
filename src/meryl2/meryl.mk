@@ -7,11 +7,12 @@ SOURCES  := meryl.C \
             merylCommandBuilder-isSelect.C \
             merylCommandBuilder-printTree.C \
             merylCommandBuilder-processWord.C \
+            merylCommandBuilder-spawnThreads.C \
             merylCommandBuilder.C \
             merylCountArray.C \
-            merylDebug.C \
-            merylFilter.C \
+            merylGlobals.C \
             merylInput.C \
+            merylSelector.C \
             merylOp-count-memorySize.C \
             merylOp-count.C \
             merylOp-countSequential.C \

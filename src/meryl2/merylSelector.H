@@ -16,14 +16,14 @@
  *  contains full conditions and disclaimers.
  */
 
-#ifndef MERYLFILTER_H
-#define MERYLFILTER_H
+#ifndef MERYLSELECTOR_H
+#define MERYLSELECTOR_H
 
 #include "meryl.H"
 
 //  Relationships.  Tells how we should compare a kmer against a constant.
 //
-enum class merylFilterRelation {
+enum class merylSelectorRelation {
   isNOP,         //  Nothing.  Generates an error.
 
   isEq,          //  True if the variable == constant
@@ -37,7 +37,7 @@ enum class merylFilterRelation {
 
 //  Quantities.  Tells what property of the kmer we're testing.
 //
-enum class merylFilterQuantity {
+enum class merylSelectorQuantity {
   isNOP,         //  Nothing.  Generates an error.
 
   isValue,       //  Compare kmer value
@@ -51,12 +51,12 @@ enum class merylFilterQuantity {
 struct merylActList;
 
 
-//  A single filter; a term in the product expression.
+//  A single selector; a term in the product expression.
 //
-//  The filter is true if 'kmer quantity' 'relation' 'constant',
+//  The selector is true if 'kmer quantity' 'relation' 'constant',
 //  for example "kmerValue == 4"
 //
-//  Filters can be combined in sum-of-product expressions.
+//  Selectors can be combined in sum-of-product expressions.
 //
 //  The complicated part is countNonZeroBases().  This does some bit fiddling
 //  to count the number of A's, C's, G's or T's in a kmer.
@@ -74,27 +74,27 @@ struct merylActList;
 //    T = 10 - xor with 10  ->  A == 10  C == 11  T == 00  G == 01
 //    G = 11 - xor with 11  ->  A == 11  C == 10  T == 01  G == 00
 //
-class merylFilter {
+class merylSelector {
 public:
-  merylFilter(merylFilterQuantity type,
-              merylFilterRelation rela,
-              bool                invert,
-              char const         *str);
-  ~merylFilter();
+  merylSelector(merylSelectorQuantity type,
+                merylSelectorRelation rela,
+                bool                invert,
+                char const         *str);
+  ~merylSelector();
 
 private:
   template<typename X>
   bool
   compare(X x, X y) const {
     switch (_r) {
-      case merylFilterRelation::isNOP:   assert(0);        break;
-      case merylFilterRelation::isEq:    return(x == y);   break;
-      case merylFilterRelation::isNeq:   return(x != y);   break;
-      case merylFilterRelation::isLeq:   return(x <= y);   break;
-      case merylFilterRelation::isGeq:   return(x >= y);   break;
-      case merylFilterRelation::isLt:    return(x <  y);   break;
-      case merylFilterRelation::isGt:    return(x >  y);   break;
-      default:                           return(false);    break;
+      case merylSelectorRelation::isNOP:   assert(0);        break;
+      case merylSelectorRelation::isEq:    return(x == y);   break;
+      case merylSelectorRelation::isNeq:   return(x != y);   break;
+      case merylSelectorRelation::isLeq:   return(x <= y);   break;
+      case merylSelectorRelation::isGeq:   return(x >= y);   break;
+      case merylSelectorRelation::isLt:    return(x <  y);   break;
+      case merylSelectorRelation::isGt:    return(x >  y);   break;
+      default:                             return(false);    break;
     }
     return(false);
   }
@@ -124,25 +124,25 @@ private:
   uint32 countT(kmer k) const { return(kmer::merSize() - countNonZeroBases(k, 0xaaaaaaaaaaaaaaaallu)); }
   uint32 countG(kmer k) const { return(kmer::merSize() - countNonZeroBases(k, 0xffffffffffffffffllu)); }
 
-  //  Evaluate the filter on kmer k, comparing against the constants saved in
-  //  this filter object and the other kmer instances in the 'act' list.
+  //  Evaluate the selector on kmer k, comparing against the constants saved in
+  //  this selector object and the other kmer instances in the 'act' list.
 public:
   bool
   isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActList *inp) const;
 
 
-  //  finalizeFilterInputs() is used to let the filter decide if its
+  //  finalizeSelectorInputs() is used to let the selector decide if its
   //  configuration is sane, and to emit errors if needed.  This is also
-  //  where we can figure out what 'all' means, or to fail if the filter
+  //  where we can figure out what 'all' means, or to fail if the selector
   //  specified a reference to file @4 but only 3 files exist.
   //
-  //  finalizeFilterParameters() is used to set any run-time values (loaded
+  //  finalizeSelectorParameters() is used to set any run-time values (loaded
   //  from a meryl database, for example, to find the threshold that contains
   //  95% of the kmers).
   //
 public:
-  void   finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *> &err);
-  void   finalizeFilterParameters(merylOpTemplate *mot);
+  void   finalizeSelectorInputs(merylOpTemplate *mot, std::vector<char const *> &err);
+  void   finalizeSelectorParameters(merylOpTemplate *mot);
 
   char *
   describe(char *str);
@@ -150,9 +150,9 @@ public:
 
   //  What and how to compare:
 
-  merylFilterRelation  _r = merylFilterRelation::isNOP;  //  Relation we need to satisfy.
-  merylFilterQuantity  _q = merylFilterQuantity::isNOP;  //  Quantity we're comparing against.
-  bool                 _t = true;                        //  Desired result for a 'true' filter result.
+  merylSelectorRelation  _r = merylSelectorRelation::isNOP;  //  Relation we need to satisfy.
+  merylSelectorQuantity  _q = merylSelectorQuantity::isNOP;  //  Quantity we're comparing against.
+  bool                   _t = true;                        //  Desired result for a 'true' selector result.
 
   //  A copy of the command line string, for reporting errors.
   char                           _str[FILENAME_MAX + 1] = { 0 };
@@ -176,25 +176,25 @@ public:
   kmlabl               _vLabel2 = 0;           //  from constant 'label' stored here
   uint32               _vBases2 = 0;           //  from constant 'bases' stored here ('bases count')
 
-  //  For filters on the value, the _vValue2 can be set to a constant or set
+  //  For selectors on the value, the _vValue2 can be set to a constant or set
   //  based on the histogram of the input database.
 
   double               _vValue2Distinct = -1;
   double               _vValue2WordFreq = -1;
 
   //  Some flags on what to compare, so we don't explode the
-  //  merylFilterQuantity enum with 15 more types.
+  //  merylSelectorQuantity enum with 15 more types.
 
   bool                 _countA = false;  //  These four tell us if we need to count the
   bool                 _countC = false;  //  number of A's etc in the kmer (_q == isBases).
   bool                 _countG = false;  //  If so we then compare this count against
   bool                 _countT = false;  //  vBases above.
 
-  //  The 'input' filter needs to store a bunch of info until the whole
+  //  The 'input' selector needs to store a bunch of info until the whole
   //  command tree is constructed so that it can figure out what 'all inputs'
   //  means.
   //
-  //  The 'input' filter tests one of two things:
+  //  The 'input' selector tests one of two things:
   //    is the kmer present in a certin number of input databases?
   //    is the kmer present in a set of specific input databases?
   //
@@ -205,7 +205,7 @@ public:
   //  Testing this is expensive, and a bit mask would be quicker (for up to
   //  64 inputs).
 
-  //  While parsing the command line, we store the filter specification in two
+  //  While parsing the command line, we store the selector specification in two
   //  vectors:
   //    _input_num - a list of the number of inputs a kmer must occur in
   //               - 'n', 'n-m', 'all', 'any', 'n-all'
@@ -228,10 +228,10 @@ public:
 
   std::vector<uint32>            _input_idx;
 
-  //  After the command line is parsed, finalizeFilterInputs() converts the
+  //  After the command line is parsed, finalizeSelectorInputs() converts the
   //  above into convenient lookup structures.
   //
-  //  The filter fails if:
+  //  The selector fails if:
   //       _presentInNum[_actLen]    == false
   //       _presentInIdx[_actIdx[i]] == false (for 0 <= i < _actLen)
   //
@@ -247,4 +247,4 @@ public:
 };
 
 
-#endif  //  MERYLFILTER_H
+#endif  //  MERYLSELECTOR_H

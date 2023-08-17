@@ -21,10 +21,10 @@
 #include "meryl.H"
 
 
-merylFilter::merylFilter(merylFilterQuantity type,
-                         merylFilterRelation rela,
-                         bool                invert,
-                         char const         *str)   {
+merylSelector::merylSelector(merylSelectorQuantity type,
+                             merylSelectorRelation rela,
+                             bool                  invert,
+                             char const           *str)   {
   _q = type;      //  Type and Relation are obvious. The desired
   _r = rela;      //  result _t is true when 'invert' is false, and
   _t = !invert;   //  false when 'invert' is true.
@@ -34,7 +34,7 @@ merylFilter::merylFilter(merylFilterQuantity type,
 
 
 
-merylFilter::~merylFilter()  {
+merylSelector::~merylSelector()  {
   delete [] _presentInNum;
   delete [] _presentInIdx;
   delete [] _presentInList;
@@ -42,7 +42,7 @@ merylFilter::~merylFilter()  {
 
 
 
-//  Returns true if the filter test is true, meaning the kmer should be
+//  Returns true if the selector test is true, meaning the kmer should be
 //  output.
 //
 //  _t is the desired result for a 'true' test here; normally it is 'true',
@@ -50,23 +50,23 @@ merylFilter::~merylFilter()  {
 //
 //  This flow control doesn't seem to be a bottleneck.
 //   - Entirely hardcoding the test in nextMer() and skipping ALL of the
-//     isKmerFilteredOut() code, takes 42u.
-//   - Calling isKmerFilteredOut() (implemented as a switch in nextMer.C) and
+//     isKmerSelectedOut() code, takes 42u.
+//   - Calling isKmerSelectedOut() (implemented as a switch in nextMer.C) and
 //    using a set of unrelated if tests here takes 46u.  Using a switch here
 //    did not change times.
 //
 
 bool
-merylFilter::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActList *inp) const {
+merylSelector::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActList *inp) const {
   bool   result = _t;
 
 
-  if (_q == merylFilterQuantity::isNOP) {
+  if (_q == merylSelectorQuantity::isNOP) {
     assert(0);
   }
 
 
-  if (_q == merylFilterQuantity::isValue) {
+  if (_q == merylSelectorQuantity::isValue) {
     kmvalu  rhs;
     kmvalu  lhs;
 
@@ -86,7 +86,7 @@ merylFilter::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActLis
   }
 
 
-  if (_q == merylFilterQuantity::isLabel) {
+  if (_q == merylSelectorQuantity::isLabel) {
     kmlabl  rhs;
     kmlabl  lhs;
 
@@ -106,8 +106,8 @@ merylFilter::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActLis
   }
 
 
-  if (_q == merylFilterQuantity::isBases) {             //  The two nonsense cases below
-    uint32 c = (((_countA == false) ? 0 : countA(k)) +  //  should be caught by isBasesFilter().
+  if (_q == merylSelectorQuantity::isBases) {             //  The two nonsense cases below
+    uint32 c = (((_countA == false) ? 0 : countA(k)) +  //  should be caught by isBasesSelector().
                 ((_countC == false) ? 0 : countC(k)) +  //  We'll compute the result anyway, so
                 ((_countG == false) ? 0 : countG(k)) +  //  if something does change we still
                 ((_countT == false) ? 0 : countT(k)));  //  provide some sensible result.
@@ -126,7 +126,7 @@ merylFilter::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActLis
   }
 
 
-  if (_q == merylFilterQuantity::isIndex) {        //  The index filter checks two things:
+  if (_q == merylSelectorQuantity::isIndex) {        //  The index selector checks two things:
     result = _presentInNum[actLen];                //    does the kmer appear in the correct
                                                    //    number of inputs (an array lookup).
     for (uint32 pp=0; pp<_presentInLen; pp++) {    //
@@ -146,11 +146,11 @@ merylFilter::isTrue(kmer const &k, uint32 actLen, merylActList *act, merylActLis
 
 
 void
-merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *> &err) {
+merylSelector::finalizeSelectorInputs(merylOpTemplate *mot, std::vector<char const *> &err) {
   uint32  nInputs = mot->_inputs.size();
 
   //
-  //  Check that any distinct= or word-frequency= value filters have
+  //  Check that any distinct= or word-frequency= value selectors have
   //  exactly one database input.
   //
 
@@ -158,15 +158,15 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
       (_vValue2WordFreq >= 0)) {
 
     if (nInputs != 1)
-      sprintf(err, "ERROR: filter '%s' invalid; exactly one input required but %u supplied.\n", _str, nInputs);
+      sprintf(err, "ERROR: selector '%s' invalid; exactly one input required but %u supplied.\n", _str, nInputs);
 
     if ((nInputs > 0) &&
         (mot->_inputs[0]->_stream == nullptr))
-      sprintf(err, "ERROR: filter '%s' invalid; database input expected, but type '%s' supplied.\n", _str, mot->_inputs[0]->inputType());
+      sprintf(err, "ERROR: selector '%s' invalid; database input expected, but type '%s' supplied.\n", _str, mot->_inputs[0]->inputType());
 
-    if ((mot->_valueSelect   != merylModifyValue::valueFirst) ||
+    if ((mot->_valueAssign   != merylAssignValue::valueFirst) ||
         (mot->_valueConstant != 0)) {
-      sprintf(err, "ERROR: filter '%s' invalid; the value cannot be modified, remove '%s' modifier\n", _str, toString(mot->_valueSelect));
+      sprintf(err, "ERROR: selector '%s' invalid; the value cannot be modified, remove '%s' modifier\n", _str, toString(mot->_valueAssign));
     }
   }
 
@@ -200,9 +200,9 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
     uint32  a = _input_num[ii];
 
     if (a == 0)
-      sprintf(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
+      sprintf(err, "selector '%s' invalid; there is no 0th input database.\n", _str);
     else if (a > nInputs)
-      sprintf(err, "filter '%s' invalid: cannot occur in %u inputs; there are only %u inputs.\n", _str, a, nInputs);
+      sprintf(err, "selector '%s' invalid: cannot occur in %u inputs; there are only %u inputs.\n", _str, a, nInputs);
     else
       _presentInNum[a] = true;
   }
@@ -219,9 +219,9 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
     uint32 a = _input_idx[ii];
 
     if (a == 0)
-      sprintf(err, "filter '%s' invalid; there is no 0th input database.\n", _str);
+      sprintf(err, "selector '%s' invalid; there is no 0th input database.\n", _str);
     else if (a > nInputs)
-      sprintf(err, "filter '%s' invalid: input %u does not exist; there are only %u inputs.\n", _str, a, nInputs);
+      sprintf(err, "selector '%s' invalid: input %u does not exist; there are only %u inputs.\n", _str, a, nInputs);
     else {
       _presentInIdx[a-1] = true;
       _presentInList[_presentInLen++] = a-1;
@@ -243,7 +243,7 @@ merylFilter::finalizeFilterInputs(merylOpTemplate *mot, std::vector<char const *
 //  threhsold value to use.
 //
 void
-merylFilter::finalizeFilterParameters(merylOpTemplate *mot) {
+merylSelector::finalizeSelectorParameters(merylOpTemplate *mot) {
   bool  verbose = globals.showConstruction();
 
   if ((_vValue2Distinct < 0) &&
@@ -262,14 +262,14 @@ merylFilter::finalizeFilterParameters(merylOpTemplate *mot) {
     uint64  nKmersTarget = _vValue2Distinct * stats->numDistinct();
 
     if (verbose)
-      fprintf(stderr, "finalizeFilterParameters()-- database '%s' has %lu distinct kmers -> target %lu kmers\n",
+      fprintf(stderr, "finalizeSelectorParameters()-- database '%s' has %lu distinct kmers -> target %lu kmers\n",
               mot->_inputs[0]->_stream->filename(), stats->numDistinct(), nKmersTarget);
 
     for (uint64 ii=0; ii<histo->histogramLength(); ii++) {
       nKmers += histo->histogramOccurrences(ii);
 
       if (verbose)
-        fprintf(stderr, "finalizeFilterParameters()--   threshold %lu -> %lu cumulative kmers\n",
+        fprintf(stderr, "finalizeSelectorParameters()--   threshold %lu -> %lu cumulative kmers\n",
                 histo->histogramValue(ii), nKmers);
 
       if (nKmers >= nKmersTarget) {
@@ -279,18 +279,18 @@ merylFilter::finalizeFilterParameters(merylOpTemplate *mot) {
     }
 
     if (verbose)
-      fprintf(stderr, "finalizeFilterParameters()-- distinct %f -> threshold %u\n", _vValue2Distinct, _vValue2);
+      fprintf(stderr, "finalizeSelectorParameters()-- distinct %f -> threshold %u\n", _vValue2Distinct, _vValue2);
   }
 
   if (_vValue2WordFreq >= 0) {
     if (verbose)
-      fprintf(stderr, "finalizeFilterParameters()-- database '%s' has %lu total kmers\n",
+      fprintf(stderr, "finalizeSelectorParameters()-- database '%s' has %lu total kmers\n",
               mot->_inputs[0]->_stream->filename(), stats->numTotal());
 
     _vValue2 = _vValue2WordFreq * stats->numTotal();
 
     if (verbose)
-      fprintf(stderr, "finalizeFilterParameters()-- word-frequency %f -> threshold %u\n", _vValue2WordFreq, _vValue2);
+      fprintf(stderr, "finalizeSelectorParameters()-- word-frequency %f -> threshold %u\n", _vValue2WordFreq, _vValue2);
   }
 
   delete histo;
@@ -301,25 +301,25 @@ merylFilter::finalizeFilterParameters(merylOpTemplate *mot) {
 
 
 char *
-merylFilter::describe(char *str) {
+merylSelector::describe(char *str) {
   char const   *rType = nullptr;
   char          lhs[256] = {0};
   char          rhs[256] = {0};
 
   switch (_r) {
-    case merylFilterRelation::isNOP:    rType = "unspecified";        break;
-    case merylFilterRelation::isEq:     rType = "is-equal-to";        break;
-    case merylFilterRelation::isNeq:    rType = "is-not-equal-to";    break;
-    case merylFilterRelation::isLeq:    rType = "is-less-or-equal";   break;
-    case merylFilterRelation::isGeq:    rType = "is-more-or-equal";   break;
-    case merylFilterRelation::isLt:     rType = "is-less-than";       break;
-    case merylFilterRelation::isGt:     rType = "is-more-than";       break;
+    case merylSelectorRelation::isNOP:    rType = "unspecified";        break;
+    case merylSelectorRelation::isEq:     rType = "is-equal-to";        break;
+    case merylSelectorRelation::isNeq:    rType = "is-not-equal-to";    break;
+    case merylSelectorRelation::isLeq:    rType = "is-less-or-equal";   break;
+    case merylSelectorRelation::isGeq:    rType = "is-more-or-equal";   break;
+    case merylSelectorRelation::isLt:     rType = "is-less-than";       break;
+    case merylSelectorRelation::isGt:     rType = "is-more-than";       break;
     default:                            rType = "unspecified";        break;
   }
 
   //  Lots of duplication with isTrue().
 
-  if      (_q == merylFilterQuantity::isValue) {
+  if      (_q == merylSelectorQuantity::isValue) {
     if      (_vIndex1 == uint32max)            sprintf(lhs, "constant value %s", toDec(_vValue1));
     else if (_vIndex1 == 0)                    sprintf(lhs, "output kmer value");
     else                                       sprintf(lhs, "kmer value from input %u", _vIndex1);
@@ -331,7 +331,7 @@ merylFilter::describe(char *str) {
     sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
   }
 
-  else if (_q == merylFilterQuantity::isLabel) {
+  else if (_q == merylSelectorQuantity::isLabel) {
     if      (_vIndex1 == uint32max)            sprintf(lhs, "constant label %s", toDec(_vLabel1));
     else if (_vIndex1 == 0)                    sprintf(lhs, "output kmer label");
     else                                       sprintf(lhs, "kmer label from input %u", _vIndex1);
@@ -343,7 +343,7 @@ merylFilter::describe(char *str) {
     sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
   }
 
-  else if (_q == merylFilterQuantity::isBases) {
+  else if (_q == merylSelectorQuantity::isBases) {
     char  acgt[5] = {0};
     int32 acgtlen = 0;
 
@@ -352,7 +352,7 @@ merylFilter::describe(char *str) {
     if (_countT == true)   acgt[acgtlen++] = 'T';
     if (_countG == true)   acgt[acgtlen++] = 'G';
 
-    //  vIndex is 0 if nothing was supplied to the filter, which tells us
+    //  vIndex is 0 if nothing was supplied to the selector, which tells us
     //  to get the value from the output kmer.
 
     if      (_vIndex1 == 0)
@@ -368,12 +368,12 @@ merylFilter::describe(char *str) {
     sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
   }
 
-  else if (_q == merylFilterQuantity::isIndex) {
-    sprintf(str, "EMIT if <index filter not described>\n");
+  else if (_q == merylSelectorQuantity::isIndex) {
+    sprintf(str, "EMIT if <index selector not described>\n");
   }
 
   else {
-    sprintf(str, "EMIT if <empty filter>\n");
+    sprintf(str, "EMIT if <empty selector>\n");
   }
 
 

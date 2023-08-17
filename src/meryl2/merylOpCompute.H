@@ -56,23 +56,26 @@ public:
 
   //  Methods used to run this operation.
 public:
-  bool    nextMer(void);
+  bool                  nextMer(void);
+  kmer                  theFMer(void)            { return(_kmer);   };
 
 private:
-  void    findOutputKmer(void);
-  void    findOutputValue(void);
-  void    findOutputLabel(void);
+  void                  findOutputKmer(void);
+  void                  findOutputValue(void);
+  void                  findOutputLabel(void);
 
+  //
+  //  Methods to set up this operations.
+  //
 public:
-  kmer    theFMer(void)            { return(_kmer);   };
+  void                  addSliceInputFromDB  (char const *dbName,   uint32 slice);
+  void                  addSliceInputFromList(char const *listName, uint32 slice);
+  void                  addSliceInputFromPipe(char const *pipeName, uint32 slice);
+  void                  addSliceInputFromOp  (merylOpCompute *operation);
 
-public:
-  void    addInputFromOp  (merylOpCompute *operation);
-  void    addInputFromDB  (char const *dbName, uint32 slice);
-
-  void    addOutput    (merylOpTemplate *ot, uint32 slice);
-  void    addPrinter   (merylOpTemplate *ot, uint32 slice);
-  void    addStatistics(merylOpTemplate *ot, uint32 slice);
+  void                  addSliceOutput    (merylFileWriter *outDbse, uint32 slice);
+  void                  addSliceLister    (opPname which, char const *listName, compressedFileWriter *list, uint32 slice);
+  merylHistogram       *addSliceStatistics(merylOpTemplate *ot, uint32 slice);
 
   //
   //  Pointer back to the template, so we can get other useful bits instead
@@ -91,13 +94,25 @@ public:
   uint32                         _inputSlice = 0;
 
   //
-  //  Outputs.
+  //  Per-slice ANALYSES.
   //
 
-  merylHistogram                *_stats          = nullptr;    //  Per-thread stats
-  merylStreamWriter             *_writerSlice    = nullptr;    //  Per-thread output
-  compressedFileWriter          *_printerSlice   = nullptr;    //  Per-thread output
-  compressedFileWriter          *_printer        = nullptr;    //  Either _printerSlice or ot->_printer
+  merylHistogram                *_statsAcc       = nullptr;    //  Per-thread stats
+
+  //
+  //  Per-slice OUTPUTS.
+  //
+
+  merylStreamWriter             *_outDbseSlice   = nullptr;    //  Per-thread output, I own this.
+  merylStreamWriter             *_outDbse        = nullptr;    //  Always _outDbseSlice
+
+  compressedFileWriter          *_outListSlice   = nullptr;    //  Per-thread output, I own this.
+  compressedFileWriter          *_outList        = nullptr;    //  Either _outListSlice or ot->_outList
+
+  //mpressedFileWriter          *_outShowSlice   = nullptr;    //  Unused.
+  compressedFileWriter          *_outShow        = nullptr;    //  Always ot->_outShow
+
+  //ar const                    *_outPipe        = nullptr;
 
   //
   //  Data used to compute the action.
@@ -115,7 +130,7 @@ public:
   merylActList                  *_inpa  = nullptr;
 
   //
-  //  Filters.
+  //  Selection.
   //
 
   bool   shouldKmerBeOutput(uint32 ii);

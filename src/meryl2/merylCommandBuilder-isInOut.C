@@ -65,24 +65,30 @@ merylCommandBuilder::isInOut(void) {
   //  parameter, because we're completely done with it.
 
   if (fpath) {
-    if (_curClass != opClass::clOutput)
+    if (_curClass == opClass::clOutput)
       switch (_curPname) {
-        case opPname::pnDB:      op->addOutputToDB  (fpath,        _errors);  break;
-        case opPname::pnList:    op->addOutputToList(fpath, false, _errors);  break;
-        case opPname::pnShow:    op->addOutputToList("-",   false, _errors);  break;
-        case opPname::pnPipe:    op->addOutputToPipe(fpath,        _errors);  break;
-        case opPname::pnHisto:   op->addHistogram(fpath, false,    _errors);  break;
-        case opPname::pnStats:   op->addHistogram(fpath, true,     _errors);  break;
-        default:                 assert(0);                                   break;
+        case opPname::pnDB:      op->addOutputToDB  (fpath,          _errors);  break;
+        case opPname::pnList:    op->addOutputToList(fpath,   false, _errors);  break;
+        case opPname::pnShow:    op->addOutputToList(nullptr, false, _errors);  break;
+        case opPname::pnPipe:    op->addOutputToPipe(fpath,          _errors);  break;
+        case opPname::pnHisto:   op->addHistoOutput (fpath,          _errors);  break;
+        case opPname::pnStats:   op->addStatsOutput (fpath,          _errors);  break;
+        default:
+          fprintf(stderr, "Got Pname '%s' for clOutput.\n", toString(_curPname));
+          assert(0);
+          break;
       }
 
-    if (_curClass != opClass::clInput)
+    if (_curClass == opClass::clInput)
       switch (_curPname) {
-        case opPname::pnDB:      op->addInputFromDB  (fpath,        _errors);  break;
-        case opPname::pnList:    op->addInputFromList(fpath,        _errors);  break;
-        case opPname::pnPipe:    op->addInputFromPipe(fpath,        _errors);  break;
-        case opPname::pnAction:  op->addInputFromOp  (nullptr, _errors);       break;
-        default:                 assert(0);                                    break;
+        case opPname::pnDB:      op->addInputFromDB  (fpath,   _errors);   break;
+        case opPname::pnList:    op->addInputFromList(fpath,   _errors);   break;
+        case opPname::pnPipe:    op->addInputFromPipe(fpath,   _errors);   break;
+        case opPname::pnAction:  op->addInputFromOp  (nullptr, _errors);   break;
+        default:
+          fprintf(stderr, "Got Pname '%s' for clInput.\n", toString(_curPname));
+          assert(0);
+          break;
       }
 
     _curClass = opClass::clNone;
@@ -111,51 +117,25 @@ bool
 merylCommandBuilder::isInput(void) {
   merylOpTemplate  *op = getCurrent();
 
-  bool   merylInput = ((fileExists(_optString, '/', "merylIndex") == true));
-  bool   canuInput  = ((fileExists(_optString, '/', "info")  == true) &&
-                       (fileExists(_optString, '/', "reads") == true));
-  bool   seqInput   = ((fileExists(_optString) == true));
+  bool   merylInput = (fileExists(_optString, '/', "merylIndex"));
+  bool   canuInput  = (fileExists(_optString, '/', "info") &&
+                       fileExists(_optString, '/', "reads"));
+  bool   seqInput   = (fileExists(_optString));
 
-  //  If not an input, don't consume the word.
-  if ((merylInput == false) &&
-      (canuInput  == false) &&
-      (seqInput   == false))
-    return(false);
-
-  //  Otherwise, it's an input.  If the op isn't set up yet, set it up to
-  //  take exactly one input.  This _should_ be a print operation.
-  //
-  //if (op->_operation == merylOp::opNothing) {
-  //}
-
-  //  Now we can add the input to the operation.
-
-  if (merylInput == true) {
+  if      (merylInput)
     op->addInputFromDB(_optString, _errors);
-  }
 
-#ifdef CANU
-
-  if (canuInput == true) {
+  else if (canuInput)
     op->addInputFromCanu(_optString, _segment, _segmentMax, _errors);
 
-    _segment    = 1;
-    _segmentMax = 1;
-  }
-
-#else
-
-  if (canuInput == true) {
-    sprintf(_errors, "ERROR: Detected Canu seqStore input '%s', but no Canu support is available.\n", _optString);
-  }
-
-#endif
-
-  if (seqInput == true) {
+  else if (seqInput)
     op->addInputFromSeq(_optString, _doCompression, _errors);
-  }
 
-  //  Reset state.
+  else
+    return false;
 
-  return(true);
+  _segment    = 1;   //  These only apply to Canu inputs, but no harm
+  _segmentMax = 1;   //  in resetting them for every input.
+
+  return true;
 }
