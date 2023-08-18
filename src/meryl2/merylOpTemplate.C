@@ -44,57 +44,6 @@ merylOpTemplate::~merylOpTemplate() {
 
 
 
-void
-merylOpTemplate::addInputFromDB(char const *dbName, std::vector<char const *> &err) {
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromDB()-- action #%u <- input from file '%s'\n", _ident, dbName);
-  _inputs.push_back(new merylInput(new merylFileReader(dbName)));
-}
-
-void
-merylOpTemplate::addInputFromList(char const *listName, std::vector<char const *> &err) {
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromList()-- action #%u <- input from text list '%s' - NOT IMPLEMENTED!\n", _ident, listName);
-  //_inputs.push_back(new merylInput(otin));
-}
-
-void
-merylOpTemplate::addInputFromPipe(char const *pipeName, std::vector<char const *> &err) {
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromPipe()-- action #%u <- input from pipe '%s' - NOT IMPLEMENTED!\n", _ident, pipeName);
-  //_inputs.push_back(new merylInput(otin));
-}
-
-void
-merylOpTemplate::addInputFromOp(merylOpTemplate *otin, std::vector<char const *> &err) {
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromOp()-- action #%u <- input from action #%u\n", _ident, otin->_ident);
-  _inputs.push_back(new merylInput(otin));
-}
-
-
-void
-merylOpTemplate::addInputFromSeq(char const *sqName, bool doCompression, std::vector<char const *> &err) {
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromSeq()-- action #%u <- input from file '%s'\n", _ident, sqName);
-  _inputs.push_back(new merylInput(new dnaSeqFile(sqName), doCompression));
-}
-
-void
-merylOpTemplate::addInputFromCanu(char const *sqName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err) {
-#ifdef CANU
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromCanu()-- action #%u <- input from sqStore '%s'\n", _ident, sqName);
-  _inputs.push_back(new merylInput(new sqStore(sqName), segment, segmentMax));
-#else
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addInputFromCanu()-- action #%u <- input from sqStore '%s' - NOT SUPPORTED!\n", _ident, sqName);
-  sprintf(err, "ERROR: Detected Canu seqStore input '%s', but no Canu support is available.\n", sqName);
-#endif
-}
-
-
-
 
 //  Add a 'database' output to the template command.
 //

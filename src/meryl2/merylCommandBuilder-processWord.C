@@ -65,6 +65,10 @@ merylCommandBuilder::decodeWord(char const *opt) {
       (strcmp(opt, "out")    == 0)) {   //  output:database, assume this is a database
     _curClass = opClass::clOutput;      //  output and a well-trained meryl-v1 user.
     _curPname = opPname::pnDB;
+    _curParam = (opt[6] == 0) ? (opt + 6)   //  _curParam MUST be NUL so that isInOut()
+                              : (opt + 3);  //  knows that the parameter doens't exist yet.
+
+    return true;
   }
 
   //  Decode the parameter class.
@@ -98,6 +102,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
       return false;
     }
 
+    fprintf(stderr, "got output param '%s' -> '%s'\n", pn, pv);
     _curParam = pv;
   }
 
@@ -179,16 +184,15 @@ merylCommandBuilder::processWord(char const *rawWord) {
   if (_curClass != opClass::clNone) {   //  If we already have a class/pname set, we're waiting
     if ((isInOut()  == false) &&        //  for another argument for a previous word - usually
         (isAssign() == false) &&        //  an input or output path - so take care of it now.
-        (isSelect() == false) &&        //  If nobody returns true, then we have failed to
-        (isInput()  == false))          //  parse an expected parameter.
+        (isSelect() == false))          //  Bare inputs are handled in isInput() well below.
       fprintf(stderr, "Failed to decode second word '%s'.\n", rawWord);
     goto finishWord;
   }
 
 #warning o:stats and o:histo need special case here when no file is supplied
 
-  if (isInput() == true)                //  Handle merylDBs, canu seqStores and sequence
-    goto finishWord;                    //  files.  This MUST come after _curClass != clNone!
+  //if (isInput() == true)                //  Handle merylDBs, canu seqStores and sequence
+  //  goto finishWord;                    //  files.  This MUST come after _curClass != clNone!
 
   if ((isAlias() == true) ||            //  Handle aliases and count operations.  Ideally,
       (isCount() == true))              //  these are only encountered with a completely empty
@@ -201,6 +205,9 @@ merylCommandBuilder::processWord(char const *rawWord) {
       fprintf(stderr, "Failed to parse decoded word '%s'.\n", rawWord);
     goto finishWord;
   }
+
+  if ((isInput() == true))              //  This is last so that files such as 'o:d' are
+    goto finishWord;                    //  treated as a parameter instead of an input.
 
   sprintf(_errors, "Can't interpret '%s': not a meryl command, option, or recognized input file.", rawWord);
 

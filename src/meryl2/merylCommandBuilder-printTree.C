@@ -69,7 +69,7 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 tID, uint32 iID, uint
 
   if (op->_outDbseName  != nullptr)   fprintf(stderr, "%*s|-> meryl database '%s'\n",    indent+3, "", op->_outDbseName);
   if (op->_outListName  != nullptr)   fprintf(stderr, "%*s|-> text list '%s'%s\n",       indent+3, "", op->_outListName, (op->_outList == nullptr) ? "" : " (parallel mode)");
-  if (op->_outShowName  != nullptr)   fprintf(stderr, "%*s|-> text list\n",              indent+3, "", op->_outShowName);
+  if (op->_outShowName  != nullptr)   fprintf(stderr, "%*s|-> text list (STDOUT)\n",     indent+3, "");
   if (op->_outPipeName  != nullptr)   fprintf(stderr, "%*s|-> meryl pipe '%s'\n",        indent+3, "", op->_outPipeName);
   if (op->_outStatsName != nullptr)   fprintf(stderr, "%*s|-> statistics report '%s'\n", indent+3, "", op->_outStatsName);
   if (op->_outHistoName != nullptr)   fprintf(stderr, "%*s|-> histogram report '%s'\n",  indent+3, "", op->_outHistoName);
@@ -205,15 +205,15 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 tID, uint32 iID, uint
     }
 
     if (in->isFromDatabase() == true) {
-      fprintf(stderr, "%*s|<- INPUT @%u: meryl database '%s'\n", indent+3, "", ii+1, in->name());
+      fprintf(stderr, "%*s|<- INPUT @%u: meryl database '%s'\n", indent+3, "", ii+1, in->inputName());
     }
 
     if (in->isFromSequence() == true) {
-      fprintf(stderr, "%*s|<- INPUT @%u: sequence file '%s'%s\n", indent+3, "", ii+1, in->name(), in->_homopolyCompress ? " (homopoly compressed)" : "");
+      fprintf(stderr, "%*s|<- INPUT @%u: sequence file '%s'%s\n", indent+3, "", ii+1, in->inputName(), in->_squish ? " (homopoly compressed)" : "");
     }
 
     if (in->isFromStore() == true) {
-      fprintf(stderr, "%*s|<- INPUT @%u: Canu sqStore '%s' (using reads %u through %u)\n", indent+3, "", ii+1, in->name(), in->_sqBgn, in->_sqEnd);
+      fprintf(stderr, "%*s|<- INPUT @%u: Canu sqStore '%s' (using reads %u through %u)\n", indent+3, "", ii+1, in->inputName(), in->_sqBgn, in->_sqEnd);
     }
   }
 

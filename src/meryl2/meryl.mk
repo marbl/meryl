@@ -12,6 +12,7 @@ SOURCES  := meryl.C \
             merylCountArray.C \
             merylGlobals.C \
             merylInput.C \
+            merylInput-canu.C \
             merylSelector.C \
             merylOp-count-memorySize.C \
             merylOp-count.C \

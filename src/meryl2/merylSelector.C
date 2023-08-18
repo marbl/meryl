@@ -161,7 +161,7 @@ merylSelector::finalizeSelectorInputs(merylOpTemplate *mot, std::vector<char con
       sprintf(err, "ERROR: selector '%s' invalid; exactly one input required but %u supplied.\n", _str, nInputs);
 
     if ((nInputs > 0) &&
-        (mot->_inputs[0]->_stream == nullptr))
+        (mot->_inputs[0]->_db == nullptr))
       sprintf(err, "ERROR: selector '%s' invalid; database input expected, but type '%s' supplied.\n", _str, mot->_inputs[0]->inputType());
 
     if ((mot->_valueAssign   != merylAssignValue::valueFirst) ||
@@ -251,9 +251,9 @@ merylSelector::finalizeSelectorParameters(merylOpTemplate *mot) {
     return;
   
   assert(mot->_inputs.size() == 1);
-  assert(mot->_inputs[0]->_stream != nullptr);
+  assert(mot->_inputs[0]->_db != nullptr);
 
-  merylFileReader         *input = mot->_inputs[0]->_stream;
+  merylFileReader         *input = mot->_inputs[0]->_db;
   merylHistogram          *stats = input->stats();   //  Calls input->loadStatistics().
   merylHistogramIterator  *histo = new merylHistogramIterator(stats);
 
@@ -263,7 +263,7 @@ merylSelector::finalizeSelectorParameters(merylOpTemplate *mot) {
 
     if (verbose)
       fprintf(stderr, "finalizeSelectorParameters()-- database '%s' has %lu distinct kmers -> target %lu kmers\n",
-              mot->_inputs[0]->_stream->filename(), stats->numDistinct(), nKmersTarget);
+              mot->_inputs[0]->_db->filename(), stats->numDistinct(), nKmersTarget);
 
     for (uint64 ii=0; ii<histo->histogramLength(); ii++) {
       nKmers += histo->histogramOccurrences(ii);
@@ -285,7 +285,7 @@ merylSelector::finalizeSelectorParameters(merylOpTemplate *mot) {
   if (_vValue2WordFreq >= 0) {
     if (verbose)
       fprintf(stderr, "finalizeSelectorParameters()-- database '%s' has %lu total kmers\n",
-              mot->_inputs[0]->_stream->filename(), stats->numTotal());
+              mot->_inputs[0]->_db->filename(), stats->numTotal());
 
     _vValue2 = _vValue2WordFreq * stats->numTotal();
 

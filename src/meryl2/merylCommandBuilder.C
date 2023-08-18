@@ -68,7 +68,7 @@ merylCommandBuilder::addNewOperation(void) {
 
   //  Finally, push 'nop' onto the stack as a child of the current operation.
 
-  eop->addInputFromOp(nop, _errors);
+  eop->addInput(new merylInput(nop));
 
   if (globals.showConstruction() == true)
     fprintf(stderr, "addOperation()- Add new operation to stack at position %ld.\n",
@@ -279,7 +279,6 @@ merylCommandBuilder::displayTreesAndErrors(void) {
     return false;
 
   fprintf(stderr, "Errors detected in the action tree%s:\n", (numTrees() == 1) ? "" : "s");
-  fprintf(stderr, "\n");
 
   for (uint32 ii=0; ii<numErrors(); ii++)
     if (getErrors()[ii] != nullptr)

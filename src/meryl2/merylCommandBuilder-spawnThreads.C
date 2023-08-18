@@ -25,27 +25,6 @@
 
 
 void
-merylOpCompute::addSliceInputFromDB(char const *dbName, uint32 slice) {
-  _inputs.push_back(new merylInput(new merylFileReader(dbName, slice)));
-}
-
-void
-merylOpCompute::addSliceInputFromList(char const *listName, uint32 slice) {
-}
-
-void
-merylOpCompute::addSliceInputFromPipe(char const *pipeName, uint32 slice) {
-}
-
-void
-merylOpCompute::addSliceInputFromOp(merylOpCompute *ocin) {
-  _inputs.push_back(new merylInput(ocin));
-}
-
-
-
-
-void
 merylOpCompute::addSliceOutput(merylFileWriter *outDbse, uint32 slice) {
   if (outDbse) {
     _outDbseSlice = outDbse->getStreamWriter(slice);
@@ -96,7 +75,7 @@ merylOpCompute::addSliceLister(opPname which, char const *name, compressedFileWr
 }
 
 
-merylHistogram *
+void
 merylOpCompute::addSliceStatistics(merylOpTemplate *ot, uint32 slice) {
   if ((ot->_outStats != nullptr) ||
       (ot->_outHisto != nullptr))
@@ -168,15 +147,17 @@ merylCommandBuilder::spawnThreads(uint32 allowedThreads) {
           if (inidx == UINT32_MAX)
             fprintf(stderr, "Failed to find corresponding operation.\n"), exit(1);
 
-          cpu->addSliceInputFromOp(_thList[ss][inidx]);
+          cpu->addSliceInput(new merylInput(_thList[ss][inidx]));
         }
 
         //  If the template input is from a database, make a new input for
-        //  just the piece we're processing in this thread - this is done in
-        //  addInputFromDB().
+        //  just the piece we're processing in this thread.
         //
         if (in->isFromDatabase() == true) {
-          cpu->addSliceInputFromDB(in->name(), ss);
+          merylFileReader  *r = new merylFileReader(in->inputName(), ss);
+          merylInput       *i = new merylInput(r);
+
+          cpu->addSliceInput(i);
         }
 
         //  If the template input is from anything else, it's an error.

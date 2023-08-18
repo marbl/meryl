@@ -26,91 +26,91 @@ main(int argc, char **argv) {
 
   //  True cases: <opt> is a prefix of <pat> and the separator matches.
 
-  assert(matchToken("output:",  optout, "output:") == true);   assert(*optout == 0);
-  assert(matchToken("out:",     optout, "output:") == true);   assert(*optout == 0);
-  assert(matchToken("o:",       optout, "output:") == true);   assert(*optout == 0);
+  assert(matchToken("output:",  optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("out:",     optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("o:",       optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
 
-  assert(matchToken("output:b", optout, "output:") == true);   assert(strcmp(optout, "b") == 0);
-  assert(matchToken("out:b",    optout, "output:") == true);   assert(strcmp(optout, "b") == 0);
-  assert(matchToken("o:b",      optout, "output:") == true);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("output:b", optout, "output:") == true);   assert(optout != nullptr);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("out:b",    optout, "output:") == true);   assert(optout != nullptr);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("o:b",      optout, "output:") == true);   assert(optout != nullptr);   assert(strcmp(optout, "b") == 0);
 
-  assert(matchToken("output=",  optout, "output=") == true);   assert(*optout == 0);
-  assert(matchToken("out=",     optout, "output=") == true);   assert(*optout == 0);
-  assert(matchToken("o=",       optout, "output=") == true);   assert(*optout == 0);
+  assert(matchToken("output=",  optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("out=",     optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("o=",       optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
 
-  assert(matchToken("output=b", optout, "output=") == true);   assert(strcmp(optout, "b") == 0);
-  assert(matchToken("out=b",    optout, "output=") == true);   assert(strcmp(optout, "b") == 0);
-  assert(matchToken("o=b",      optout, "output=") == true);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("output=b", optout, "output=") == true);   assert(optout != nullptr);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("out=b",    optout, "output=") == true);   assert(optout != nullptr);   assert(strcmp(optout, "b") == 0);
+  assert(matchToken("o=b",      optout, "output=") == true);   assert(optout != nullptr);   assert(strcmp(optout, "b") == 0);
 
   //  True cases: opt does not end with a separator.
 
-  assert(matchToken("output", optout, "output:") == true);   assert(optout == nullptr);
-  assert(matchToken("out",    optout, "output:") == true);   assert(optout == nullptr);
-  assert(matchToken("o",      optout, "output:") == true);   assert(optout == nullptr);
+  assert(matchToken("output", optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("out",    optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("o",      optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
 
-  assert(matchToken("output", optout, "output=") == true);   assert(optout == nullptr);
-  assert(matchToken("out",    optout, "output=") == true);   assert(optout == nullptr);
-  assert(matchToken("o",      optout, "output=") == true);   assert(optout == nullptr);
+  assert(matchToken("output", optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("out",    optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("o",      optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
 
-  assert(matchToken("output", optout, "output")  == true);   assert(optout == nullptr);
-  assert(matchToken("out",    optout, "output")  == true);   assert(optout == nullptr);
-  assert(matchToken("o",      optout, "output")  == true);   assert(optout == nullptr);
+  assert(matchToken("output", optout, "output")  == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("out",    optout, "output")  == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("o",      optout, "output")  == true);   assert(optout != nullptr);   assert(optout[0] == 0);
 
   //  False cases: opt ends with a separator and pat does not.
 
-  assert(matchToken("output:",  optout, "output") == false);
-  assert(matchToken("out:",     optout, "output") == false);
-  assert(matchToken("o:",       optout, "output") == false);
+  assert(matchToken("output:",  optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("out:",     optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("o:",       optout, "output") == false);   assert(optout == nullptr);
 
-  assert(matchToken("output:b", optout, "output") == false);
-  assert(matchToken("out:b",    optout, "output") == false);
-  assert(matchToken("o:b",      optout, "output") == false);
+  assert(matchToken("output:b", optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("out:b",    optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("o:b",      optout, "output") == false);   assert(optout == nullptr);
 
-  assert(matchToken("output=",  optout, "output") == false);
-  assert(matchToken("out=",     optout, "output") == false);
-  assert(matchToken("o=",       optout, "output") == false);
+  assert(matchToken("output=",  optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("out=",     optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("o=",       optout, "output") == false);   assert(optout == nullptr);
 
-  assert(matchToken("output=b", optout, "output") == false);
-  assert(matchToken("out=b",    optout, "output") == false);
-  assert(matchToken("o=b",      optout, "output") == false);
+  assert(matchToken("output=b", optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("out=b",    optout, "output") == false);   assert(optout == nullptr);
+  assert(matchToken("o=b",      optout, "output") == false);   assert(optout == nullptr);
 
   //  False cases: opt is not a prefix of pat.
 
-  assert(matchToken("outwit",   optout, "output:") == false);
-  assert(matchToken("outwit:",  optout, "output:") == false);
-  assert(matchToken("outwit=",  optout, "output:") == false);
-  assert(matchToken("outwit:a", optout, "output:") == false);
-  assert(matchToken("outwit=a", optout, "output:") == false);
+  assert(matchToken("outwit",   optout, "output:") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit:",  optout, "output:") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit=",  optout, "output:") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit:a", optout, "output:") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit=a", optout, "output:") == false);   assert(optout == nullptr);
 
-  assert(matchToken("outwit",   optout, "output=") == false);
-  assert(matchToken("outwit:",  optout, "output=") == false);
-  assert(matchToken("outwit=",  optout, "output=") == false);
-  assert(matchToken("outwit:a", optout, "output=") == false);
-  assert(matchToken("outwit=a", optout, "output=") == false);
+  assert(matchToken("outwit",   optout, "output=") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit:",  optout, "output=") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit=",  optout, "output=") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit:a", optout, "output=") == false);   assert(optout == nullptr);
+  assert(matchToken("outwit=a", optout, "output=") == false);   assert(optout == nullptr);
 
-  assert(matchToken("outwit",   optout, "output") == false);
-  assert(matchToken("outwit:",  optout, "output") == false);
-  assert(matchToken("outwit=",  optout, "output") == false);
-  assert(matchToken("outwit:a", optout, "output") == false);
-  assert(matchToken("outwit=a", optout, "output") == false);
+  assert(matchToken("outwit",   optout, "output")  == false);   assert(optout == nullptr);
+  assert(matchToken("outwit:",  optout, "output")  == false);   assert(optout == nullptr);
+  assert(matchToken("outwit=",  optout, "output")  == false);   assert(optout == nullptr);
+  assert(matchToken("outwit:a", optout, "output")  == false);   assert(optout == nullptr);
+  assert(matchToken("outwit=a", optout, "output")  == false);   assert(optout == nullptr);
 
   //  Exact cases.
 
-  assert(matchToken("output",    optout, "output:", true) == true);   assert( optout == nullptr);
-  assert(matchToken("output:b",  optout, "output:", true) == true);   assert(*optout == 'b');
+  assert(matchToken("output",    optout, "output:", true) == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("output:b",  optout, "output:", true) == true);   assert(optout != nullptr);   assert(optout[0] == 'b');
   assert(matchToken("out",       optout, "output:", true) == false);
   assert(matchToken("out:b",     optout, "output:", true) == false);
 
-  assert(matchToken("output",    optout, "output",  true) == true);   assert( optout == nullptr);
-  assert(matchToken("output:b",  optout, "output",  true) == false);
-  assert(matchToken("out",       optout, "output",  true) == false);
-  assert(matchToken("out:b",     optout, "output",  true) == false);
+  assert(matchToken("output",    optout, "output",  true) == true);    assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("output:b",  optout, "output",  true) == false);   assert(optout == nullptr);
+  assert(matchToken("out",       optout, "output",  true) == false);   assert(optout == nullptr);
+  assert(matchToken("out:b",     optout, "output",  true) == false);   assert(optout == nullptr);
 
-  assert(matchToken("outwit:b",  optout, "output:", true) == false);
-  assert(matchToken("outwit",    optout, "output:", true) == false);
+  assert(matchToken("outwit:b",  optout, "output:", true) == false);   assert(optout == nullptr);
+  assert(matchToken("outwit",    optout, "output:", true) == false);   assert(optout == nullptr);
 
-  assert(matchToken("outwit:b",  optout, "output",  true) == false);
-  assert(matchToken("outwit",    optout, "output",  true) == false);
+  assert(matchToken("outwit:b",  optout, "output",  true) == false);   assert(optout == nullptr);
+  assert(matchToken("outwit",    optout, "output",  true) == false);   assert(optout == nullptr);
 
   //  Let the user try to break it.
 

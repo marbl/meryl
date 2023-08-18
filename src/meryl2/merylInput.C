@@ -19,102 +19,151 @@
 #include "meryl.H"
 
 
+merylInput::~merylInput() {
 
-merylInput::merylInput(merylOpTemplate *ot) {
-  _template = ot;
+  //lete _template;    //  We do not own this.
+  delete _action;
+  //lete _pipe;
+  delete _db;
+  delete _list;
+  delete _sequence;
+  delete _store;
+  delete _read;
+
+  delete _templateName;
+  delete _actionName;
+  delete _pipeName;
+  delete _dbName;
+  delete _listName;
+  delete _sequenceName;
+  delete _storeName;
 }
 
+//  Lazy creation of input sources.  Save whatever is given to us
+//  so we can open the input after we've verified the action tree
+//  is sane.
 
-
-merylInput::merylInput(merylOpCompute *oc) {
-  _compute = oc;
-  //_valid   = true;
+bool
+merylInput::registerTemplate(merylOpTemplate *t, std::vector<char const *> &err, bool displayErrors) {
+  _type = merylInputType::inTemplate;
+  _template = t;
+  return true;
 }
 
-
-
-merylInput::merylInput(merylFileReader *s/*, uint32 slice*/) {
-  _stream = s;
-  //_valid  = true;
-
-  //if (slice != uint32max)
-  //  _stream->enableThreads(slice);
-
-  //  Grab the first kmer from the input.  Without this
-  //  merylOpCompute::nextMer() doesn't load any data - the active list is
-  //  empty and no inputs get refreshed.
-  //
-  //nextMer();
+bool
+merylInput::registerAction(merylOpCompute *a, std::vector<char const *> &err, bool displayErrors) {
+  _type = merylInputType::inAction;
+  _action = a;
+  return true;
 }
 
+bool
+merylInput::registerActionPipe(char const *name, std::vector<char const *> &err, bool displayErrors) {
+  _type = merylInputType::inPipe;
+  _pipeName = duplicateString(name);
+  return true;
+}
 
+bool
+merylInput::registerMerylDB(char const *path, std::vector<char const *> &err, bool displayErrors) {
+  if (isMerylDatabase(path) == false) {
+    if (displayErrors)
+      sprintf(err, "'%s' does not appear to be a meryl database\n", path);
+    return false;
+  }
+  _type = merylInputType::inDB;
+  _dbName = duplicateString(path);
+  return true;
+}
 
-merylInput::merylInput(dnaSeqFile *f, bool doCompression) {
-  _sequence         = f;
+bool
+merylInput::registerMerylList(char const *file, std::vector<char const *> &err, bool displayErrors) {
+  if (fileExists(file) == false) {
+    if (displayErrors)
+      sprintf(err, "list file '%s' does not exist\n", file);
+    return false;
+  }
+  _type = merylInputType::inList;
+  _listName = duplicateString(file);
+  return true;
+}
 
-  _homopolyCompress = doCompression;
+bool
+merylInput::registerSeqFile(char const *file, bool doCompression, std::vector<char const *> &err, bool displayErrors) {
+  if (fileExists(file) == false) {
+    if (displayErrors)
+      sprintf(err, "sequence file '%s' does not exist\n", file);
+    return false;
+  }
+  _type = merylInputType::inSequence;
+  _sequenceName = duplicateString(file);
+  _squish       = doCompression;
+  return true;
+}
+
+bool
+merylInput::registerSeqStore(char const *path, uint32 seg, uint32 segMax, std::vector<char const *> &err, bool displayErrors) {
+  if (isCanuSeqStore(path) == false) {
+    if (displayErrors)
+      sprintf(err, "'%s' does not appear to be a Canu seqStore\n", path);
+    return false;
+  }
+  _type = merylInputType::inCanu;
+  _storeName   = duplicateString(path);
+  _storeSeg    = seg;
+  _storeSegMax = segMax;
+  return true;
 }
 
 
 
 #ifndef CANU
 
-merylInput::merylInput(sqStore *s, uint32 segment, uint32 segmentMax) {
-}
+void
+merylInput::openInputSeqStore(void) {}
 
-#else
-
-merylInput::merylInput(sqStore *s, uint32 segment, uint32 segmentMax) {
-  _store            = s;
-
-  _sqBgn            = 1;                                  //  C-style, not the usual
-  _sqEnd            = _store->sqStore_lastReadID() + 1;   //  sqStore semantics!
-
-  if (segmentMax > 1) {
-    uint64  nBases = 0;
-
-    for (uint32 ss=1; ss <= _store->sqStore_lastReadID(); ss++)
-      nBases += _store->sqStore_getReadLength(ss);
-
-    uint64  nBasesPerSeg = nBases / segmentMax;
-
-    _sqBgn = 0;
-    _sqEnd = 0;
-
-    nBases = 0;
-
-    for (uint32 ss=1; ss <= _store->sqStore_lastReadID(); ss++) {
-      nBases += _store->sqStore_getReadLength(ss);
-
-      if ((_sqBgn == 0) && ((nBases / nBasesPerSeg) == segment - 1))
-        _sqBgn = ss;
-
-      if ((_sqEnd == 0) && ((nBases / nBasesPerSeg) == segment))
-        _sqEnd = ss;
-    }
-
-    if (segment == segmentMax)                      //  Annoying special case; if the last segment,
-      _sqEnd = _store->sqStore_lastReadID() + 1;    //  sqEnd is set to the last read, not N+1.
-
-    fprintf(stderr, "merylInput-- segment %u/%u picked reads %u-%u out of %u\n",
-            segment, segmentMax, _sqBgn, _sqEnd, _store->sqStore_lastReadID());
-  }
-
-  _read        = new sqRead;
-  _readID      = _sqBgn - 1;       //  Incremented before loading the first read
-  _readPos     = uint32max;
-}
+bool
+merylInput::loadBasesFromCanu(char    *seq,
+                              uint64   maxLength,
+                              uint64  &seqLength,
+                              bool    &endOfSequence)  { return(false); }
 
 #endif
 
 
+void
+merylInput::openInput(void) {
 
-merylInput::~merylInput() {
-  delete _stream;
-  delete _compute;
-  delete _sequence;
-  delete _store;
-  delete _read;
+  switch (_type) {
+    case merylInputType::inNowhere:
+      assert(0);
+      break;
+    case merylInputType::inTemplate:
+      //  Do nothing.
+      break;
+    case merylInputType::inAction:
+      //  Do nothing.
+      break;
+    case merylInputType::inPipe:
+#warning not opening pipe inputs
+      break;
+    case merylInputType::inDB:
+      _db = new merylFileReader(_dbName);
+      break;
+    case merylInputType::inList:
+#warning not opening list inputs
+      assert(0);
+      break;
+    case merylInputType::inSequence:
+      _sequence = new dnaSeqFile(_sequenceName);
+      break;
+    case merylInputType::inCanu:
+      openInputSeqStore();
+      break;
+    default:
+      assert(0);
+      break;
+  }
 }
 
 
@@ -122,116 +171,16 @@ merylInput::~merylInput() {
 void
 merylInput::nextMer(void) {
 
-  if (_stream) {
-    _valid = _stream->nextMer();
-    _kmer  = _stream->theFMer();
+  if (_db) {
+    _valid = _db->nextMer();
+    _kmer  = _db->theFMer();
   }
 
-  if (_compute) {
-    _valid = _compute->nextMer();
-    _kmer  = _compute->theFMer();
+  if (_action) {
+    _valid = _action->nextMer();
+    _kmer  = _action->theFMer();
   }
 }
-
-
-
-char const *
-merylInput::name(void) {
-
-  if (isFromTemplate() == true) {
-    return("no name template");
-  }
-
-  if (isFromOperation() == true) {
-    return("no name compute");
-  }
-
-  if (isFromDatabase() == true) {
-    return(_stream->filename());
-  }
-
-  if (isFromSequence() == true) {
-    return(_sequence->filename());
-  }
-
-#ifdef CANU
-  if (isFromStore() == true) {
-    return(_store->sqStore_path());
-  }
-#endif
-
-  return("no name joe");
-}
-
-
-
-
-
-#ifndef CANU
-
-bool
-merylInput::loadBasesFromCanu(char    *seq,
-                              uint64   maxLength,
-                              uint64  &seqLength,
-                              bool    &endOfSequence) {
-  return(false);
-}
-
-#else
-
-bool
-merylInput::loadBasesFromCanu(char    *seq,
-                              uint64   maxLength,
-                              uint64  &seqLength,
-                              bool    &endOfSequence) {
-
-  //  If no read currently loaded, load one, or return that we're done.
-  //  We need to loop so we can ignore the length zero reads in seqStore
-  //  that exist after correction/trimming.
-
-  while (_readPos >= _read->sqRead_length()) {
-    _readID++;
-
-    if (_readID >= _sqEnd)  //  C-style iteration, not usual sqStore semantics.
-      return(false);
-
-    _store->sqStore_getRead(_readID, _read);
-    _readPos = 0;
-  }
-
-  //  How much of the read is left to return?
-
-  uint32  len = _read->sqRead_length() - _readPos;
-
-  assert(len > 0);
-
-  //  If the output space is big enough to hold the rest of the read, copy it,
-  //  flagging it as the end of a sequence, and setup to load the next read.
-
-  if (len <= maxLength) {
-    memcpy(seq, _read->sqRead_sequence() + _readPos, sizeof(char) * len);
-
-    _readPos       = _read->sqRead_length();
-
-    seqLength      = len;
-    endOfSequence  = true;
-  }
-
-  //  Otherwise, only part of the data will fit in the output space.
-
-  else {
-    memcpy(seq, _read->sqRead_sequence() + _readPos, sizeof(char) * maxLength);
-
-    _readPos      += maxLength;
-
-    seqLength      = maxLength;
-    endOfSequence  = false;
-  }
-
-  return(true);
-}
-
-#endif
 
 
 
@@ -245,13 +194,11 @@ merylInput::loadBases(char    *seq,
   seqLength     = 0;
   endOfSequence = true;
 
-  if (_stream)      gotBases = false;
-  if (_compute)     gotBases = false;
   if (_sequence)    gotBases = _sequence->loadBases(seq, maxLength, seqLength, endOfSequence);
   if (_store)       gotBases = loadBasesFromCanu(seq, maxLength, seqLength, endOfSequence);
 
   //  Homopoly compress if there are bases.
-  if ((gotBases) && (_homopolyCompress))
+  if ((gotBases) && (_squish))
     seqLength = homopolyCompress(seq, seqLength, seq, NULL, _lastByte);
 
   //  Save the last byte of the buffer.

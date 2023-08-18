@@ -23,8 +23,6 @@
 merylOpCompute::merylOpCompute(merylOpTemplate *ot, uint32 dbSlice, uint32 nInputs) {
   _ot            = ot;
 
-  _inputSlice    = dbSlice;
-
   //  Allocate space for the active list, or use our built in space.  This
   //  _might_ be solving a performance bottleneck, though benchmarks seem to
   //  show no change between using _acts and heap allocated space.

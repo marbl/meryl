@@ -60,7 +60,7 @@ merylOpCounting::countSimple(std::vector<merylInput *> &inputs,
   //  Load bases, count!
 
   for (uint32 ii=0; ii<inputs.size(); ii++) {
-    fprintf(stderr, "Loading kmers from '%s' into buckets.\n", inputs[ii]->name());
+    fprintf(stderr, "Loading kmers from '%s' into buckets.\n", inputs[ii]->inputName());
 
     while (inputs[ii]->loadBases(buffer, bufferMax, bufferLen, endOfSeq)) {
       if (bufferLen == 0)

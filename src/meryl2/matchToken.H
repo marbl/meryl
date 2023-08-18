@@ -24,12 +24,13 @@
 //  Returns true if <option> is a prefix of <pattrn> and the separator
 //  matches.  optout is set to the letter after the separator, e.g., <value>.
 //      opt='abc:xyz'  pat='abcde:'  ->  true, optout='xyz'
+//      opt='abc:'     pat='abcde:'  ->  true, optout=NUL
 //
 //  If opt does not end with a separator but is still a prefix of <pattrn>,
-//  true is returned and optout is set to nullptr.  pat is not required to
+//  true is returned and optout is set to NUL.  pat is not required to
 //  end with a separator.
-//      opt='abc'      pat='abcde:'  ->  true, optout=nullptr
-//      opt='abc'      pat='abcde'   ->  true, optout=nullptr
+//      opt='abc'      pat='abcde:'  ->  true, optout=NUL
+//      opt='abc'      pat='abcde'   ->  true, optout=NUL
 //
 //  If pat does not end with a separator, opt must also not end with a
 //  separator.
@@ -64,6 +65,8 @@ matchToken(char const *opt, char const *&optout, char const *pat, bool exact=fal
 
   if (*opt)                                                  //  If a sep, return
     optout = opt + 1;                                        //  the next letter.
+  else
+    optout = opt;
 
   return true;
 }

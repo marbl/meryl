@@ -54,14 +54,9 @@ public:
   ~merylOpTemplate();
 
 public:
-  void    addInputFromDB  (char const      *dbName,    std::vector<char const *> &err);
-  void    addInputFromList(char const      *listName,  std::vector<char const *> &err);
-  void    addInputFromPipe(char const      *pipeName,  std::vector<char const *> &err);
-  void    addInputFromOp  (merylOpTemplate *operation, std::vector<char const *> &err);
-
-  void    addInputFromSeq (char const *sqName, bool doCompression, std::vector<char const *> &err);
-  void    addInputFromCanu(char const *stName, uint32 segment, uint32 segmentMax, std::vector<char const *> &err);
-
+  void    addInput(merylInput *in) {;
+    _inputs.push_back(in);
+  }
 
   void    addOutputToDB  (char const *wrName,                 std::vector<char const *> &err);
   void    addOutputToList(char const *prName, bool ACGTorder, std::vector<char const *> &err);
@@ -69,6 +64,9 @@ public:
 
   void    addStatsOutput (char const *hiName,                 std::vector<char const *> &err);
   void    addHistoOutput (char const *hiName,                 std::vector<char const *> &err);
+
+public:
+  bool    acceptsSequenceInputs(void)  { return _type == merylOpType::opCounting; };
 
 public:
   void    finalizeTemplateInputs(std::vector<char const *> &err);

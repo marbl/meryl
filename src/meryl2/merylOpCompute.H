@@ -68,14 +68,13 @@ private:
   //  Methods to set up this operations.
   //
 public:
-  void                  addSliceInputFromDB  (char const *dbName,   uint32 slice);
-  void                  addSliceInputFromList(char const *listName, uint32 slice);
-  void                  addSliceInputFromPipe(char const *pipeName, uint32 slice);
-  void                  addSliceInputFromOp  (merylOpCompute *operation);
+  void                  addSliceInput(merylInput *i) {
+    _inputs.push_back(i);
+  }
 
   void                  addSliceOutput    (merylFileWriter *outDbse, uint32 slice);
   void                  addSliceLister    (opPname which, char const *listName, compressedFileWriter *list, uint32 slice);
-  merylHistogram       *addSliceStatistics(merylOpTemplate *ot, uint32 slice);
+  void                  addSliceStatistics(merylOpTemplate *ot, uint32 slice);
 
   //
   //  Pointer back to the template, so we can get other useful bits instead
@@ -91,7 +90,6 @@ public:
   //
 
   std::vector<merylInput *>      _inputs;
-  uint32                         _inputSlice = 0;
 
   //
   //  Per-slice ANALYSES.

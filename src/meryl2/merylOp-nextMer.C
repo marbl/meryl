@@ -133,13 +133,13 @@ merylOpCompute::shouldKmerBeOutput(void) {
   //  Looking at user time for a run with three product terms, the first two
   //  with one selector, the last with N selectors:
   //
-  //    SWITCH  FOR-LOOP  DIFF        time \
-  //    ------  --------  ----        /work/meryl-redo/build/bin/meryl -Q \
-  //     55.22     59.44  4.22          label:eq:9 \
-  //     58.58     62.14  3.56            or \
-  //     62.73     66.25  3.52          label:eq:9 \
-  //     67.59     71.17  3.58            or \
-  //     72.99     74.77  1.78          value:ge:0 value:ge:0 value:ge:100000 \
+  //    SWITCH  FOR-LOOP  DIFF        time
+  //    ------  --------  ----        /work/meryl-redo/build/bin/meryl -Q
+  //     55.22     59.44  4.22          label:eq:9
+  //     58.58     62.14  3.56            or
+  //     62.73     66.25  3.52          label:eq:9
+  //     67.59     71.17  3.58            or
+  //     72.99     74.77  1.78          value:ge:0 value:ge:0 value:ge:100000
   //     77.57     78.31  0.74          fArcCen1.k21.gt1.meryl
   //     81.55     82.36  0.81
 

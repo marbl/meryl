@@ -307,7 +307,7 @@ merylOpCounting::doCounting(std::vector<merylInput *> &inputs,
           kmerTiny::merSize(), inputs.size(), (inputs.size() == 1) ? "" : "s");
 
   for (uint32 ii=0; ii<inputs.size(); ii++)
-    fprintf(stderr, "  %15s: %s\n", inputs[ii]->inputType(), inputs[ii]->name());
+    fprintf(stderr, "  %15s: %s\n", inputs[ii]->inputType(), inputs[ii]->inputName());
 
   //
   //  Set up to use the simple algorithm.

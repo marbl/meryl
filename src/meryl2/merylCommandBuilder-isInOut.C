@@ -65,7 +65,7 @@ merylCommandBuilder::isInOut(void) {
   //  parameter, because we're completely done with it.
 
   if (fpath) {
-    if (_curClass == opClass::clOutput)
+    if (_curClass == opClass::clOutput) {
       switch (_curPname) {
         case opPname::pnDB:      op->addOutputToDB  (fpath,          _errors);  break;
         case opPname::pnList:    op->addOutputToList(fpath,   false, _errors);  break;
@@ -78,18 +78,28 @@ merylCommandBuilder::isInOut(void) {
           assert(0);
           break;
       }
+    }
 
-    if (_curClass == opClass::clInput)
+    if (_curClass == opClass::clInput) {
+      merylInput *in = new merylInput;
+      bool        sx = false;
+
       switch (_curPname) {
-        case opPname::pnDB:      op->addInputFromDB  (fpath,   _errors);   break;
-        case opPname::pnList:    op->addInputFromList(fpath,   _errors);   break;
-        case opPname::pnPipe:    op->addInputFromPipe(fpath,   _errors);   break;
-        case opPname::pnAction:  op->addInputFromOp  (nullptr, _errors);   break;
+        case opPname::pnDB:      sx = in->registerMerylDB   (fpath,   _errors);   break;
+        case opPname::pnList:    sx = in->registerMerylList (fpath,   _errors);   break;
+        case opPname::pnPipe:    sx = in->registerActionPipe(fpath,   _errors);   break;
+        //se opPname::pnAction:  sx = in->registerTemplate  (nullptr, _errors);   break;
         default:
           fprintf(stderr, "Got Pname '%s' for clInput.\n", toString(_curPname));
           assert(0);
           break;
       }
+
+      if (sx)
+        op->addInput(in);
+      else
+        delete in;
+    }
 
     _curClass = opClass::clNone;
     _curPname = opPname::pnNone;
@@ -115,27 +125,30 @@ merylCommandBuilder::isInOut(void) {
 
 bool
 merylCommandBuilder::isInput(void) {
+
+  if (_curClass != opClass::clNone)    //  This function only handles stray input
+    return false;                      //  files; all others are handled above.
+
   merylOpTemplate  *op = getCurrent();
+  merylInput       *in = new merylInput;
 
-  bool   merylInput = (fileExists(_optString, '/', "merylIndex"));
-  bool   canuInput  = (fileExists(_optString, '/', "info") &&
-                       fileExists(_optString, '/', "reads"));
-  bool   seqInput   = (fileExists(_optString));
+  bool as = op->acceptsSequenceInputs();
 
-  if      (merylInput)
-    op->addInputFromDB(_optString, _errors);
+  bool im =                  (as == false) && (in->registerMerylDB (_optString,                        _errors, false));
+  bool ic = (im == false) && (as == true)  && (in->registerSeqStore(_optString, _segment, _segmentMax, _errors, false));
+  bool is = (ic == false) && (as == true)  && (in->registerSeqFile (_optString, _doCompression,        _errors, false));
 
-  else if (canuInput)
-    op->addInputFromCanu(_optString, _segment, _segmentMax, _errors);
-
-  else if (seqInput)
-    op->addInputFromSeq(_optString, _doCompression, _errors);
-
-  else
+  if ((im == false) &&
+      (ic == false) &&
+      (is == false)) {
+    delete in;
     return false;
+  }
 
-  _segment    = 1;   //  These only apply to Canu inputs, but no harm
-  _segmentMax = 1;   //  in resetting them for every input.
+  op->addInput(in);
+
+  //_segment    = 1;   //  These only apply to Canu inputs, but no harm
+  //_segmentMax = 1;   //  in resetting them for every input.
 
   return true;
 }
