@@ -26,11 +26,24 @@
 //  to allow 'value= something'....it just looks weird.
 //
 
+void
+merylOpTemplate::setValueConstant(char const *s, merylAssignValue a, kmvalu v) {
+  _valueString   = duplicateString(s);
+  _valueAssign   = a;
+  _valueConstant = v;
+}
+
+void
+merylOpTemplate::setLabelConstant(char const *s, merylAssignLabel a, kmlabl l) {
+  _labelString   = duplicateString(s);
+  _labelAssign   = a;
+  _labelConstant = l;
+}
+
 
 bool
 merylCommandBuilder::isAssignValue(void) {
-  merylAssignValue     assign   = merylAssignValue::valueNOP;
-  kmvalu               constant = kmvalumax;
+  uint64 constant;
 
   if (_curPname != opPname::pnValue)
     return false;
@@ -39,49 +52,36 @@ merylCommandBuilder::isAssignValue(void) {
 
   //  Check for modifiers with constants at the end.
 
-  if      (strncmp(_curParam, "#", 1)           == 0)   { assign = merylAssignValue::valueSet;        constant = decodeInteger(_curParam, 1, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "min#", 4)        == 0)   { assign = merylAssignValue::valueMin;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-  else if (strncmp(_curParam, "max#", 4)        == 0)   { assign = merylAssignValue::valueMax;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "add#", 4)        == 0)   { assign = merylAssignValue::valueAdd;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-  else if (strncmp(_curParam, "sum#", 4)        == 0)   { assign = merylAssignValue::valueAdd;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "sub#", 4)        == 0)   { assign = merylAssignValue::valueSub;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-  else if (strncmp(_curParam, "dif#", 4)        == 0)   { assign = merylAssignValue::valueSub;        constant = decodeInteger(_curParam, 3, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "mul#", 4)        == 0)   { assign = merylAssignValue::valueMul;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "div#", 4)        == 0)   { assign = merylAssignValue::valueDiv;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-  else if (strncmp(_curParam, "divzero#", 8)    == 0)   { assign = merylAssignValue::valueDivZ;       constant = decodeInteger(_curParam, 8, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "mod#", 4)        == 0)   { assign = merylAssignValue::valueMod;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
-  else if (strncmp(_curParam, "rem#", 4)        == 0)   { assign = merylAssignValue::valueMod;        constant = decodeInteger(_curParam, 4, 0, constant, _errors); }
+  if      (strncmp(_curParam, "#", 1)        == 0)   getCurrent()->setValueConstant(_curParam+1, merylAssignValue::valueSet,      decodeInteger(_curParam, 1, 0, constant, _errors));
+  else if (strncmp(_curParam, "min#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueMin,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "max#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueMax,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "add#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueAdd,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "sum#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueAdd,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "sub#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueSub,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "dif#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueSub,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "mul#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueMul,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "div#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueDiv,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "divzero#", 8) == 0)   getCurrent()->setValueConstant(_curParam+8, merylAssignValue::valueDivZ,     decodeInteger(_curParam, 8, 0, constant, _errors));
+  else if (strncmp(_curParam, "mod#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueMod,      decodeInteger(_curParam, 4, 0, constant, _errors));
+  else if (strncmp(_curParam, "rem#", 4)     == 0)   getCurrent()->setValueConstant(_curParam+4, merylAssignValue::valueMod,      decodeInteger(_curParam, 4, 0, constant, _errors));
 
   //  Check for modifiers without constants.  Set the constant to whatever
   //  the identity is for the given modifier.
 
-  else if (strncmp(_curParam, "first",  6)      == 0)   { assign = merylAssignValue::valueFirst;      constant = 0;         }
-  else if (strncmp(_curParam, "selected",  9)   == 0)   { assign = merylAssignValue::valueSelected;   constant = kmvalumax; }
-
-  else if (strncmp(_curParam, "min",  4)        == 0)   { assign = merylAssignValue::valueMin;        constant = kmvalumax; }
-  else if (strncmp(_curParam, "max",  4)        == 0)   { assign = merylAssignValue::valueMax;        constant = 0;         }
-
-  else if (strncmp(_curParam, "add",  4)        == 0)   { assign = merylAssignValue::valueAdd;        constant = 0;         }
-  else if (strncmp(_curParam, "sum",  4)        == 0)   { assign = merylAssignValue::valueAdd;        constant = 0;         }
-
-  else if (strncmp(_curParam, "sub",  4)        == 0)   { assign = merylAssignValue::valueSub;        constant = 0;         }
-  else if (strncmp(_curParam, "dif",  4)        == 0)   { assign = merylAssignValue::valueSub;        constant = 0;         }
-
-  else if (strncmp(_curParam, "mul",  4)        == 0)   { assign = merylAssignValue::valueMul;        constant = 1;         }
-
-  else if (strncmp(_curParam, "div",  4)        == 0)   { assign = merylAssignValue::valueDiv;        constant = 1;         }
-  else if (strncmp(_curParam, "divzero",  8)    == 0)   { assign = merylAssignValue::valueDivZ;       constant = 1;         }
-
-  else if (strncmp(_curParam, "mod",  4)        == 0)   { assign = merylAssignValue::valueMod;        constant = 0;         }
-  else if (strncmp(_curParam, "rem",  4)        == 0)   { assign = merylAssignValue::valueMod;        constant = 0;         }
-
-  else if (strncmp(_curParam, "count",  6)      == 0)   { assign = merylAssignValue::valueCount;      constant = 0;         }
+  else if (strncmp(_curParam, "first", 6)    == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueFirst,    0);
+  else if (strncmp(_curParam, "selected", 9) == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueSelected, kmvalumax);
+  else if (strncmp(_curParam, "min", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueMin,      kmvalumax);
+  else if (strncmp(_curParam, "max", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueMax,      0);
+  else if (strncmp(_curParam, "add", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueAdd,      0);
+  else if (strncmp(_curParam, "sum", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueAdd,      0);
+  else if (strncmp(_curParam, "sub", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueSub,      0);
+  else if (strncmp(_curParam, "dif", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueSub,      0);
+  else if (strncmp(_curParam, "mul", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueMul,      1);
+  else if (strncmp(_curParam, "div", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueDiv,      1);
+  else if (strncmp(_curParam, "divzero", 8)  == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueDivZ,     1);
+  else if (strncmp(_curParam, "mod", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueMod,      0);
+  else if (strncmp(_curParam, "rem", 4)      == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueMod,      0);
+  else if (strncmp(_curParam, "count", 6)    == 0)   getCurrent()->setValueConstant(_curParam, merylAssignValue::valueCount,    0);
 
   //  Nope, don't know what this is.
 
@@ -89,9 +89,6 @@ merylCommandBuilder::isAssignValue(void) {
     sprintf(_errors, "Unknown value assign:value=<parameter> in '%s'.", _optString);
     return false;
   }
-
-  getCurrent()->_valueAssign   = assign;
-  getCurrent()->_valueConstant = constant;
 
   resetClass();
 
@@ -101,8 +98,7 @@ merylCommandBuilder::isAssignValue(void) {
 
 bool
 merylCommandBuilder::isAssignLabel(void) {
-  merylAssignLabel     assign   = merylAssignLabel::labelNOP;
-  kmlabl               constant = kmlablmax;
+  uint64 constant;
 
   if (_curPname != opPname::pnLabel)
     return false;
@@ -111,53 +107,39 @@ merylCommandBuilder::isAssignLabel(void) {
 
   //  Check for modifiers with constants at the end.
 
-  if      (strncmp(_curParam, "#", 1)              == 0)   { assign = merylAssignLabel::labelSet;          constant = decodeInteger(_curParam, 1,  0, constant, _errors); }
-
-  else if (strncmp(_curParam, "min#", 4)           == 0)   { assign = merylAssignLabel::labelMin;          constant = decodeInteger(_curParam, 4,  0, constant, _errors); }
-  else if (strncmp(_curParam, "max#", 4)           == 0)   { assign = merylAssignLabel::labelMax;          constant = decodeInteger(_curParam, 3,  0, constant, _errors); }
-
-  else if (strncmp(_curParam, "and#", 4)           == 0)   { assign = merylAssignLabel::labelAnd;          constant = decodeInteger(_curParam, 4,  0, constant, _errors); }
-  else if (strncmp(_curParam, "or#", 3)            == 0)   { assign = merylAssignLabel::labelOr;           constant = decodeInteger(_curParam, 3,  0, constant, _errors); }
-  else if (strncmp(_curParam, "xor#", 4)           == 0)   { assign = merylAssignLabel::labelXor;          constant = decodeInteger(_curParam, 4,  0, constant, _errors); }
-
-  else if (strncmp(_curParam, "difference#", 11)   == 0)   { assign = merylAssignLabel::labelDifference;   constant = decodeInteger(_curParam, 11, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "lightest#", 9)      == 0)   { assign = merylAssignLabel::labelLightest;     constant = decodeInteger(_curParam, 9,  0, constant, _errors); }
-  else if (strncmp(_curParam, "heaviest#", 9)      == 0)   { assign = merylAssignLabel::labelHeaviest;     constant = decodeInteger(_curParam, 9,  0, constant, _errors); }
-
-  else if (strncmp(_curParam, "invert#", 7)        == 0)   { assign = merylAssignLabel::labelHeaviest;     constant = decodeInteger(_curParam, 7,  0, constant, _errors); }
-
-  else if (strncmp(_curParam, "shift-left#", 11)   == 0)   { assign = merylAssignLabel::labelShiftLeft;    constant = decodeInteger(_curParam, 11, 0, constant, _errors); }
-  else if (strncmp(_curParam, "shift-right#", 12)  == 0)   { assign = merylAssignLabel::labelShiftRight;   constant = decodeInteger(_curParam, 12, 0, constant, _errors); }
-
-  else if (strncmp(_curParam, "rotate-left#", 12)  == 0)   { assign = merylAssignLabel::labelRotateLeft;   constant = decodeInteger(_curParam, 12, 0, constant, _errors); }
-  else if (strncmp(_curParam, "rotate-right#", 13) == 0)   { assign = merylAssignLabel::labelRotateRight;  constant = decodeInteger(_curParam, 13, 0, constant, _errors); }
+  if      (strncmp(_curParam, "#", 1)              == 0)   getCurrent()->setLabelConstant(_curParam+1,  merylAssignLabel::labelSet,         decodeInteger(_curParam, 1,  0, constant, _errors));
+  else if (strncmp(_curParam, "min#", 4)           == 0)   getCurrent()->setLabelConstant(_curParam+4,  merylAssignLabel::labelMin,         decodeInteger(_curParam, 4,  0, constant, _errors));
+  else if (strncmp(_curParam, "max#", 4)           == 0)   getCurrent()->setLabelConstant(_curParam+4,  merylAssignLabel::labelMax,         decodeInteger(_curParam, 4,  0, constant, _errors));
+  else if (strncmp(_curParam, "and#", 4)           == 0)   getCurrent()->setLabelConstant(_curParam+4,  merylAssignLabel::labelAnd,         decodeInteger(_curParam, 4,  0, constant, _errors));
+  else if (strncmp(_curParam, "or#", 3)            == 0)   getCurrent()->setLabelConstant(_curParam+3,  merylAssignLabel::labelOr,          decodeInteger(_curParam, 3,  0, constant, _errors));
+  else if (strncmp(_curParam, "xor#", 4)           == 0)   getCurrent()->setLabelConstant(_curParam+4,  merylAssignLabel::labelXor,         decodeInteger(_curParam, 4,  0, constant, _errors));
+  else if (strncmp(_curParam, "difference#", 11)   == 0)   getCurrent()->setLabelConstant(_curParam+11, merylAssignLabel::labelDifference,  decodeInteger(_curParam, 11, 0, constant, _errors));
+  else if (strncmp(_curParam, "lightest#", 9)      == 0)   getCurrent()->setLabelConstant(_curParam+9,  merylAssignLabel::labelLightest,    decodeInteger(_curParam, 9,  0, constant, _errors));
+  else if (strncmp(_curParam, "heaviest#", 9)      == 0)   getCurrent()->setLabelConstant(_curParam+9,  merylAssignLabel::labelHeaviest,    decodeInteger(_curParam, 9,  0, constant, _errors));
+  else if (strncmp(_curParam, "invert#", 7)        == 0)   getCurrent()->setLabelConstant(_curParam+7,  merylAssignLabel::labelHeaviest,    decodeInteger(_curParam, 7,  0, constant, _errors));
+  else if (strncmp(_curParam, "shift-left#", 11)   == 0)   getCurrent()->setLabelConstant(_curParam+11, merylAssignLabel::labelShiftLeft,   decodeInteger(_curParam, 11, 0, constant, _errors));
+  else if (strncmp(_curParam, "shift-right#", 12)  == 0)   getCurrent()->setLabelConstant(_curParam+12, merylAssignLabel::labelShiftRight,  decodeInteger(_curParam, 12, 0, constant, _errors));
+  else if (strncmp(_curParam, "rotate-left#", 12)  == 0)   getCurrent()->setLabelConstant(_curParam+12, merylAssignLabel::labelRotateLeft,  decodeInteger(_curParam, 12, 0, constant, _errors));
+  else if (strncmp(_curParam, "rotate-right#", 13) == 0)   getCurrent()->setLabelConstant(_curParam+13, merylAssignLabel::labelRotateRight, decodeInteger(_curParam, 13, 0, constant, _errors));
 
   //  Check for modifiers without constants.  Set the constant to whatever
   //  the identity is for the given modifier.
 
-  else if (strncmp(_curParam, "first", 6)          == 0)   { assign = merylAssignLabel::labelFirst;        constant = 0;          }
-  else if (strncmp(_curParam, "selected", 9)       == 0)   { assign = merylAssignLabel::labelSelected;     constant = 0;          }
-
-  else if (strncmp(_curParam, "min", 4)            == 0)   { assign = merylAssignLabel::labelMin;          constant = 0;          }
-  else if (strncmp(_curParam, "max", 4)            == 0)   { assign = merylAssignLabel::labelMax;          constant = 0;          }
-
-  else if (strncmp(_curParam, "and", 4)            == 0)   { assign = merylAssignLabel::labelAnd;          constant = kmlablmax;  }
-  else if (strncmp(_curParam, "or", 3)             == 0)   { assign = merylAssignLabel::labelOr;           constant = 0;          }
-  else if (strncmp(_curParam, "xor", 4)            == 0)   { assign = merylAssignLabel::labelXor;          constant = kmlablmax;  }
-
-  else if (strncmp(_curParam, "difference", 11)    == 0)   { assign = merylAssignLabel::labelDifference;   constant = 0;          }
-
-  else if (strncmp(_curParam, "lightest", 9)       == 0)   { assign = merylAssignLabel::labelLightest;     constant = kmlablmax;  }
-  else if (strncmp(_curParam, "heaviest", 9)       == 0)   { assign = merylAssignLabel::labelHeaviest;     constant = 0;          }
-
-  else if (strncmp(_curParam, "invert", 7)         == 0)   { assign = merylAssignLabel::labelHeaviest;     constant = kmlablmax;  }
-
-  else if (strncmp(_curParam, "shift-left", 11)    == 0)   { assign = merylAssignLabel::labelShiftLeft;    constant = 1;          }
-  else if (strncmp(_curParam, "shift-right", 12)   == 0)   { assign = merylAssignLabel::labelShiftRight;   constant = 1;          }
-
-  else if (strncmp(_curParam, "rotate-left", 12)   == 0)   { assign = merylAssignLabel::labelRotateLeft;   constant = 1;          }
-  else if (strncmp(_curParam, "rotate-right", 13)  == 0)   { assign = merylAssignLabel::labelRotateRight;  constant = 1;          }
+  else if (strncmp(_curParam, "first", 6)         == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelFirst,       0);
+  else if (strncmp(_curParam, "selected", 9)      == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelSelected,    0);
+  else if (strncmp(_curParam, "min", 4)           == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelMin,         0);
+  else if (strncmp(_curParam, "max", 4)           == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelMax,         0);
+  else if (strncmp(_curParam, "and", 4)           == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelAnd,         kmlablmax);
+  else if (strncmp(_curParam, "or", 3)            == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelOr,          0);
+  else if (strncmp(_curParam, "xor", 4)           == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelXor,         kmlablmax);
+  else if (strncmp(_curParam, "difference", 11)   == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelDifference,  0);
+  else if (strncmp(_curParam, "lightest", 9)      == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelLightest,    kmlablmax);
+  else if (strncmp(_curParam, "heaviest", 9)      == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelHeaviest,    0);
+  else if (strncmp(_curParam, "invert", 7)        == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelHeaviest,    kmlablmax);
+  else if (strncmp(_curParam, "shift-left", 11)   == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelShiftLeft,   1);
+  else if (strncmp(_curParam, "shift-right", 12)  == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelShiftRight,  1);
+  else if (strncmp(_curParam, "rotate-left", 12)  == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelRotateLeft,  1);
+  else if (strncmp(_curParam, "rotate-right", 13) == 0)   getCurrent()->setLabelConstant(_curParam, merylAssignLabel::labelRotateRight, 1);
 
   //  Nope, don't know what this is.
 
@@ -165,9 +147,6 @@ merylCommandBuilder::isAssignLabel(void) {
     sprintf(_errors, "Unknown value assign:label=<parameter> in '%s'.", _optString);
     return false;
   }
-
-  getCurrent()->_labelAssign   = assign;
-  getCurrent()->_labelConstant = constant;
 
   resetClass();
 

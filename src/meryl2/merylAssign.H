@@ -29,27 +29,53 @@
 
 
 enum class merylAssignValue {
-  valueNOP,         //  Do absoluately nothing.
-
-  valueSet,         //  Set to _valueConstant
-
-  valueSelected,    //  Set to the value of the kmer selected by the label selector
-  valueFirst,       //  Set to the value of the kmer in the first input file
-
-  valueMin,         //  Set to the minimum of all values and _valueConstant
-  valueMax,         //  Set to the maximum of all values and _valueConstant
-
-  valueAdd,         //  Set to the selected value + all others and _valueConstant
-  valueSub,         //  Set to the selected value - all others and _valueConstant
-  valueMul,         //  Set to the selected value * all others and _valueConstant
-  valueDiv,         //  Set to the selected value / all others and _valueConstant
-  valueDivZ,        //  Set to the selected value / all others and _valueConstant, round 0 to 1
-  valueMod,         //  Set to the remainder of div
-
-  valueCount,       //  Set to the number of files with this kmer.
+  valueNOP=0,          //  Do absoluately nothing.
+  valueSet=1,          //  Set to _valueConstant
+  valueSelected=2,     //  Set to the value of the kmer selected by the label selector
+  valueFirst=3,        //  Set to the value of the kmer in the first input file
+  valueMin=4,          //  Set to the minimum of all values and _valueConstant
+  valueMax=5,          //  Set to the maximum of all values and _valueConstant
+  valueAdd=6,          //  Set to the selected value + all others and _valueConstant
+  valueSub=7,          //  Set to the selected value - all others and _valueConstant
+  valueMul=8,          //  Set to the selected value * all others and _valueConstant
+  valueDiv=9,          //  Set to the selected value / all others and _valueConstant
+  valueDivZ=10,        //  Set to the selected value / all others and _valueConstant, round 0 to 1
+  valueMod=11,         //  Set to the remainder of div
+  valueCount=12        //  Set to the number of files with this kmer.
 };
 
+enum class merylAssignLabel {
+  labelNOP=0,          //  Do absoluately nothing.
+  labelSet=1,          //  Set to _labelConstant.
+  labelSelected=2,     //  Set to the label of the kmer selected by the value selector.
+  labelFirst=3,        //  Set to the label of the kmer in the first input file.
+  labelMin=4,          //  Set to the label of the kmer with the minimum value (e.g., valueMin).
+  labelMax=5,          //  Set to the label of the kmer with the maximum value (e.g., valueMax).
+  labelAnd=6,          //  AND all labels together along with the labelConstant
+  labelOr=7,           //  OR  all labels together along with the labelConstant
+  labelXor=8,          //  XOR all labels together along with the labelConstant
+  labelDifference=9,   //  Unset any bits set in kmers 2..N (like opDifference)
+  labelLightest=10,    //  Set label to lowest  bit weight label in active set
+  labelHeaviest=11,    //  Set label to highest bit weight label in active set
+  labelInvert=12,      //  Invert the existing label bits
+  labelShiftLeft=13,   //  Shift the label left  _labelConstant bits
+  labelShiftRight=14,  //  Shift the label right _labelConstant bits
+  labelRotateLeft=15,  //  Shift the label left  _labelConstant bits
+  labelRotateRight=16  //  Shift the label right _labelConstant bits
+};
+
+
+
+inline constexpr uint32 operator*(          merylAssignValue a) { return     static_cast<std::underlying_type_t<merylAssignValue>>(a); }
+inline constexpr uint32 operator+(uint32 o, merylAssignValue a) { return o + static_cast<std::underlying_type_t<merylAssignValue>>(a); }
+inline constexpr uint32 operator*(uint32 o, merylAssignValue a) { return o * static_cast<std::underlying_type_t<merylAssignValue>>(a); }
+
+inline constexpr uint32 operator*(          merylAssignLabel a) { return     static_cast<std::underlying_type_t<merylAssignLabel>>(a); }
+inline constexpr uint32 operator+(uint32 o, merylAssignLabel a) { return o + static_cast<std::underlying_type_t<merylAssignLabel>>(a); }
+inline constexpr uint32 operator*(uint32 o, merylAssignLabel a) { return o * static_cast<std::underlying_type_t<merylAssignLabel>>(a); }
+
 inline
+constexpr
 char const *
 toString(merylAssignValue m) {
   switch (m) {
@@ -73,35 +99,6 @@ toString(merylAssignValue m) {
   assert(0);
   return(nullptr);
 }
-
-
-enum class merylAssignLabel {
-  labelNOP,         //  Do absoluately nothing.
-
-  labelSet,         //  Set to _labelConstant.
-
-  labelSelected,    //  Set to the label of the kmer selected by the value selector.
-  labelFirst,       //  Set to the label of the kmer in the first input file.
-
-  labelMin,         //  Set to the label of the kmer with the minimum value (e.g., valueMin).
-  labelMax,         //  Set to the label of the kmer with the maximum value (e.g., valueMax).
-
-  labelAnd,         //  AND all labels together along with the labelConstant
-  labelOr,          //  OR  all labels together along with the labelConstant
-  labelXor,         //  XOR all labels together along with the labelConstant
-  labelDifference,  //  Unset any bits set in kmers 2..N (like opDifference)
-
-  labelLightest,    //  Set label to lowest  bit weight label in active set
-  labelHeaviest,    //  Set label to highest bit weight label in active set
-
-  labelInvert,      //  Invert the existing label bits
-
-  labelShiftLeft,   //  Shift the label left  _labelConstant bits
-  labelShiftRight,  //  Shift the label right _labelConstant bits
-
-  labelRotateLeft,  //  Shift the label left  _labelConstant bits
-  labelRotateRight, //  Shift the label right _labelConstant bits
-};
 
 inline
 char const *

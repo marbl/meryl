@@ -29,6 +29,19 @@ class merylOpTemplate;
 class merylOpCompute;
 
 inline
+constexpr
+uint32 toInt(opClass c) {
+  return static_cast<std::underlying_type_t<opClass>>(c);
+}
+
+inline
+constexpr
+uint32 toInt(opPname p) {
+  return static_cast<std::underlying_type_t<opPname>>(p);
+}
+
+inline
+constexpr
 char const *toString(opClass c) {
   char const *r = "invalid";
 
@@ -44,6 +57,7 @@ char const *toString(opClass c) {
 }
 
 inline
+constexpr
 char const *toString(opPname n) {
   char const *r = "invalid";
 
@@ -85,15 +99,13 @@ private:
   bool    processLabelModifier(char const *val, bool failIfBad);
   bool    processBasesModifier(char const *val, bool failIfBad);
 
-  uint32                 isRelation(uint32 bgn);
-  merylSelectorRelation  decodeRelation(uint32 bgn);
-
-  void                   decodeSelector(uint32 bgn,
-                                        merylSelector &f);
+  uint32                 isRelation    (char const *s, uint32 p);
+  merylSelectorRelation  decodeRelation(char const *s, uint32 p);
+  void                   decodeSelector(char const *s, uint32 p, merylSelector &f);
 
 public:
   void    printTree(uint32 tID, uint32 indent=0);
-  void    printTree(merylOpTemplate *op, uint32 tID, uint32 iID, uint32 indent);
+  void    printTree(merylOpTemplate *op, uint32 tID, uint32 iID, char const *istr);
   bool    displayTreesAndErrors(void);
 
 private:
@@ -119,8 +131,8 @@ public:
   void    runThreads(uint32 allowedThreads);
 
 private:
-  bool    isEmpty(void)      { return(_optString[0] == 0); }
-  bool    isOption(void);
+  bool    isEmptyWord(void)      { return(_optString[0] == 0); }
+  bool    isOptionWord(void);
   bool    isAlias(void);
 
   bool    isInOut(void);
@@ -129,16 +141,15 @@ private:
   bool    isAssignValue(void);
   bool    isAssignLabel(void);
   bool    isAssign(void);
-  bool    isSelect(void);
 
   bool    isValueSelector(void);
   bool    isLabelSelector(void);
   bool    isBasesSelector(void);
   bool    isInputSelector(void);
+  bool    isSelect(void);
+  bool    isSelectConnective(void);
 
-  bool    isSelectorConnective(void);
-
-  bool    isCount(void);
+  bool    isCountingWord(void);
 
   bool    isHistogram(void);
   bool    isStatistics(void);
@@ -146,14 +157,14 @@ private:
 
 
 public:
-  uint32           numOperations(void)           { return(_opList.size()); };
-  merylOpTemplate *getOperation(uint32 i)        { return(_opList[i]);     };
+  uint32           numOperations(void)           { return _opList.size(); };
+  merylOpTemplate *getOperation(uint32 i)        { return _opList[i];     };
 
-  uint32           numTrees(void)                { return(_opTree.size()); };
-  merylOpTemplate *getTree(uint32 r)             { return(_opList   [ _opTree[r] ]);  };
-  merylOpCompute  *getTree(uint32 r, uint32 t)   { return(_thList[t][ _opTree[r] ]);  };
+  uint32           numTrees(void)                { return _opTree.size(); };
+  merylOpTemplate *getTree(uint32 r)             { return _opList   [ _opTree[r] ];  };
+  merylOpCompute  *getTree(uint32 r, uint32 t)   { return _thList[t][ _opTree[r] ];  };
 
-  merylOpTemplate *getCurrent(void)              { assert(_opStack.size() > 0); return(_opStack.top()); };
+  merylOpTemplate *getCurrent(void)              { return (_opStack.size() == 0) ? nullptr : _opStack.top(); };
 
   //  Collecting any errors encountered when building the operation tree.
 public:

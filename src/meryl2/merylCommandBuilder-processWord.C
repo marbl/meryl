@@ -54,6 +54,8 @@ merylCommandBuilder::decodeWord(char const *opt) {
   char const *pn = nullptr;             //  Eventual location of parameter name in opt.
   char const *pv = nullptr;             //  Eventual location of parameter value in opt.
 
+  fprintf(stderr, "decodeWord() enter with '%s' '%s' '%s'\n", toString(_curClass), toString(_curPname), _curParam);
+
   if (_curClass != opClass::clNone)     //  If we already have a class set, do not attempt
     return false;                       //  to decode the word; we're waiting for the value.
 
@@ -68,6 +70,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
     _curParam = (opt[6] == 0) ? (opt + 6)   //  _curParam MUST be NUL so that isInOut()
                               : (opt + 3);  //  knows that the parameter doens't exist yet.
 
+    fprintf(stderr, "decodeWord() exit1 with '%s' '%s' '%s'\n", toString(_curClass), toString(_curPname), _curParam);
     return true;
   }
 
@@ -102,7 +105,6 @@ merylCommandBuilder::decodeWord(char const *opt) {
       return false;
     }
 
-    fprintf(stderr, "got output param '%s' -> '%s'\n", pn, pv);
     _curParam = pv;
   }
 
@@ -127,7 +129,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
     else if (matchToken(pn, pv, "bases:")       == true)  _curPname = opPname::pnBases;
     else if (matchToken(pn, pv, "input:")       == true)  _curPname = opPname::pnInput;
     else {
-      fprintf(stderr, "Expecting clSelect Pname in '%s'\n", opt);
+      fprintf(stderr, "Expecting clSelect Pname in '%s' (select:Pname:)\n", opt);
       return false;
     }
 
@@ -150,6 +152,8 @@ merylCommandBuilder::decodeWord(char const *opt) {
 
     _curParam = pv;
   }
+
+  fprintf(stderr, "decodeWord() exit2 with '%s' '%s' '%s'\n", toString(_curClass), toString(_curPname), _curParam);
 
   return true;
 }
@@ -177,8 +181,8 @@ merylCommandBuilder::processWord(char const *rawWord) {
   if (_opStack.size() == 0)             //  If stack is still empty, tsk, tsk, user didn't
     addNewOperation();                  //  explicitly make an action, so make one for them.
 
-  if ((isEmpty()  == true) ||           //  If the word is now empty (it was a single '[' or
-      (isOption() == true))             //  multiple ']'), or if the word is a recognized option,
+  if ((isEmptyWord()  == true) ||       //  If the word is now empty (it was a single '[' or
+      (isOptionWord() == true))         //  multiple ']'), or if the word is a recognized option,
     goto finishWord;                    //  we're done.
 
   if (_curClass != opClass::clNone) {   //  If we already have a class/pname set, we're waiting
@@ -195,7 +199,7 @@ merylCommandBuilder::processWord(char const *rawWord) {
   //  goto finishWord;                    //  files.  This MUST come after _curClass != clNone!
 
   if ((isAlias() == true) ||            //  Handle aliases and count operations.  Ideally,
-      (isCount() == true))              //  these are only encountered with a completely empty
+      (isCountingWord() == true))       //  these are only encountered with a completely empty
     goto finishWord;                    //  operation on the stack, but that isn't enforced.
 
   if (decodeWord(_optString) == true) { //  If we decode a word, try to parse it.
@@ -205,6 +209,9 @@ merylCommandBuilder::processWord(char const *rawWord) {
       fprintf(stderr, "Failed to parse decoded word '%s'.\n", rawWord);
     goto finishWord;
   }
+
+  if ((isSelectConnective() == true))   //  Handle 'and', 'or' and 'not'.
+    goto finishWord;
 
   if ((isInput() == true))              //  This is last so that files such as 'o:d' are
     goto finishWord;                    //  treated as a parameter instead of an input.

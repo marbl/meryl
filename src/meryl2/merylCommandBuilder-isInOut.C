@@ -57,6 +57,8 @@ merylCommandBuilder::isInOut(void) {
   char const *fpath = (_curParam == nullptr) ? _optString :            //  Case 3
                       (_curParam[0] != 0)    ? _curParam  : nullptr;   //  Case 1 : Case 2
 
+  fprintf(stderr, "isInOut() enter with '%s' '%s' '%s' fpath '%s'\n", toString(_curClass), toString(_curPname), _curParam, fpath);
+
   if ((fpath != nullptr) && (fpath[0] == 0))  //  Blow up if the name is empty.
     sprintf(_errors, "Operation #%u has no output path name supplied.\n", op->_ident);
 
@@ -105,6 +107,8 @@ merylCommandBuilder::isInOut(void) {
     _curPname = opPname::pnNone;
     _curParam = nullptr;
 
+    fprintf(stderr, "isInOut() consumed1 '%s'\n", _optString);
+
     return true;
   }
 
@@ -112,6 +116,8 @@ merylCommandBuilder::isInOut(void) {
   //  the (empty) _curParam.
 
   _curParam = nullptr;
+
+  fprintf(stderr, "isInOut() consumed2 '%s'\n", _optString);
 
   return true;
 }

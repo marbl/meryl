@@ -17,34 +17,3 @@
  */
 
 
-
-//  Each node in the tree is assigned a type.  Most of the nodes will be
-//  opFilter.  The special cases are to make counts, output a histogram, and
-//  so on.
-//
-//  opPrint is used for commands like 'meryl print input.meryl', where the
-//  action never gets set up because we never see any action specification.
-//
-enum class merylOpType {
-  opNothing,
-  opCounting,
-  opStatistics,
-  opHistogram,
-  opPrint,
-  opFilter
-};
-
-inline
-char const *
-toString(merylOpType t) {
-  switch (t) {
-    case merylOpType::opNothing:     return("opNothing");     break;
-    case merylOpType::opCounting:    return("opCounting");    break;
-    case merylOpType::opStatistics:  return("opStatistics");  break;
-    case merylOpType::opHistogram:   return("opHistogram");   break;
-    case merylOpType::opPrint:       return("opPrint");       break;
-    case merylOpType::opFilter:      return("opFilter");      break;
-  }
-  assert(0);
-  return(nullptr);
-}

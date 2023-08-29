@@ -26,7 +26,7 @@
 //  be deferred until the command is encountered.
 //
 bool
-merylCommandBuilder::isOption(void) {
+merylCommandBuilder::isOptionWord(void) {
   merylOpTemplate  *op = getCurrent();
 
 #if 0
@@ -69,7 +69,7 @@ merylCommandBuilder::isOption(void) {
 
   //  Number of kmers expected for counting.
   if (strcmp(key, "n") == 0) {
-    if (op->_type == merylOpType::opCounting)
+    if (op->_isCounting == true)
       op->_counting->setExpectedNumberOfKmers(val64);
     else
       sprintf(_errors, "option '%s' encountered for non-counting operation.", _optString);
@@ -78,7 +78,7 @@ merylCommandBuilder::isOption(void) {
 
   //  A suffix to select kmers by when counting.
   if (strcmp(key, "count-suffix") == 0) {
-    if (op->_type == merylOpType::opCounting)
+    if (op->_isCounting == true)
       op->_counting->setCountSuffix(val);
     else
       sprintf(_errors, "option '%s' encountered for non-counting operation.", _optString);

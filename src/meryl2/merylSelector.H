@@ -24,15 +24,34 @@
 //  Relationships.  Tells how we should compare a kmer against a constant.
 //
 enum class merylSelectorRelation {
-  isNOP,         //  Nothing.  Generates an error.
-
-  isEq,          //  True if the variable == constant
-  isNeq,         //  True if the variable != constant
-  isLeq,         //  True if the variable <= constant
-  isGeq,         //  True if the variable >= constant
-  isLt,          //  True if the variable <  constant
-  isGt,          //  True if the variable >  constant
+  isNOP=0,   //  Nothing.  Generates an error.
+  isEq=1,    //  True if the variable == constant
+  isNeq=2,   //  True if the variable != constant
+  isLeq=3,   //  True if the variable <= constant
+  isGeq=4,   //  True if the variable >= constant
+  isLt=5,    //  True if the variable <  constant
+  isGt=6,    //  True if the variable >  constant
 };
+
+constexpr
+inline
+char const *
+toString(merylSelectorRelation r) {
+  char const   *s = nullptr;
+
+  switch (r) {
+    case merylSelectorRelation::isNOP:   s = "unspecified";        break;
+    case merylSelectorRelation::isEq:    s = "is-equal-to";        break;
+    case merylSelectorRelation::isNeq:   s = "is-not-equal-to";    break;
+    case merylSelectorRelation::isLeq:   s = "is-less-or-equal";   break;
+    case merylSelectorRelation::isGeq:   s = "is-more-or-equal";   break;
+    case merylSelectorRelation::isLt:    s = "is-less-than";       break;
+    case merylSelectorRelation::isGt:    s = "is-more-than";       break;
+    default:                             s = "unspecified";        break;
+  }
+
+  return s;
+}
 
 
 //  Quantities.  Tells what property of the kmer we're testing.
@@ -78,8 +97,8 @@ class merylSelector {
 public:
   merylSelector(merylSelectorQuantity type,
                 merylSelectorRelation rela,
-                bool                invert,
-                char const         *str);
+                bool                  invert,
+                char const           *str);
   ~merylSelector();
 
 private:
@@ -144,8 +163,11 @@ public:
   void   finalizeSelectorInputs(merylOpTemplate *mot, std::vector<char const *> &err);
   void   finalizeSelectorParameters(merylOpTemplate *mot);
 
-  char *
-  describe(char *str);
+  char  *describeValueSelector(char *str);
+  char  *describeLabelSelector(char *str);
+  char  *describeBasesSelector(char *str);
+  char  *describeIndexSelector(char *str);
+  char  *describe(char *str);
 
 
   //  What and how to compare:

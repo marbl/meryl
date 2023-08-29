@@ -40,6 +40,9 @@ merylOpTemplate::~merylOpTemplate() {
 
   delete [] _outStatsName;  delete _outStats;
   delete [] _outHistoName;  delete _outHisto;
+
+  delete [] _valueString;
+  delete [] _labelString;
 }
 
 
@@ -321,3 +324,94 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
   //    (see addInputFromDB())
   _inputs.push_back(new merylInput(new merylFileReader(name)));
 };
+
+
+
+char const *
+merylOpTemplate::displayValueAssignment(char *ts) {
+  static char const *formats[26];
+
+  formats[0+2*merylAssignValue::valueNOP]      = "no-operation";
+  formats[0+2*merylAssignValue::valueSet]      = "set to constant zero because no constant supplied";
+  formats[0+2*merylAssignValue::valueSelected] = "that of the kmer selected by LABEL selector";
+  formats[0+2*merylAssignValue::valueFirst]    = "that of the kmer in the first input";
+  formats[0+2*merylAssignValue::valueMin]      = "the minimum of all kmer values";
+  formats[0+2*merylAssignValue::valueMax]      = "the maximum of all kmer values";
+  formats[0+2*merylAssignValue::valueAdd]      = "the sum of all kmer values";
+  formats[0+2*merylAssignValue::valueSub]      = "the selected kmer value minus all others";
+  formats[0+2*merylAssignValue::valueMul]      = "the product of all kmer values";
+  formats[0+2*merylAssignValue::valueDiv]      = "the selected kmer divided by all others";
+  formats[0+2*merylAssignValue::valueDivZ]     = "the selected kmer divided by all others, rounding zero up to one";
+  formats[0+2*merylAssignValue::valueMod]      = "the remainder of the selected kmer divided by all others";
+  formats[0+2*merylAssignValue::valueCount]    = "the number of input databases the kmer is present in";
+
+  formats[1+2*merylAssignValue::valueNOP]      = "no-operation (supplied constant '%s' ignored)";
+  formats[1+2*merylAssignValue::valueSet]      = "constant '%s'";
+  formats[1+2*merylAssignValue::valueSelected] = "that of the kmer selected by label selector (supplied constant '%s' ignored)";
+  formats[1+2*merylAssignValue::valueFirst]    = "that of the kmer in the first input (supplied constant '%s' ignored)";
+  formats[1+2*merylAssignValue::valueMin]      = "the minimum of all kmer values and constant '%s'";
+  formats[1+2*merylAssignValue::valueMax]      = "the maximum of all kmer values and constant '%s'";
+  formats[1+2*merylAssignValue::valueAdd]      = "the sum of all kmer values and constant '%s'";
+  formats[1+2*merylAssignValue::valueSub]      = "the selected kmer minus all others and constant '%s'";
+  formats[1+2*merylAssignValue::valueMul]      = "the product of all kmer values and constant '%s'";
+  formats[1+2*merylAssignValue::valueDiv]      = "the selected kmer divided by all others and constant '%s'";
+  formats[1+2*merylAssignValue::valueDivZ]     = "the selected kmer divided by all others and constant '%s', rounding zero up to one";
+  formats[1+2*merylAssignValue::valueMod]      = "the remainder of the selected kmer divided by all others and constant '%s'";
+  formats[1+2*merylAssignValue::valueCount]    = "the number of input databases the kmer is present in (supplied constant '%s' ignored)";
+
+  uint32      fi = 2 * _valueAssign + (_valueString == nullptr ? 0 : 1);
+
+  sprintf(ts, formats[fi], _valueString);
+
+  return ts;
+}
+
+
+char const *
+merylOpTemplate::displayLabelAssignment(char *ts) {
+  static char const *formats[34];
+
+  formats[0+2*merylAssignLabel::labelNOP]         = "no-operation";
+  formats[0+2*merylAssignLabel::labelSet]         = "set to constant zero because no constant supplied!";
+  formats[0+2*merylAssignLabel::labelSelected]    = "that of the kmer selected by VALUE selector";
+  formats[0+2*merylAssignLabel::labelFirst]       = "that of the kmer in the first input";
+  formats[0+2*merylAssignLabel::labelMin]         = "the minimum of all labels";
+  formats[0+2*merylAssignLabel::labelMax]         = "the maximum of all labels";
+  formats[0+2*merylAssignLabel::labelAnd]         = "the bitwise AND of all labels";
+  formats[0+2*merylAssignLabel::labelOr]          = "the bitwise OR of all labels";
+  formats[0+2*merylAssignLabel::labelXor]         = "the bitwise XOR of all labels";
+  formats[0+2*merylAssignLabel::labelDifference]  = "the selected kmer label bitwise minus all others";
+  formats[0+2*merylAssignLabel::labelLightest]    = "the label with the fewest set bits (the lightest)";
+  formats[0+2*merylAssignLabel::labelHeaviest]    = "the label with the most set bits (the heaviest)";
+  formats[0+2*merylAssignLabel::labelInvert]      = "the bitwise complement of the selected label";
+  formats[0+2*merylAssignLabel::labelShiftLeft]   = "the selected label shifted left one position";
+  formats[0+2*merylAssignLabel::labelShiftRight]  = "the selected label shifted right one position";
+  formats[0+2*merylAssignLabel::labelRotateLeft]  = "the selected label rotated left one position";
+  formats[0+2*merylAssignLabel::labelRotateRight] = "the selected label rotated right one position";
+
+  formats[1+2*merylAssignLabel::labelNOP]         = "no-operation (supplied constant '%s' ignored)";
+  formats[1+2*merylAssignLabel::labelSet]         = "set to constant '%s'";
+  formats[1+2*merylAssignLabel::labelSelected]    = "that of the kmer selected by VALUE selector (supplied constant '%s' ignored)";
+  formats[1+2*merylAssignLabel::labelFirst]       = "that of the kmer in the first input (supplied constant '%s' ignored)";
+  formats[1+2*merylAssignLabel::labelMin]         = "the minimum of all labels and constant '%s'";
+  formats[1+2*merylAssignLabel::labelMax]         = "the maximum of all labels and constant '%s'";
+  formats[1+2*merylAssignLabel::labelAnd]         = "the bitwise AND of all labels and constant '%s'";
+  formats[1+2*merylAssignLabel::labelOr]          = "the bitwise OR of all labels and constant '%s'";
+  formats[1+2*merylAssignLabel::labelXor]         = "the bitwise XOR of all labels and constant '%s'";
+  formats[1+2*merylAssignLabel::labelDifference]  = "the selected kmer label bitwise minus all others and constant '%s'";
+  formats[1+2*merylAssignLabel::labelLightest]    = "the label or constant '%s' with the fewest set bits (the lightest)";
+  formats[1+2*merylAssignLabel::labelHeaviest]    = "the label or constant '%s' with the most set bits (the heaviest)";
+  formats[1+2*merylAssignLabel::labelInvert]      = "the bitwise complement of the selected label (supplied constant '%s' ignored)";
+  formats[1+2*merylAssignLabel::labelShiftLeft]   = "the selected label shifted left '%s' positions";
+  formats[1+2*merylAssignLabel::labelShiftRight]  = "the selected label shifted right '%s' positions";
+  formats[1+2*merylAssignLabel::labelRotateLeft]  = "the selected label rotated left '%s' positions";
+  formats[1+2*merylAssignLabel::labelRotateRight] = "the selected label rotated right '%s' positions";
+
+  uint32      fi = 2 * _labelAssign + (_labelString == nullptr ? 0 : 1);
+
+  sprintf(ts, formats[fi], _labelString);
+
+  return ts;
+}
+
+

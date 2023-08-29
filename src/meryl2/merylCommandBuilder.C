@@ -21,61 +21,35 @@
 
 
 //  This is called by processWord() when an '[' is encountered in the input.
-//  It will _always_ push a new operation onto the stack.  Depending on the
-//  stack contents, there are two variants:
+//  It will _always_ push a new operation onto the stack (unless the existing
+//  operation is completely empty).  Depending on the stack contents, there
+//  are two variants:
 //    stack empty - add the new op to the list of root operations
 //    stack not   - add the new op to the list of inputs for the current top op
 //
 void
 merylCommandBuilder::addNewOperation(void) {
-  merylOpTemplate *nop = new merylOpTemplate(_opList.size() + 1);
-
-  //  If the stack is empty, just add 'nop' to it as a root node.
-
-  if (_opStack.size() == 0) {
-    if (globals.showConstruction() == true)
-      fprintf(stderr, "addOperation()- Add new operation as root operation.\n");
-
-    _opStack.push(nop);
-    _opList.push_back(nop);
-    _opTree.push_back(_opList.size() - 1);
-
-    return;
-  }
-
-  //  Otherwise, an operation exists on the stack.
-
   merylOpTemplate *eop = getCurrent();
 
-  if (globals.showConstruction() == true) {
-    fprintf(stderr, "addOperation()- Existing op: type '%s' ident %u value %s/%u label %s/%lu\n",
-            toString(eop->_type),        eop->_ident,
-            toString(eop->_valueAssign), eop->_valueConstant,
-            toString(eop->_labelAssign), eop->_labelConstant);
-  }
+  if ((eop != nullptr) &&                    //  If an operation exists and it is
+      (eop->_isSelector == false) &&         //  unused, use it instead of making
+      (eop->_isCounting == false))           //  a new one.
+    return;                                  //
 
-  //  If tht operation hasn't been used yet, do not add a new operation, just
-  //  reuse what is there.
+  merylOpTemplate *nop = new merylOpTemplate(_opList.size() + 1);
 
-  if (eop->_type == merylOpType::opNothing) {
-    fprintf(stderr, "addOperation()- Reuse existing empty operation at position %ld.\n",
-            _opStack.size()-1);
+  _opStack.push(nop);                        //  Add new node to the stack
+  _opList.push_back(nop);                    //  and list of nodes.
 
-    delete nop;
+  if (eop)                                   //  If there is an existing node,
+    eop->addInput(new merylInput(nop));      //  add 'us' as input to it,
+  else                                       //  otherwise, add 'us' as a new
+    _opTree.push_back(_opList.size() - 1);   //  root node.
 
-    return;
-  }
-
-  //  Finally, push 'nop' onto the stack as a child of the current operation.
-
-  eop->addInput(new merylInput(nop));
-
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "addOperation()- Add new operation to stack at position %ld.\n",
-            _opStack.size());
-
-  _opStack.push(nop);
-  _opList.push_back(nop);
+  if (globals.showConstruction() == true)    //  Now just some logging.
+    fprintf(stderr, "addOperation()- Add new operation %s %ld.\n",
+            (eop) ? "to stack at position" : "as root operation for tree",
+            (eop) ? _opStack.size()        : _opTree.size());
 }
 
 
@@ -87,14 +61,20 @@ merylCommandBuilder::addNewOperation(void) {
 //
 bool
 merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
+  merylOpTemplate  *op = getCurrent();
 
   if (nter == 0)              return true;    //  Successfully terminated the requested number.
   if (_opStack.size() == 0)   return false;   //  Oops, too many terminates requested.
 
-  assert(_curClass == opClass::clNone);       //  If either of these are set, the action
-  assert(_curPname == opPname::pnNone);       //  was never fully parsed/added.
+  if (_curClass != opClass::clNone)
+    sprintf(_errors, "terminateOperations()- Terminate operation #%u at stack position %ld has set _curClass '%s'.\n",
+            op->_ident, _opStack.size()-1, toString(_curClass));
+  if (_curPname != opPname::pnNone)
+    sprintf(_errors, "terminateOperations()- Terminate operation #%u at stack position %ld has set _curPname '%s'.\n",
+            op->_ident, _opStack.size()-1, toString(_curPname));
 
-  merylOpTemplate  *op = getCurrent();
+  //assert(_curClass == opClass::clNone);       //  If either of these are set, the action
+  //assert(_curPname == opPname::pnNone);       //  was never fully parsed/added.
 
   if (globals.showConstruction() == true)
     fprintf(stderr, "terminateOperations()- Terminate operation #%u at stack position %ld.\n",
@@ -102,7 +82,11 @@ merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
 
   //  Set unset things in the action to defaults.
 
-  if (op->_type        == merylOpType::opNothing)      op->_type        = merylOpType::opFilter;
+  if ((op->_isCounting == false) &&
+      (op->_isSelector == false))
+    fprintf(stderr, "terminateOperations()- Terminate operation #%u at stack position %ld is unset?\n",
+            op->_ident, _opStack.size()-1);
+
   if (op->_valueAssign == merylAssignValue::valueNOP)  op->_valueAssign = merylAssignValue::valueFirst;
   if (op->_labelAssign == merylAssignLabel::labelNOP)  op->_labelAssign = merylAssignLabel::labelFirst;
 
@@ -133,7 +117,7 @@ merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
 
 
 bool
-merylCommandBuilder::isCount(void) {
+merylCommandBuilder::isCountingWord(void) {
   merylOpTemplate  *op = getCurrent();
 
   if ((strcmp(_optString, "count")         != 0) &&
@@ -141,13 +125,18 @@ merylCommandBuilder::isCount(void) {
       (strcmp(_optString, "count-reverse") != 0))
     return(false);
 
-  if (op->_type == merylOpType::opCounting)
+  if      (op->_isCounting)
     sprintf(_errors, "ERROR: operation is already a counting operation.\n");
 
-  op->_type     = merylOpType::opCounting;
-  op->_counting = new merylOpCounting(_optString);
+  else if (op->_isSelector)
+    sprintf(_errors, "ERROR: operation is a select operation, cannot also be a counting operation.\n");
 
-  return(true);
+  else {
+    op->_isCounting = true;
+    op->_counting   = new merylOpCounting(_optString);
+  }
+
+  return true;  //  Always consume the word, even if it triggered an error above.
 }
 
 
@@ -200,54 +189,36 @@ merylCommandBuilder::buildTrees(void) {
   //   - the mer size must be known
   //   - an output must be defined
   //   - inputs must be only 'sequence' types
-
-  for (uint32 oo=0; oo<_opList.size(); oo++) {
-    merylOpTemplate  *ot = _opList[oo];
-
-    if (ot->_type != merylOpType::opCounting)
-      continue;
-
-    if (kmer::merSize() == 0)  //  ERROR: Kmer size not supplied with modifier k=<kmer-size>
-      sprintf(_errors, "ERROR: counting operation at position %u doesn't have a mer size set.\n", oo);
-
-    if (ot->_outDbseName == nullptr)
-      sprintf(_errors, "ERROR: counting operation at position %u must have an output database.\n", oo);
-
-    for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
-      if ((ot->_inputs[ii]->isFromSequence() == false) &&
-          (ot->_inputs[ii]->isFromStore()    == false))
-        sprintf(_errors, "ERROR: counting operation at position %u input %u must be from a sequence file or Canu seqStore.", oo, ii);
-  }
-
-  //  Check STATISTICS or HISTOGRAM operations:
-  //   - print and output are allowed
-  //   - inputs must not be 'sequence' type
-  for (uint32 oo=0; oo<_opList.size(); oo++) {
-    merylOpTemplate  *ot = _opList[oo];
-
-    if ((ot->_type != merylOpType::opStatistics) &&
-        (ot->_type != merylOpType::opHistogram))
-      continue;
-
-    for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
-      if ((ot->_inputs[ii]->isFromTemplate() == false) &&
-          (ot->_inputs[ii]->isFromDatabase() == false))
-        sprintf(_errors, "ERROR: stats/histo operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
-  }
-
+  //
   //  Check SELECTOR operations:
   //   - inputs must not be 'sequence' type
 
   for (uint32 oo=0; oo<_opList.size(); oo++) {
     merylOpTemplate  *ot = _opList[oo];
 
-    if (ot->_type != merylOpType::opFilter)
-      continue;
+    //  Check COUNTING
+    if (ot->_isCounting == true) {
+      if (kmer::merSize() == 0)  //  ERROR: Kmer size not supplied with modifier k=<kmer-size>
+        sprintf(_errors, "ERROR: counting operation at position %u doesn't have a mer size set.\n", oo);
+      if (ot->_outDbseName == nullptr)
+        sprintf(_errors, "ERROR: counting operation at position %u must have an output database.\n", oo);
 
-    for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
-      if ((ot->_inputs[ii]->isFromTemplate() == false) &&
-          (ot->_inputs[ii]->isFromDatabase() == false))
-        sprintf(_errors, "ERROR: select operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
+      for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
+        if ((ot->_inputs[ii]->isFromSequence() == false) &&
+            (ot->_inputs[ii]->isFromStore()    == false))
+          sprintf(_errors, "ERROR: counting operation at position %u input %u must be from a sequence file or Canu seqStore.", oo, ii);
+    }
+
+    //  Check SELECTOR
+    else if (ot->_isSelector) {
+      for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
+        if ((ot->_inputs[ii]->isFromTemplate() == false) &&
+            (ot->_inputs[ii]->isFromDatabase() == false))
+          sprintf(_errors, "ERROR: select operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
+    }
+
+    else {
+    }
   }
 }
 
@@ -300,15 +271,8 @@ merylCommandBuilder::runThreads(uint32 allowedThreads) {
   for (uint32 rr=0; rr<numTrees(); rr++) {
     merylOpTemplate *tpl = getTree(rr);
 
-    //  Actions that were previously a count or a histo/stats on a database
-    //  are all done and do not need to process their inputs.
-    //
-    //  Better - just remove the inputs from them?  But then we need to know
-    //  if it supplies input to anything else.
-
-#warning remove empty trees
-    if (tpl->_type == merylOpType::opNothing)   //  Was previously a count, histo or stats
-      continue;                                 //  operation, but it's all done now.
+    if (tpl->_inputs.size() == 0)   //  A count operation (at the root node) but it's
+      continue;                     //  all done now and there is nothing to do.
 
     if (globals.showStandard() == true) {
       fprintf(stderr, "\n");

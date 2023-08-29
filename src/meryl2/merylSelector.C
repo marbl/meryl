@@ -301,81 +301,95 @@ merylSelector::finalizeSelectorParameters(merylOpTemplate *mot) {
 
 
 char *
-merylSelector::describe(char *str) {
-  char const   *rType = nullptr;
-  char          lhs[256] = {0};
-  char          rhs[256] = {0};
+merylSelector::describeValueSelector(char *str) {
+  char  lhs[256] = {0};
+  char  rhs[256] = {0};
 
-  switch (_r) {
-    case merylSelectorRelation::isNOP:    rType = "unspecified";        break;
-    case merylSelectorRelation::isEq:     rType = "is-equal-to";        break;
-    case merylSelectorRelation::isNeq:    rType = "is-not-equal-to";    break;
-    case merylSelectorRelation::isLeq:    rType = "is-less-or-equal";   break;
-    case merylSelectorRelation::isGeq:    rType = "is-more-or-equal";   break;
-    case merylSelectorRelation::isLt:     rType = "is-less-than";       break;
-    case merylSelectorRelation::isGt:     rType = "is-more-than";       break;
-    default:                            rType = "unspecified";        break;
-  }
+  if      (_vIndex1 == uint32max) sprintf(lhs, "constant value %s", toDec(_vValue1));
+  else if (_vIndex1 == 0)         sprintf(lhs, "output kmer value");
+  else                            sprintf(lhs, "kmer value from input %u", _vIndex1);
+
+  if      (_vIndex2 == uint32max) sprintf(rhs, "constant value %s", toDec(_vValue2));
+  else if (_vIndex2 == 0)         sprintf(rhs, "output kmer value");
+  else                            sprintf(rhs, "kmer value from input %u", _vIndex2);
+
+  sprintf(str, "%s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", toString(_r), rhs);
+
+  return str;
+}
+
+
+char *
+merylSelector::describeLabelSelector(char *str) {
+  char  lhs[256] = {0};
+  char  rhs[256] = {0};
+
+  if      (_vIndex1 == uint32max) sprintf(lhs, "constant label %s", toDec(_vLabel1));
+  else if (_vIndex1 == 0)         sprintf(lhs, "output kmer label");
+  else                            sprintf(lhs, "kmer label from input %u", _vIndex1);
+
+  if      (_vIndex2 == uint32max) sprintf(rhs, "constant label %s", toDec(_vLabel2));
+  else if (_vIndex2 == 0)         sprintf(rhs, "output kmer label");
+  else                            sprintf(rhs, "kmer label from input %u", _vIndex2);
+
+  sprintf(str, "%s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", toString(_r), rhs);
+
+  return str;
+}
+
+
+char *
+merylSelector::describeBasesSelector(char *str) {
+  char  lhs[256] = {0};
+  char  rhs[256] = {0};
+  char  acgt[5] = {0};
+  int32 acgtlen = 0;
+
+  if (_countA == true)   acgt[acgtlen++] = 'A';
+  if (_countC == true)   acgt[acgtlen++] = 'C';
+  if (_countT == true)   acgt[acgtlen++] = 'T';
+  if (_countG == true)   acgt[acgtlen++] = 'G';
+
+  //  vIndex is 0 if nothing was supplied to the selector, which tells us
+  //  to get the value from the output kmer.
+
+  if (_vIndex1 == 0) sprintf(lhs, "number of %s in the kmer", acgt);
+  else               sprintf(lhs, "%s", toDec(_vBases1));
+
+  if (_vIndex2 == 0) sprintf(rhs, "number of %s in the kmer", acgt);
+  else               sprintf(rhs, "%s", toDec(_vBases2));
+
+  sprintf(str, "%s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", toString(_r), rhs);
+
+  return str;
+}
+
+
+char *
+merylSelector::describeIndexSelector(char *str) {
+  char  lhs[256] = {0};
+  char  rhs[256] = {0};
+
+  sprintf(str, "<index selector not described>\n");
+
+  return str;
+}
+
+
+char *
+merylSelector::describe(char *str) {
 
   //  Lots of duplication with isTrue().
 
-  if      (_q == merylSelectorQuantity::isValue) {
-    if      (_vIndex1 == uint32max)            sprintf(lhs, "constant value %s", toDec(_vValue1));
-    else if (_vIndex1 == 0)                    sprintf(lhs, "output kmer value");
-    else                                       sprintf(lhs, "kmer value from input %u", _vIndex1);
-
-    if      (_vIndex2 == uint32max)            sprintf(rhs, "constant value %s", toDec(_vValue2));
-    else if (_vIndex2 == 0)                    sprintf(rhs, "output kmer value");
-    else                                       sprintf(rhs, "kmer value from input %u", _vIndex2);
-
-    sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
+  switch (_q) {
+    case merylSelectorQuantity::isValue:   describeValueSelector(str);    break;
+    case merylSelectorQuantity::isLabel:   describeLabelSelector(str);    break;
+    case merylSelectorQuantity::isBases:   describeBasesSelector(str);    break;
+    case merylSelectorQuantity::isIndex:   describeIndexSelector(str);    break;
+    default:
+      sprintf(str, "<empty selector>\n");
+      break;
   }
-
-  else if (_q == merylSelectorQuantity::isLabel) {
-    if      (_vIndex1 == uint32max)            sprintf(lhs, "constant label %s", toDec(_vLabel1));
-    else if (_vIndex1 == 0)                    sprintf(lhs, "output kmer label");
-    else                                       sprintf(lhs, "kmer label from input %u", _vIndex1);
-
-    if      (_vIndex2 == uint32max)            sprintf(rhs, "constant label %s", toDec(_vLabel2));
-    else if (_vIndex2 == 0)                    sprintf(rhs, "output kmer label");
-    else                                       sprintf(rhs, "kmer label from input %u", _vIndex2);
-
-    sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
-  }
-
-  else if (_q == merylSelectorQuantity::isBases) {
-    char  acgt[5] = {0};
-    int32 acgtlen = 0;
-
-    if (_countA == true)   acgt[acgtlen++] = 'A';
-    if (_countC == true)   acgt[acgtlen++] = 'C';
-    if (_countT == true)   acgt[acgtlen++] = 'T';
-    if (_countG == true)   acgt[acgtlen++] = 'G';
-
-    //  vIndex is 0 if nothing was supplied to the selector, which tells us
-    //  to get the value from the output kmer.
-
-    if      (_vIndex1 == 0)
-      sprintf(lhs, "number of %s in the kmer", acgt);
-    else
-      sprintf(lhs, "%s", toDec(_vBases1));
-
-    if      (_vIndex2 == 0)
-      sprintf(rhs, "number of %s in the kmer", acgt);
-    else
-      sprintf(rhs, "%s", toDec(_vBases2));
-
-    sprintf(str, "EMIT if %s %s %s %s\n", lhs, (_t == false) ? "not" : "   ", rType, rhs);
-  }
-
-  else if (_q == merylSelectorQuantity::isIndex) {
-    sprintf(str, "EMIT if <index selector not described>\n");
-  }
-
-  else {
-    sprintf(str, "EMIT if <empty selector>\n");
-  }
-
 
   return(str);
 }

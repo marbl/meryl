@@ -66,7 +66,7 @@ public:
   void    addHistoOutput (char const *hiName,                 std::vector<char const *> &err);
 
 public:
-  bool    acceptsSequenceInputs(void)  { return _type == merylOpType::opCounting; };
+  bool    acceptsSequenceInputs(void)  { return _isCounting; };
 
 public:
   void    finalizeTemplateInputs(std::vector<char const *> &err);
@@ -98,25 +98,34 @@ public:
   //  Action parameters, a description of how to generate output values/labels.
   //
 
-  merylOpType                    _type          = merylOpType::opNothing;
-  uint32                         _ident         = 0;
+  uint32                         _ident         = uint32max;
+  bool                           _isSelector    = false;
+  bool                           _isCounting    = false;
 
   bool                           _onlyConfig    = false;
 
   merylOpCompute                *_computes[64]  = { nullptr };
 
+  void                            setValueConstant(char const *c, merylAssignValue a, kmvalu v);
+  char                          *_valueString   = nullptr;
   merylAssignValue               _valueAssign   = merylAssignValue::valueNOP;
   kmvalu                         _valueConstant = 0;
 
+  void                            setLabelConstant(char const *c, merylAssignLabel a, kmlabl l);
+  char                          *_labelString   = nullptr;
   merylAssignLabel               _labelAssign   = merylAssignLabel::labelNOP;
   kmlabl                         _labelConstant = 0;
+
+  char const     *displayValueAssignment(char *ts);
+  char const     *displayLabelAssignment(char *ts);
 
   //
   //  Selectors.
   //
 
-  bool            addNewSelectorProduct(void);
+  void            addNewSelectorProduct(void);
   void            addSelectorToProduct(merylSelector const f);
+  bool            isSelectorProductEmpty(void);
   merylSelector  &getSelector(uint32 p, uint32 t);
   merylSelector  &getLastSelector(void);
 
@@ -160,27 +169,31 @@ public:
 
 
 inline
-bool
+void
 merylOpTemplate::addNewSelectorProduct(void) {
-
-  if ((_select.size() == 0) ||
-      (_select.back().size() == 0))
-    return(true);
-
-  _select.emplace_back();
-  return(false);
+  if ((_select.size() > 0) &&        //  Add a new product if the existing one
+      (_select.back().size() > 0))   //  is not empty.
+    _select.emplace_back();
 }
 
 inline
 void
 merylOpTemplate::addSelectorToProduct(merylSelector const f) {
 
-  _type = merylOpType::opFilter;    //  This op processes kmers.
+  //_type = merylOpType::opFilter;    //  This op processes kmers.
+  _isSelector = true;
 
   if (_select.size() == 0)          //  If there are no selectors yet,
     _select.emplace_back();         //  add a new product term.
 
   _select.back().emplace_back(f);   //  Add 'f' to the last product term.
+}
+
+inline
+bool
+merylOpTemplate::isSelectorProductEmpty(void) {
+  return ((_select.size() == 0) ||          //  Current selector product is empty if
+          (_select.back().size() == 0));    //  it either doesn't exist or...is empty.
 }
 
 inline

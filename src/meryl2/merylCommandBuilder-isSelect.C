@@ -19,64 +19,67 @@
 #include "meryl.H"
 
 
-
-
-//  Returns 0 if the next letters are not a relation symbol.
-//  Otherwise returns the length of the relation symbols found.
 //
+//  isRelation() returns the length of any relation-operator found at
+//  position p in string s.
+//    0 - if none found
+//    1 - = > <
+//    2 - == eq != <> ne <= le >= ge lt gt
+//
+//  decodeRelation() returns the relation itself.  If no relation is found,
+//  and error is added to the _errors list.
+//
+//  Note that invalid relations typically generate errors on the surrounding
+//  numbers: "451equal123" will decode as "451", "eq", "ual123" and then
+//  report that the latter isn't a valid number.
+//
+
 uint32
-merylCommandBuilder::isRelation(uint32 bgn) {
+merylCommandBuilder::isRelation(char const *s, uint32 p) {
 
-  if (((_optString[bgn] == '=') && (_optString[bgn+1] == '=')) ||
-      ((_optString[bgn] == 'e') && (_optString[bgn+1] == 'q')) ||
-      ((_optString[bgn] == '!') && (_optString[bgn+1] == '=')) ||
-      ((_optString[bgn] == '<') && (_optString[bgn+1] == '>')) ||
-      ((_optString[bgn] == 'n') && (_optString[bgn+1] == 'e')) ||
-      ((_optString[bgn] == '<') && (_optString[bgn+1] == '=')) ||
-      ((_optString[bgn] == 'l') && (_optString[bgn+1] == 'e')) ||
-      ((_optString[bgn] == '>') && (_optString[bgn+1] == '=')) ||
-      ((_optString[bgn] == 'g') && (_optString[bgn+1] == 'e')) ||
-      ((_optString[bgn] == 'l') && (_optString[bgn+1] == 't')) ||
-      ((_optString[bgn] == 'g') && (_optString[bgn+1] == 't')))
-    return(2);
+  if (((s[p] == '=') && (s[p+1] == '=')) ||
+      ((s[p] == 'e') && (s[p+1] == 'q')) ||
+      ((s[p] == '!') && (s[p+1] == '=')) ||
+      ((s[p] == '<') && (s[p+1] == '>')) ||
+      ((s[p] == 'n') && (s[p+1] == 'e')) ||
+      ((s[p] == '<') && (s[p+1] == '=')) ||
+      ((s[p] == 'l') && (s[p+1] == 'e')) ||
+      ((s[p] == '>') && (s[p+1] == '=')) ||
+      ((s[p] == 'g') && (s[p+1] == 'e')) ||
+      ((s[p] == 'l') && (s[p+1] == 't')) ||
+      ((s[p] == 'g') && (s[p+1] == 't')))
+    return 2;
 
-  if ((_optString[bgn] == '=') ||
-      (_optString[bgn] == '<') ||
-      (_optString[bgn] == '>'))
-    return(1);
+  if ((s[p] == '=') ||
+      (s[p] == '<') ||
+      (s[p] == '>'))
+    return 1;
 
-  return(0);
+  return 0;
 }
 
 
-//  Returns the relation indicated by the next letters, or adds an error to
-//  err.
-//
-//  The error only triggers if the relation is completely bogus - the three
-//  single-letter relations will match bogus stuff like '451,<625' which in
-//  turn will fail to decode number '451,'.
-//
 merylSelectorRelation
-merylCommandBuilder::decodeRelation(uint32 bgn) {
+merylCommandBuilder::decodeRelation(char const *s, uint32 p) {
   merylSelectorRelation  relation = merylSelectorRelation::isNOP;
 
-  if      (strncmp(_optString+bgn, "==", 2) == 0)   { relation = merylSelectorRelation::isEq;  }
-  else if (strncmp(_optString+bgn, "=",  1) == 0)   { relation = merylSelectorRelation::isEq;  }
-  else if (strncmp(_optString+bgn, "eq", 2) == 0)   { relation = merylSelectorRelation::isEq;  }
+  if      (strncmp(s+p, "==", 2) == 0)   { relation = merylSelectorRelation::isEq;  }
+  else if (strncmp(s+p, "=",  1) == 0)   { relation = merylSelectorRelation::isEq;  }
+  else if (strncmp(s+p, "eq", 2) == 0)   { relation = merylSelectorRelation::isEq;  }
 
-  else if (strncmp(_optString+bgn, "!=", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
-  else if (strncmp(_optString+bgn, "<>", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
-  else if (strncmp(_optString+bgn, "ne", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
+  else if (strncmp(s+p, "!=", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
+  else if (strncmp(s+p, "<>", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
+  else if (strncmp(s+p, "ne", 2) == 0)   { relation = merylSelectorRelation::isNeq; }
 
-  else if (strncmp(_optString+bgn, "<=", 2) == 0)   { relation = merylSelectorRelation::isLeq; }
-  else if (strncmp(_optString+bgn, "le", 2) == 0)   { relation = merylSelectorRelation::isLeq; }
-  else if (strncmp(_optString+bgn, ">=", 2) == 0)   { relation = merylSelectorRelation::isGeq; }
-  else if (strncmp(_optString+bgn, "ge", 2) == 0)   { relation = merylSelectorRelation::isGeq; }
+  else if (strncmp(s+p, "<=", 2) == 0)   { relation = merylSelectorRelation::isLeq; }
+  else if (strncmp(s+p, "le", 2) == 0)   { relation = merylSelectorRelation::isLeq; }
+  else if (strncmp(s+p, ">=", 2) == 0)   { relation = merylSelectorRelation::isGeq; }
+  else if (strncmp(s+p, "ge", 2) == 0)   { relation = merylSelectorRelation::isGeq; }
 
-  else if (strncmp(_optString+bgn, "<",  1) == 0)   { relation = merylSelectorRelation::isLt;  }
-  else if (strncmp(_optString+bgn, "lt", 2) == 0)   { relation = merylSelectorRelation::isLt;  }
-  else if (strncmp(_optString+bgn, ">",  1) == 0)   { relation = merylSelectorRelation::isGt;  }
-  else if (strncmp(_optString+bgn, "gt", 2) == 0)   { relation = merylSelectorRelation::isGt;  }
+  else if (strncmp(s+p, "<",  1) == 0)   { relation = merylSelectorRelation::isLt;  }
+  else if (strncmp(s+p, "lt", 2) == 0)   { relation = merylSelectorRelation::isLt;  }
+  else if (strncmp(s+p, ">",  1) == 0)   { relation = merylSelectorRelation::isGt;  }
+  else if (strncmp(s+p, "gt", 2) == 0)   { relation = merylSelectorRelation::isGt;  }
 
   else {
     sprintf(_errors, "No comparison operator found in '%s',", _optString);
@@ -84,13 +87,13 @@ merylCommandBuilder::decodeRelation(uint32 bgn) {
     sprintf(_errors, "");
   }
 
-  return(relation);
+  return relation;
 }
 
 
 
 void
-merylCommandBuilder::decodeSelector(uint32 bgn, merylSelector &f) {
+merylCommandBuilder::decodeSelector(char const *s, uint32 p, merylSelector &f) {
 
   //  Output values.  Each arg is either a db-index or a constant.
 
@@ -98,83 +101,59 @@ merylCommandBuilder::decodeSelector(uint32 bgn, merylSelector &f) {
   uint64   const1 = 0,          const2 = 0;
 
   //  Find pointers to the various bits of the string.
+  //    ab..ae - the first argument word
+  //    rb..re - the first relation encountered in the string
+  //    bb..be - the second argument word
 
-  uint32 arg1b = bgn;                         //  arg1 is easy, we're already there.
-  if (_optString[arg1b] == ':')               //  Just ensure that the driver did indeed
-    arg1b++;                                  //  skip past the first ':'.
+  uint32 ab = p;                           //  start of the first arg is easy, we're already there.
+  uint32 rb = ab;                          //  Search for the first relation.
+  while ((s[rb] != 0) &&
+         (isRelation(s, rb) == 0))
+    rb++;
 
-  uint32 relab = arg1b;                       //  Search for the relation.
-  while ((_optString[relab] != 0) &&
-         (isRelation(relab) == 0))
-    relab++;
+  uint32 ae = rb;                          //  The end of the first arg is the beginning of the relation,
+  //if (s[ae-1] == ':')                      //  unless there is a ':' involved.
+  //  ae--;                                  //  I THINK was to catch "value:>3"
 
-  uint32 arg1e = relab;                       //  The end of arg1 is the beginning of the relation,
-  if (_optString[arg1e-1] == ':')             //  unless there is a ':' involved.
-    arg1e--;
+  uint32 bb = rb + isRelation(s, rb);      //  second arg starts after the relation.
+  //if (s[bb] == ':')                        //   and any ':'.
+  //  bb++;
 
-  uint32 arg2b = relab + isRelation(relab);   //  arg2 starts after the relation and any ':'.
-  if (_optString[arg2b] == ':')
-    arg2b++;
+  uint32 be = bb;                          //  The end of the second arg is the end of the string.
+  while (s[be] != 0)
+    be++;
 
-  uint32 arg2e = arg2b;                       //  Keep scanning until we hit the
-  while (_optString[arg2e] != 0)              //  end-of-string.
-    arg2e++;
+  if (s[bb] == 0) {                        //  Fail if there is no second argument.
+    sprintf(_errors, "Invalid selector '%s': no second argument to comparison operator found.", s);
+    sprintf(_errors, "");
+  }
 
   //  Debug.
 #if 1
-  fprintf(stderr, "decodeSelector()- WORD          '%s'\n",       _optString);
-  fprintf(stderr, "decodeSelector()- ARG1  %3d-%3d '%s'\n", arg1b, arg1e, _optString + arg1b);
-  fprintf(stderr, "decodeSelector()- RELA  %3d     '%s'\n", relab,        _optString + relab);
-  fprintf(stderr, "decodeSelector()- ARG2  %3d-%3d '%s'\n", arg2b, arg2e, _optString + arg2b);
+  fprintf(stderr, "decodeSelector()- WORD          '%s'\n",               s);
+  fprintf(stderr, "decodeSelector()- ARG1  %3d-%3d '%s'\n", ab, ae, s + ab);
+  fprintf(stderr, "decodeSelector()- RELA  %3d     '%s'\n", rb,        s + rb);
+  fprintf(stderr, "decodeSelector()- ARG2  %3d-%3d '%s'\n", bb, be, s + bb);
 #endif
 
-  //  Decode 'arg1' if one exists.  If it doesn't exist, arg1 will be the
-  //  same as rela.
-
-  if      (arg1b == relab) {
-    index1 = 0;
-  }
-  else if (_optString[arg1b] == '@') {
-    decodeInteger(_optString, arg1b+1, arg1e, index1, _errors);
-  }  
-  else if (_optString[arg1b] == '#') {
-    decodeInteger(_optString, arg1b+1, arg1e, const1, _errors);
-  }
-  else {
-    decodeInteger(_optString, arg1b+0, arg1e, const1, _errors);
-  }
+  //  Decode the first argument.
+  if      (ab == rb)      index1 = 0;                                    //  No first arg.
+  else if (s[ab] == '@')  decodeInteger(s, ab+1, ae, index1, _errors);   //  First arg is file index.
+  else if (s[ab] == '#')  decodeInteger(s, ab+1, ae, const1, _errors);   //  First arg is integer constant.
+  else                    decodeInteger(s, ab,   ae, const1, _errors);   //  First arg is integer constant, by default.
 
   //  Decode the relation.
+  f._r = decodeRelation(s, rb);
 
-  f._r = decodeRelation(relab);
+  //  Decode the decond argument, with some special cases for weird constructs.
 
-  //  Decode 'arg2' if one exists.
-
-  if      (arg2b == arg2e) {
-    sprintf(_errors, "Invalid selector '%s': no second argument to comparison operator found.", _optString);
-    sprintf(_errors, "");
-  }
-  else if (_optString[arg2b] == '@') {
-    decodeInteger(_optString, arg2b+1, arg2e, index2, _errors);
-  }
-  else if (_optString[arg2b] == '#') {
-    decodeInteger(_optString, arg2b+1, arg2e, const2, _errors);
-  }
-  else if (strncmp(_optString+arg2b, "distinct=", 9) == 0) {
-    f._vValue2Distinct = strtodouble(_optString+arg2b+9);
-  }
-  else if (strncmp(_optString+arg2b, "word-freq=", 10) == 0) {
-    f._vValue2WordFreq = strtodouble(_optString+arg2b+10);
-  }
-  else if (strncmp(_optString+arg2b, "word-frequency=", 15) == 0) {
-    f._vValue2WordFreq = strtodouble(_optString+arg2b+15);
-  }
-  else if (strncmp(_optString+arg2b, "threshold=", 10) == 0) {
-    decodeInteger(_optString, arg2b+10, arg2e, const2, _errors);
-  }
-  else {
-    decodeInteger(_optString, arg2b+0, arg2e, const2, _errors);
-  }
+  if      (strncmp(s+bb, "distinct=",        9) == 0)  f._vValue2Distinct = strtodouble(s+bb+9);
+  else if (strncmp(s+bb, "word-freq=",      10) == 0)  f._vValue2WordFreq = strtodouble(s+bb+10);
+  else if (strncmp(s+bb, "word-frequency=", 15) == 0)  f._vValue2WordFreq = strtodouble(s+bb+15);
+  else if (strncmp(s+bb, "threshold=",      10) == 0)  decodeInteger(s, bb+10, be, const2, _errors);
+  else if (s[bb] == '@')                               decodeInteger(s, bb+ 1, be, index2, _errors);
+  else if (s[bb] == '#')                               decodeInteger(s, bb+ 1, be, const2, _errors);
+  else                                                 decodeInteger(s, bb,    be, const2, _errors);
 
   //  Set the index and constants in the selector.
   //
@@ -196,7 +175,7 @@ merylCommandBuilder::decodeSelector(uint32 bgn, merylSelector &f) {
   f._vIndex2 = index2;
 
   if (f._vIndex1 == f._vIndex2) {
-    sprintf(_errors, "Invalid selector '%s': always true (or false).", _optString);
+    sprintf(_errors, "Invalid selector '%s': always true (or false).", s);
     sprintf(_errors, "");
   }
 
@@ -227,7 +206,7 @@ merylCommandBuilder::decodeSelector(uint32 bgn, merylSelector &f) {
 
 
 
-//  Decide if _optString is a value selector.  If so, decode the
+//  Decide if _curParam is a value selector.  If so, decode the
 //  stuff and add it to the current selector product term.
 //
 //  Value selectors can look like (omitting the spaces):
@@ -244,23 +223,26 @@ merylCommandBuilder::decodeSelector(uint32 bgn, merylSelector &f) {
 bool
 merylCommandBuilder::isValueSelector(void) {
 
-  if (strncmp(_optString, "value:", 6) != 0)
-    return(false);
+  if ((_curClass != opClass::clSelect) &&
+      (_curPname != opPname::pnValue))
+    return false;
 
   merylSelector  f(merylSelectorQuantity::isValue,
                    merylSelectorRelation::isNOP,
                    _invertNextSelector,
-                   _optString);
+                   _curParam);
 
-  decodeSelector(6, f);
+  decodeSelector(_curParam, 0, f);
 
   getCurrent()->addSelectorToProduct(f);
 
-  return(true);
+  fprintf(stderr, "isValueSelector() consumed '%s'\n", _optString);
+
+  return true;
 }
 
 
-//  Decide if _optString is a label selector.  If so, decode the
+//  Decide if _curParam is a label selector.  If so, decode the
 //  stuff and add it to the current selector product term.
 //
 //  Label selectors look like value selectors.
@@ -268,24 +250,27 @@ merylCommandBuilder::isValueSelector(void) {
 bool
 merylCommandBuilder::isLabelSelector(void) {
 
-  if (strncmp(_optString, "label:", 6) != 0)
-    return(false);
+  if ((_curClass != opClass::clSelect) &&
+      (_curPname != opPname::pnLabel))
+    return false;
 
   merylSelector  f(merylSelectorQuantity::isLabel,
                    merylSelectorRelation::isNOP,
                    _invertNextSelector,
-                   _optString);
+                   _curParam);
 
-  decodeSelector(6, f);
+  decodeSelector(_curParam, 0, f);
 
   getCurrent()->addSelectorToProduct(f);
 
-  return(true);
+  fprintf(stderr, "isLabelSelector() consumed '%s'\n", _optString);
+
+  return true;
 }
 
 
 
-//  Decide if _optString is a base content selector.  If so, decode the
+//  Decide if _curParam is a base content selector.  If so, decode the
 //  stuff and add it to the current selector product term.
 //
 //  Base content selectors are slightly different than value and label selectors
@@ -296,20 +281,21 @@ merylCommandBuilder::isLabelSelector(void) {
 bool
 merylCommandBuilder::isBasesSelector(void) {
 
-  if (strncmp(_optString, "bases:", 6) != 0)
-    return(false);
+  if ((_curClass != opClass::clSelect) &&
+      (_curPname != opPname::pnBases))
+    return false;
 
   merylSelector  f(merylSelectorQuantity::isBases,
                    merylSelectorRelation::isNOP,
                    _invertNextSelector,
-                   _optString);
+                   _curParam);
 
   //  Decode the bases string itself.
 
-  uint32  bpos = 6;
+  uint32  bpos = 0;
 
-  while ((_optString[bpos] != ':') && (_optString[bpos] != 0)) {
-    switch (_optString[bpos]) {
+  while ((_curParam[bpos] != ':') && (_curParam[bpos] != 0)) {
+    switch (_curParam[bpos]) {
       case 'a':
       case 'A':
         f._countA = true;
@@ -327,7 +313,7 @@ merylCommandBuilder::isBasesSelector(void) {
         f._countG = true;
         break;
       default:
-        sprintf(_errors, "Invalid 'bases' letter in selector '%s'.", _optString);
+        sprintf(_errors, "Invalid 'bases' letter in selector '%s'.", _curParam);
         sprintf(_errors, "");
         break;
     }
@@ -335,16 +321,16 @@ merylCommandBuilder::isBasesSelector(void) {
     bpos++;
   }
 
-  if (_optString[bpos] != ':') {
-    sprintf(_errors, "Failed to parse 'bases' selector '%s'.", _optString);
+  if (_curParam[bpos] != ':') {
+    sprintf(_errors, "Failed to parse 'bases' selector '%s'.", _curParam);
     sprintf(_errors, "");
-    return(true);
+    return true;
   }
 
   //  Pass the rest of the string to the usual selector decoding to get the
   //  operation and constant.
 
-  decodeSelector(bpos, f);
+  decodeSelector(_curParam, bpos, f);
 
   //  Make sure the user didn't specify a useless index.
   //
@@ -353,19 +339,21 @@ merylCommandBuilder::isBasesSelector(void) {
 
   if      ((f._vIndex1 != uint32max) &&
            (f._vIndex1  > 0)) {
-    sprintf(_errors, "selector '%s' right hand side cannot specify a database input.", _optString);
+    sprintf(_errors, "selector '%s' right hand side cannot specify a database input.", _curParam);
     sprintf(_errors, "");
   }
 
   if      ((f._vIndex2 != uint32max) &&
            (f._vIndex2  > 0)) {
-    sprintf(_errors, "selector '%s' left hand side cannot specify a database input.", _optString);
+    sprintf(_errors, "selector '%s' left hand side cannot specify a database input.", _curParam);
     sprintf(_errors, "");
   }
   
   getCurrent()->addSelectorToProduct(f);
 
-  return(true);
+  fprintf(stderr, "isBasesSelector() consumed '%s'\n", _optString);
+
+  return true;
 }
 
 
@@ -373,13 +361,14 @@ merylCommandBuilder::isBasesSelector(void) {
 bool
 merylCommandBuilder::isInputSelector(void) {
 
-  if (strncmp(_optString, "input:", 6) != 0)
-    return(false);
+  if ((_curClass != opClass::clSelect) &&
+      (_curPname != opPname::pnInput))
+    return false;
 
   merylSelector  f(merylSelectorQuantity::isIndex,
                    merylSelectorRelation::isNOP,
                    _invertNextSelector,
-                   _optString);
+                   _curParam);
 
   //  The 'input' selector is a ':' or ',' separated list specifying how
   //  many and which input databases a kmer must be present in.
@@ -397,11 +386,11 @@ merylCommandBuilder::isInputSelector(void) {
   //    '@n-@m'  = in input files n-m inclusive
   //
 
-  for (uint32 ii=0; ii<_optStringLen; ii++)
-    if (_optString[ii] == ',')
-      _optString[ii] = ':';
+  //for (uint32 ii=0; ii<_curParamLen; ii++)
+  //  if (_curParam[ii] == ',')
+  //    _curParam[ii] = ':';
 
-  splitToWords  W(_optString, ':');
+  splitToWords  W(_curParam, ":,");
 
   for (uint32 ww=1; ww<W.numWords(); ww++) {     //  Skip the first word; it is 'input'.
     splitToWords  P(W[ww], '-');
@@ -481,80 +470,66 @@ merylCommandBuilder::isInputSelector(void) {
     }
 
     else {
-      sprintf(_errors, "selector '%s' cannot be decoded: unknown word '%s'.", _optString, W[ww]);
+      sprintf(_errors, "selector '%s' cannot be decoded: unknown word '%s'.", _curParam, W[ww]);
       sprintf(_errors, "");
     }
   }
 
   getCurrent()->addSelectorToProduct(f);
 
-  return(true);
+  fprintf(stderr, "isInputSelector() consumed '%s'\n", _optString);
+
+  return true;
 }
 
 
-
-//  Process any 'and', 'or' or 'not' selector connectives.
-//
-bool
-merylCommandBuilder::isSelectorConnective(void) {
-
-  //  The word 'not' will invert the sense of the next selector.
-  //
-  if (strcmp(_optString, "not") == 0) {
-    _invertNextSelector = !_invertNextSelector;
-    return(true);
-  }
-
-  //  The word 'and' is just syntactic sugar.  We don't need or use it.
-  if (strcmp(_optString, "and") == 0) {
-    return(true);
-  }
-
-  //  The word 'or' tells us to make a new product term.
-  if (strcmp(_optString, "or") == 0) {
-    if (getCurrent()->addNewSelectorProduct()) {
-      sprintf(_errors, "attempt to add new selector product when existing selector product is empty.");
-      sprintf(_errors, "");
-    }
-    return(true);
-  }
-
-  //  Nope, not a connective.
-  return(false);
-}
-
-
-
-//  Handle all selector related words.
-//
-//  This fails to detect some errors in the command line:
-//    f1 and and f2
-//    f1 and or  f2
-//    f1 not and f2
-//    f1 or
-//
-//  But does detect a few:
-//    or f1
-//    f1 or or f2
-//
 bool
 merylCommandBuilder::isSelect(void) {
 
-  //  If we find a selector word, process it and then reset
-  //  the invert flag.
-  //
-  if ((isValueSelector()      == true) ||   //  Consumes 'value:' selectors
-      (isLabelSelector()      == true) ||   //  Consumes 'label:' selectors
-      (isBasesSelector()      == true) ||   //  Consumes 'bases:' selectors
-      (isInputSelector()      == true)) {   //  Consumes 'input:' selectors
-    _invertNextSelector = false;
-    return(true);
+  fprintf(stderr, "isSelect() entered with opt='%s' param='%s'\n", _optString, _curParam);
+
+  if ((isValueSelector() == false) &&
+      (isLabelSelector() == false) &&
+      (isBasesSelector() == false) &&
+      (isInputSelector() == false))
+    return false;
+
+  _invertNextSelector = false;           //  Successfully decoded, reset state.
+
+  _curClass = opClass::clNone;
+  _curPname = opPname::pnNone;
+  _curParam = nullptr;
+
+  fprintf(stderr, "isSelect() consumed '%s'\n", _optString);
+
+  return true;
+}
+
+
+bool
+merylCommandBuilder::isSelectConnective(void) {
+  merylOpTemplate *t = getCurrent();
+  bool             a = false;
+
+  fprintf(stderr, "isSelectConnective() entered with opt='%s' param='%s'\n", _optString, _curParam);
+
+  if      (strcmp(_optString, "not") == 0)         //  'not' inverts the sense of the next term.
+    _invertNextSelector = !_invertNextSelector;    //
+  else if (strcmp(_optString, "and") == 0)         //  'and' is syntactic sugar; don't need or use it.
+    ;                                              //
+  else if (strcmp(_optString, "or") == 0)          //  'or' adds a new product term (later).
+    a = true;                                      //
+  else                                             //  Whatever it is, it isn't a connective,
+    return false;                                  //  and we're all done with selectors.
+
+  if (a) {                                         //  Add a new product term, here, outside the if block above
+    if (t->isSelectorProductEmpty() == true) {     //  to keep that block clean and tidy.
+      sprintf(_errors, "attempt to add new selector product when existing selector product is empty.");
+      sprintf(_errors, "");
+    }
+    else
+      t->addNewSelectorProduct();
   }
 
-  //  Not a selector word.  Check if it's a connective.
-
-  if (isSelectorConnective() == true)       //  Consumes 'and', 'or', 'not'
-    return(true);
-
-  return(false);
+  return true;
 }
