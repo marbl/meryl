@@ -62,6 +62,23 @@ merylCommandBuilder::isInOut(void) {
   if ((fpath != nullptr) && (fpath[0] == 0))  //  Blow up if the name is empty.
     sprintf(_errors, "Operation #%u has no output path name supplied.\n", op->_ident);
 
+  //  For pnShow, there will never be a filename.  Unlike the other Pnames,
+  //  we need to accept and complete this one immediately.
+
+  if ((_curClass == opClass::clOutput) &&
+      (_curPname == opPname::pnShow)) {
+    op->addOutputToList(nullptr, false, _errors);
+
+    if (fpath != nullptr)
+      sprintf(_errors, "Operation #%u specified a file path for output:display in '%s'.\n", op->_ident, _optString);
+
+    _curClass = opClass::clNone;
+    _curPname = opPname::pnNone;
+    _curParam = nullptr;
+
+    return true;
+  }
+
   //  For cases 1 and 3, we have a filepath, and can finish setting up the
   //  output for this operation.  At the end, forget all about the output
   //  parameter, because we're completely done with it.
@@ -71,7 +88,7 @@ merylCommandBuilder::isInOut(void) {
       switch (_curPname) {
         case opPname::pnDB:      op->addOutputToDB  (fpath,          _errors);  break;
         case opPname::pnList:    op->addOutputToList(fpath,   false, _errors);  break;
-        case opPname::pnShow:    op->addOutputToList(nullptr, false, _errors);  break;
+        case opPname::pnShow:    op->addOutputToList(nullptr, false, _errors);  break;  //  Should never happen!
         case opPname::pnPipe:    op->addOutputToPipe(fpath,          _errors);  break;
         case opPname::pnHisto:   op->addHistoOutput (fpath,          _errors);  break;
         case opPname::pnStats:   op->addStatsOutput (fpath,          _errors);  break;

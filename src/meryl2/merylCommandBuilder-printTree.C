@@ -127,13 +127,13 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 tID, uint32 iID, char
         if        ((ii == 0) && (jj == 0)) {
           //sparse
           fprintf(stderr, "%s|  |\n", jstr);
-          fprintf(stderr, "%s|  +-----+--- %s", jstr, SES[0].describe(sA));
+          fprintf(stderr, "%s|  +-----+---- %s", jstr, SES[0].describe(sA));
         } else if ((ii > 0) && (jj == 0)) {
-          fprintf(stderr, "%s|  +-and-+--- %s", jstr, SES[0].describe(sA));
+          fprintf(stderr, "%s|  +-or--+---- %s", jstr, SES[0].describe(sA));
         } else if (jj < ses-1) {
-          fprintf(stderr, "%s|  %c     | or %s", jstr, lin, SES[jj].describe(sA));
+          fprintf(stderr, "%s|  %c     | and %s", jstr, lin, SES[jj].describe(sA));
         } else {
-          fprintf(stderr, "%s|  %c     \\-or %s", jstr, lin, SES[ses-1].describe(sA));
+          fprintf(stderr, "%s|  %c     \\-and %s", jstr, lin, SES[ses-1].describe(sA));
         }
       }
 
