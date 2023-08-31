@@ -57,7 +57,7 @@ merylCommandBuilder::isInOut(void) {
   char const *fpath = (_curParam == nullptr) ? _optString :            //  Case 3
                       (_curParam[0] != 0)    ? _curParam  : nullptr;   //  Case 1 : Case 2
 
-  fprintf(stderr, "isInOut() enter with '%s' '%s' '%s' fpath '%s'\n", toString(_curClass), toString(_curPname), _curParam, fpath);
+  //fprintf(stderr, "isInOut() enter with '%s' '%s' '%s' fpath '%s'\n", toString(_curClass), toString(_curPname), _curParam, fpath);
 
   if ((fpath != nullptr) && (fpath[0] == 0))  //  Blow up if the name is empty.
     sprintf(_errors, "Operation #%u has no output path name supplied.\n", op->_ident);
@@ -93,8 +93,7 @@ merylCommandBuilder::isInOut(void) {
         case opPname::pnHisto:   op->addHistoOutput (fpath,          _errors);  break;
         case opPname::pnStats:   op->addStatsOutput (fpath,          _errors);  break;
         default:
-          fprintf(stderr, "Got Pname '%s' for clOutput.\n", toString(_curPname));
-          assert(0);
+          sprintf(_errors, "Got Pname '%s' for clOutput.\n", toString(_curPname));
           break;
       }
     }
@@ -109,8 +108,7 @@ merylCommandBuilder::isInOut(void) {
         case opPname::pnPipe:    sx = in->registerActionPipe(fpath,   _errors);   break;
         //se opPname::pnAction:  sx = in->registerTemplate  (nullptr, _errors);   break;
         default:
-          fprintf(stderr, "Got Pname '%s' for clInput.\n", toString(_curPname));
-          assert(0);
+          sprintf(_errors, "Got Pname '%s' for clInput.\n", toString(_curPname));
           break;
       }
 
@@ -123,9 +121,6 @@ merylCommandBuilder::isInOut(void) {
     _curClass = opClass::clNone;
     _curPname = opPname::pnNone;
     _curParam = nullptr;
-
-    fprintf(stderr, "isInOut() consumed1 '%s'\n", _optString);
-
     return true;
   }
 
@@ -133,9 +128,6 @@ merylCommandBuilder::isInOut(void) {
   //  the (empty) _curParam.
 
   _curParam = nullptr;
-
-  fprintf(stderr, "isInOut() consumed2 '%s'\n", _optString);
-
   return true;
 }
 

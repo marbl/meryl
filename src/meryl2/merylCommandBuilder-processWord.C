@@ -54,7 +54,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
   char const *pn = nullptr;             //  Eventual location of parameter name in opt.
   char const *pv = nullptr;             //  Eventual location of parameter value in opt.
 
-  fprintf(stderr, "decodeWord() enter with '%s' '%s' '%s'\n", toString(_curClass), toString(_curPname), _curParam);
+  //fprintf(stderr, "decodeWord() enter with '%s' '%s' '%s'\n", toString(_curClass), toString(_curPname), _curParam);
 
   if (_curClass != opClass::clNone)     //  If we already have a class set, do not attempt
     return false;                       //  to decode the word; we're waiting for the value.
@@ -63,14 +63,22 @@ merylCommandBuilder::decodeWord(char const *opt) {
   _curPname = opPname::pnNone;
   _curParam = nullptr;
 
+  //  Handle legacy 'output' usage.
+
   if ((strcmp(opt, "output") == 0) ||   //  If we see just 'output' or 'out', instead of
       (strcmp(opt, "out")    == 0)) {   //  output:database, assume this is a database
     _curClass = opClass::clOutput;      //  output and a well-trained meryl-v1 user.
     _curPname = opPname::pnDB;
     _curParam = (opt[6] == 0) ? (opt + 6)   //  _curParam MUST be NUL so that isInOut()
                               : (opt + 3);  //  knows that the parameter doens't exist yet.
+    return true;
+  }
 
-    fprintf(stderr, "decodeWord() exit1 with '%s' '%s' '%s'\n", toString(_curClass), toString(_curPname), _curParam);
+  if (matchToken(opt, pn, "output=") == true) {
+    _curClass = opClass::clOutput;
+    _curPname = opPname::pnDB;
+    _curParam = opt + 7;
+
     return true;
   }
 
@@ -100,8 +108,9 @@ merylCommandBuilder::decodeWord(char const *opt) {
     else if (matchToken(pn, pv, "pipe=")        == true)  _curPname = opPname::pnPipe;
     else if (matchToken(pn, pv, "histogram=")   == true)  _curPname = opPname::pnHisto;
     else if (matchToken(pn, pv, "statistics=")  == true)  _curPname = opPname::pnStats;
+    else if (matchToken(pn, pv, "stats=", true) == true)  _curPname = opPname::pnStats;
     else {
-      fprintf(stderr, "Expecting clOutput Pname in '%s'\n", opt);
+      sprintf(_errors, "Expecting clOutput Pname in '%s'\n", opt);
       return false;
     }
 
@@ -114,7 +123,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
     if      (matchToken(pn, pv, "value=")       == true)  _curPname = opPname::pnValue;
     else if (matchToken(pn, pv, "label=")       == true)  _curPname = opPname::pnLabel;
     else {
-      fprintf(stderr, "Expecting clAssign Pname in '%s'\n", opt);
+      sprintf(_errors, "Expecting clAssign Pname in '%s'\n", opt);
       return false;
     }
 
@@ -129,7 +138,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
     else if (matchToken(pn, pv, "bases:")       == true)  _curPname = opPname::pnBases;
     else if (matchToken(pn, pv, "input:")       == true)  _curPname = opPname::pnInput;
     else {
-      fprintf(stderr, "Expecting clSelect Pname in '%s' (select:Pname:)\n", opt);
+      sprintf(_errors, "Expecting clSelect Pname in '%s' (select:Pname:)\n", opt);
       return false;
     }
 
@@ -146,14 +155,12 @@ merylCommandBuilder::decodeWord(char const *opt) {
     else if (matchToken(pn, pv, "pipe=")        == true)  _curPname = opPname::pnPipe;
     else if (matchToken(pn, pv, "action=")      == true)  _curPname = opPname::pnAction;
     else {
-      fprintf(stderr, "Expecting clInput Pname in '%s'\n", opt);
+      sprintf(_errors, "Expecting clInput Pname in '%s'\n", opt);
       return false;
     }
 
     _curParam = pv;
   }
-
-  fprintf(stderr, "decodeWord() exit2 with '%s' '%s' '%s'\n", toString(_curClass), toString(_curPname), _curParam);
 
   return true;
 }
@@ -166,7 +173,7 @@ void
 merylCommandBuilder::processWord(char const *rawWord) {
 
   if (globals.showConstruction() == true)
-    fprintf(stderr, "processWord()- arg '%s'\n", rawWord);
+    fprintf(stderr, "processWord()- '%s'\n", rawWord);
 
   duplicateString(rawWord,              //  Make a copy of the word and count the length.
                   _optString, _optStringLen, _optStringMax);
@@ -185,6 +192,9 @@ merylCommandBuilder::processWord(char const *rawWord) {
       (isOptionWord() == true))         //  multiple ']'), or if the word is a recognized option,
     goto finishWord;                    //  we're done.
 
+  if ((isAliasConstant() == true))      //  If an alias constant -- or _expecting_ a constant
+    goto finishWord;                    //  but one not found, we're done.
+
   if (_curClass != opClass::clNone) {   //  If we already have a class/pname set, we're waiting
     if ((isInOut()  == false) &&        //  for another argument for a previous word - usually
         (isAssign() == false) &&        //  an input or output path - so take care of it now.
@@ -198,7 +208,7 @@ merylCommandBuilder::processWord(char const *rawWord) {
   //if (isInput() == true)                //  Handle merylDBs, canu seqStores and sequence
   //  goto finishWord;                    //  files.  This MUST come after _curClass != clNone!
 
-  if ((isAlias() == true) ||            //  Handle aliases and count operations.  Ideally,
+  if ((isAliasWord()    == true) ||     //  Handle aliases and count operations.  Ideally,
       (isCountingWord() == true))       //  these are only encountered with a completely empty
     goto finishWord;                    //  operation on the stack, but that isn't enforced.
 

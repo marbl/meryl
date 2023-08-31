@@ -20,23 +20,21 @@
 
 
 merylInput::~merylInput() {
-
-  //lete _template;    //  We do not own this.
-  delete _action;
-  //lete _pipe;
-  delete _db;
-  delete _list;
-  delete _sequence;
-  delete _store;
-  delete _read;
-
-  delete _templateName;
-  delete _actionName;
-  delete _pipeName;
-  delete _dbName;
-  delete _listName;
-  delete _sequenceName;
-  delete _storeName;
+  //lete    _template;    //  We do not own this.
+  delete    _action;
+  //lete    _pipe;
+  delete    _db;
+  delete    _list;
+  delete    _sequence;
+  delete    _store;
+  delete    _read;
+  delete [] _templateName;
+  delete [] _actionName;
+  delete [] _pipeName;
+  delete [] _dbName;
+  delete [] _listName;
+  delete [] _sequenceName;
+  delete [] _storeName;
 }
 
 //  Lazy creation of input sources.  Save whatever is given to us
@@ -74,6 +72,13 @@ merylInput::registerMerylDB(char const *path, std::vector<char const *> &err, bo
   _type = merylInputType::inDB;
   _dbName = duplicateString(path);
   return true;
+}
+
+merylInput *
+merylInput::registerMerylDB(char const *path) {
+  _type = merylInputType::inDB;
+  _dbName = duplicateString(path);
+  return this;
 }
 
 bool

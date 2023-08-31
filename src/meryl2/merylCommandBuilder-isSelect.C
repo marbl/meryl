@@ -128,13 +128,12 @@ merylCommandBuilder::decodeSelector(char const *s, uint32 p, merylSelector &f) {
     sprintf(_errors, "");
   }
 
-  //  Debug.
-#if 1
-  fprintf(stderr, "decodeSelector()- WORD          '%s'\n",               s);
-  fprintf(stderr, "decodeSelector()- ARG1  %3d-%3d '%s'\n", ab, ae, s + ab);
-  fprintf(stderr, "decodeSelector()- RELA  %3d     '%s'\n", rb,        s + rb);
-  fprintf(stderr, "decodeSelector()- ARG2  %3d-%3d '%s'\n", bb, be, s + bb);
-#endif
+  if (globals.showConstruction() == true) {
+    fprintf(stderr, "decodeSelector()- WORD          '%s'\n",               s);
+    fprintf(stderr, "decodeSelector()- ARG1  %3d-%3d '%s'\n", ab, ae, s + ab);
+    fprintf(stderr, "decodeSelector()- RELA  %3d     '%s'\n", rb,        s + rb);
+    fprintf(stderr, "decodeSelector()- ARG2  %3d-%3d '%s'\n", bb, be, s + bb);
+  }
 
   //  Decode the first argument.
   if      (ab == rb)      index1 = 0;                                    //  No first arg.
@@ -236,8 +235,6 @@ merylCommandBuilder::isValueSelector(void) {
 
   getCurrent()->addSelectorToProduct(f);
 
-  fprintf(stderr, "isValueSelector() consumed '%s'\n", _optString);
-
   return true;
 }
 
@@ -262,8 +259,6 @@ merylCommandBuilder::isLabelSelector(void) {
   decodeSelector(_curParam, 0, f);
 
   getCurrent()->addSelectorToProduct(f);
-
-  fprintf(stderr, "isLabelSelector() consumed '%s'\n", _optString);
 
   return true;
 }
@@ -350,8 +345,6 @@ merylCommandBuilder::isBasesSelector(void) {
   }
   
   getCurrent()->addSelectorToProduct(f);
-
-  fprintf(stderr, "isBasesSelector() consumed '%s'\n", _optString);
 
   return true;
 }
@@ -477,16 +470,12 @@ merylCommandBuilder::isInputSelector(void) {
 
   getCurrent()->addSelectorToProduct(f);
 
-  fprintf(stderr, "isInputSelector() consumed '%s'\n", _optString);
-
   return true;
 }
 
 
 bool
 merylCommandBuilder::isSelect(void) {
-
-  fprintf(stderr, "isSelect() entered with opt='%s' param='%s'\n", _optString, _curParam);
 
   if ((isValueSelector() == false) &&
       (isLabelSelector() == false) &&
@@ -500,8 +489,6 @@ merylCommandBuilder::isSelect(void) {
   _curPname = opPname::pnNone;
   _curParam = nullptr;
 
-  fprintf(stderr, "isSelect() consumed '%s'\n", _optString);
-
   return true;
 }
 
@@ -510,8 +497,6 @@ bool
 merylCommandBuilder::isSelectConnective(void) {
   merylOpTemplate *t = getCurrent();
   bool             a = false;
-
-  fprintf(stderr, "isSelectConnective() entered with opt='%s' param='%s'\n", _optString, _curParam);
 
   if      (strcmp(_optString, "not") == 0)         //  'not' inverts the sense of the next term.
     _invertNextSelector = !_invertNextSelector;    //

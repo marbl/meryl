@@ -69,7 +69,7 @@ public:
   bool    acceptsSequenceInputs(void)  { return _isCounting; };
 
 public:
-  void    finalizeTemplateInputs(std::vector<char const *> &err);
+  void    finalizeTemplateInputs(uint32 oo, std::vector<char const *> &err);
   void    finalizeTemplateParameters(void);
 
   void    finishAction(void);

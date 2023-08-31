@@ -128,13 +128,15 @@ public:
   //  Returns false if there is no way this can be opened.
   //
 
-  bool registerTemplate  (merylOpTemplate *t,                            std::vector<char const *> &err, bool displayErrors=true);
-  bool registerAction    (merylOpCompute *a,                             std::vector<char const *> &err, bool displayErrors=true);
-  bool registerActionPipe(char const *pipeName,                          std::vector<char const *> &err, bool displayErrors=true);
-  bool registerMerylDB   (char const *dbName,                            std::vector<char const *> &err, bool displayErrors=true);
-  bool registerMerylList (char const *listName,                          std::vector<char const *> &err, bool displayErrors=true);
-  bool registerSeqFile   (char const *seqName, bool doCompression,       std::vector<char const *> &err, bool displayErrors=true);
-  bool registerSeqStore  (char const *sqName, uint32 seg, uint32 segMax, std::vector<char const *> &err, bool displayErrors=true);
+  bool        registerTemplate  (merylOpTemplate *t,                            std::vector<char const *> &err, bool displayErrors=true);
+  bool        registerAction    (merylOpCompute *a,                             std::vector<char const *> &err, bool displayErrors=true);
+  bool        registerActionPipe(char const *pipeName,                          std::vector<char const *> &err, bool displayErrors=true);
+  bool        registerMerylDB   (char const *dbName,                            std::vector<char const *> &err, bool displayErrors=true);
+  bool        registerMerylList (char const *listName,                          std::vector<char const *> &err, bool displayErrors=true);
+  bool        registerSeqFile   (char const *seqName, bool doCompression,       std::vector<char const *> &err, bool displayErrors=true);
+  bool        registerSeqStore  (char const *sqName, uint32 seg, uint32 segMax, std::vector<char const *> &err, bool displayErrors=true);
+
+  merylInput *registerMerylDB   (char const *dbName);
 
   //
   //  Add per-slice inputs.

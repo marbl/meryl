@@ -76,7 +76,7 @@ main(int argc, char **argv) {
       B->processWord(argv[arg]);
   }
 
-  B->buildTrees();   //  Finalize the processing tree and check for errors.
+  B->finalizeTrees();   //  Finalize the processing tree and check for errors.
 
   if ((argc == 1) ||                //  No commands
       (B->numTrees() == 0) ||       //  No actions
@@ -99,6 +99,7 @@ main(int argc, char **argv) {
     return fprintf(stderr, "Stopping after configuration.\n"), 0;
 
   B->performCounting(globals.allowedMemory(), globals.allowedThreads());
+  B->finalizeParameters();
   B->spawnThreads(globals.allowedThreads());
   B->runThreads(globals.allowedThreads());
 

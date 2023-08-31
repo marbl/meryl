@@ -59,6 +59,9 @@ private:
                           merylFileWriter           *output);
 
 public:
+  void    setDefaultLabel(kmlabl l)  { _lConstant = l; }
+  void    setDefaultValue(kmvalu v)  { _vConstant = v; }
+
   void    setCountSuffix(char const *s) {
     _countSuffixLength = strlen(s);
 
@@ -112,16 +115,8 @@ public:
   //uint64    _sMask      = 0;   //  
   //uint64    _cSuffix    = 0;   //  
 
-  kmlabl    _lConstant    = 0;   //  All kmers are set to this label
+  kmvalu    _vConstant    = 0;   //  If non-zero, all kmers have this value.
+  kmlabl    _lConstant    = 0;   //  All kmers have this label.
 };
-
-
-
-
-
-
-
-
-
 
 #endif  //  MERYLOPCOUNTING_H

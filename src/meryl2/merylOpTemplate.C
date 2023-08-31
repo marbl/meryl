@@ -203,47 +203,71 @@ merylOpTemplate::addHistoOutput(char const *hiName, std::vector<char const *> &e
 
 
 //  This is called by merylCommandBuilder after the entire tree has been
-//  built.
-//
-//  The purpose is to allow the selectors a chance to figure out what
-//  'all' means and to fail if there are any errors (like asking for input
-//  4 when there are only 3 available).
+//  built, but before any processing threads are created.  It will:
+//   - open any input databases (to set the kmer size)
+//   - make sure counting actions are from seequence and processing
+//     actions are from databases.
+//   - let select:input figure out what 'all' means, and fail
+//     if an input is not present (asking for input 4, but only
+//     3 are supplied).
+//   - let the action itself fail if there are too few or too
+//     many inputs.
 //
 //  It is NOT intended to do any processing, like examining histograms to
 //  choose thresholds.  That is done in initializeTemplate().
 //
 void
-merylOpTemplate::finalizeTemplateInputs(std::vector<char const *> &err) {
+merylOpTemplate::finalizeTemplateInputs(uint32 oo, std::vector<char const *> &err) {
 
-  for (uint32 f1=0; f1<_select    .size(); f1++)
+  for (uint32 ii=0; ii<_inputs.size(); ii++) {
+    _inputs[ii]->openInput();
+
+    if ((_isCounting == true) &&
+        (_inputs[ii]->isFromSequence() == false) &&
+        (_inputs[ii]->isFromStore()    == false))
+      sprintf(err, "ERROR: counting action at position %u input %u must be from a sequence file or Canu seqStore.", oo, ii);
+
+    if ((_isCounting == false) &&
+        (_inputs[ii]->isFromTemplate() == false) &&
+        (_inputs[ii]->isFromDatabase() == false))
+      sprintf(err, "ERROR: action at position %u input %u must be from a meryl database or another action.", oo, ii);
+  }
+
+
+  for (uint32 f1=0; f1<_select.size(); f1++)
     for (uint32 f2=0; f2<_select[f1].size(); f2++)
       _select[f1][f2].finalizeSelectorInputs(this, err);
+
+
+  if (_inputs.size() < _inputsMin)
+    sprintf(err, "Action at position %u has %u inputs, but requires at least %u.\n",
+            oo, _inputs.size(), _inputsMin);
+
+  if (_inputs.size() > _inputsMax)
+    sprintf(err, "Action at position %u has %u inputs, but requires at most %u.\n",
+            oo, _inputs.size(), _inputsMax);
+
+
+  if ((_isCounting == true) &&
+      (_outDbseName == nullptr))
+    sprintf(err, "ERROR: counting operation at position %u must have an output database.\n", oo);
 }
 
 
 
-//  This is called by spawnThreads() just before the template is copied
-//  into (64) merylOpCompute objects.
-//
-//  The purpose is to allow inputs and outputs to be opened before threads
-//  are spawned, and to allow the flters a chance to examine histograms or
-//  anything else on disk.
+//  Counting is done, we're about ready to process.
+//   - open any output databases
+//   - figure out any last minute parameters (that are found
+//     by querying databases, for example).
 //
 void
 merylOpTemplate::finalizeTemplateParameters(void) {
 
-  for (uint32 ii=0; ii<_inputs.size(); ii++)       //  Forward the request to any inputs
-    if (_inputs[ii]->_template != nullptr)         //  that are actions.
-      _inputs[ii]->_template->finalizeTemplateParameters();
-
   if (_outDbse)                                    //  Create the master output object.  We'll later
     _outDbse->initialize(0, false);                //  request per-thread writer objects from this.
 
-  //  Any selectors that need to query meryl databases for parameters
-  //  should do so now.
-
-  for (uint32 f1=0; f1<_select    .size(); f1++)
-  for (uint32 f2=0; f2<_select[f1].size(); f2++)
+  for (uint32 f1=0; f1<_select    .size(); f1++)   //  Let selectors query inputs
+  for (uint32 f2=0; f2<_select[f1].size(); f2++)   //  for parameters.
     _select[f1][f2].finalizeSelectorParameters(this);
 }
 
@@ -291,9 +315,8 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
       (_outDbse == nullptr))
     return;
 
-  _counting->_lConstant = _labelConstant;
-
-  //  Call the counting method.
+  _counting->setDefaultLabel(_labelConstant);
+  _counting->setDefaultValue(0);
   _counting->doCounting(_inputs, allowedMemory, allowedThreads, _outDbse);
 
   if (_onlyConfig == true)   //  If only configuring, stop now.
@@ -307,22 +330,30 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
   //   - convert the operation to a simple 'pass through'
   //   - add the counted output as an input
 
-  char name[FILENAME_MAX + 1];
+  //char *name = duplicateString(_outDbse->filename());
 
-  strncpy(name, _outDbse->filename(), FILENAME_MAX + 1);   //  know which input to open later.
-
-  //  Close the output and forget about it.
-  delete [] _outDbseName;   _outDbseName = nullptr;
-  delete    _outDbse;       _outDbse = nullptr;
+  //char name[FILENAME_MAX + 1];
+  //strncpy(name, _outDbse->filename(), FILENAME_MAX + 1);   //  know which input to open later.
 
   //  Close the inputs and forget about them too.
   for (uint32 ii=0; ii<_inputs.size(); ii++)
     delete _inputs[ii];
+
   _inputs.clear();
 
   //  But now remember what that output was and make it an input.
   //    (see addInputFromDB())
-  _inputs.push_back(new merylInput(new merylFileReader(name)));
+
+  merylInput  *in = new merylInput;
+
+  in->registerMerylDB(_outDbseName);
+  addInput(in);
+
+  //  Close the output and forget about it.
+  delete [] _outDbseName;   _outDbseName = nullptr;
+  delete    _outDbse;       _outDbse     = nullptr;
+
+  //_inputs.push_back(new merylInput(new merylFileReader(name)));
 };
 
 

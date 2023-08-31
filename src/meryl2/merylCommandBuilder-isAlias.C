@@ -18,66 +18,74 @@
 
 #include "meryl.H"
 
-
 //  Should we fail if an alias is detected for an operation being set up?
 
 
+
+
+
+//  If the previous word was an alias and it needs a value,
+//  Check for _needsValue and _needsConstant.  If set, assume this word is
+//  an integer constant, and copy the constant to the selector (_needsValue)
+//  or operation (_needsConstant).  For both, the word is always consumed,
+//  but we emit an error if it's not understood.
+//
+//  _needsValue is used by selector aliases:
+//    less-than,
+//    greater-than
+//    at-least
+//    at-most
+//    equal-to
+//    not-equal-to
+//
+//  _needsConstant is used by selection aliases:
+//    increase
+//    decrease
+//    multiply
+//    divide
+//    divide-round
+//    modulo
 bool
-merylCommandBuilder::isAlias(void) {
+merylCommandBuilder::isAliasConstant(void) {
   merylOpTemplate  *op = getCurrent();
+  uint32            cn = 0;
 
-  //  Check for _needsValue and _needsConstant.  If set, assume this word is
-  //  an integer constant, and copy the constant to the selector (_needsValue)
-  //  or operation (_needsConstant).  For both, the word is always consumed,
-  //  but we emit an error if it's not understood.
-  //
-  //  _needsValue is used by selector aliases:
-  //    less-than,
-  //    greater-than
-  //    at-least
-  //    at-most
-  //    equal-to
-  //    not-equal-to
-  //
-  //  _needsConstant is used by selection aliases:
-  //    increase
-  //    decrease
-  //    multiply
-  //    divide
-  //    divide-round
-  //    modulo
+  if      (_needsConstant) {
+    op->_valueConstant = decodeInteger(_optString, 0, 0, cn, _errors);
+  }
 
-  if ((_needsValue    == true) ||
-      (_needsConstant == true)) {
-    char   *optstr   = _optString;
-    uint32  constant = 0;
+  else if (_needsValue) {
+    if     (strncmp(_optString, "distinct=", 9) == 0)
+      op->getLastSelector()._vValue2Distinct = strtodouble(_optString + 9);
 
-    if      ((_needsValue == true) && (strncmp(_optString, "distinct=", 9) == 0))
-      op->getLastSelector()._vValue2Distinct = strtodouble(optstr + 9);
+    else if (strncmp(_optString, "word-freq=", 10) == 0)
+      op->getLastSelector()._vValue2WordFreq = strtodouble(_optString + 10);
 
-    else if ((_needsValue == true) && (strncmp(_optString, "word-freq=", 10) == 0))
-      op->getLastSelector()._vValue2WordFreq = strtodouble(optstr + 10);
+    else if (strncmp(_optString, "word-frequency=", 15) == 0)
+      op->getLastSelector()._vValue2WordFreq = strtodouble(_optString + 15);
 
-    else if ((_needsValue == true) && (strncmp(_optString, "word-frequency=", 15) == 0))
-      op->getLastSelector()._vValue2WordFreq = strtodouble(optstr + 15);
-
-    else if ((_needsValue == true) && (strncmp(_optString, "threshold=", 10) == 0))
-      op->getLastSelector()._vValue2 = decodeInteger(optstr, 10, 0, constant, _errors);
-
-    else if (_needsValue == true)
-      op->getLastSelector()._vValue2 = decodeInteger(optstr, 0, 0, constant, _errors);
-
-    else if (_needsConstant == true)
-      op->_valueConstant = decodeInteger(optstr, 0, 0, constant, _errors);
+    else if (strncmp(_optString, "threshold=", 10) == 0)
+      op->getLastSelector()._vValue2 = decodeInteger(_optString, 10, 0, cn, _errors);
 
     else
-      assert(0);
-
-    _needsValue    = false;   //  We've processed the requested argument
-    _needsConstant = false;   //  for either of these just by getting here.
-
-    return(true);
+      op->getLastSelector()._vValue2 = decodeInteger(_optString, 0, 0, cn, _errors);
   }
+
+  else {            //  Doesn't need a constant
+    return false;   //  or a value.
+  }
+
+  _needsValue    = false;   //  We've processed the requested argument (or failed)
+  _needsConstant = false;   //  either way, the constant has been handled.
+
+  return true;
+}
+
+
+bool
+merylCommandBuilder::isAliasWord(void) {
+  merylOpTemplate  *op = getCurrent();
+
 
   //  Decode the alias and set up the operation.
 

@@ -124,16 +124,18 @@ private:
   uint32  findCreateTerminate(void);
 public:
   void    processWord(char const *opt);         //  Add a command line word to the builder
-  void    buildTrees(void);                     //  Notify us that all words have been added
+  void    finalizeTrees(void);                  //  Notify us that all words have been added
   void    performCounting(uint64 allowedMemory,
                           uint32 allowedThreads);
+  void    finalizeParameters(void);
   void    spawnThreads(uint32 allowedThreads);  //  Build 64 trees for processing kmers.
   void    runThreads(uint32 allowedThreads);
 
 private:
   bool    isEmptyWord(void)      { return(_optString[0] == 0); }
   bool    isOptionWord(void);
-  bool    isAlias(void);
+  bool    isAliasConstant(void);
+  bool    isAliasWord(void);
 
   bool    isInOut(void);
   bool    isInput(void);
@@ -186,17 +188,10 @@ private:
 
   bool      _isOutput      = false;         //  enable output to merylDB
 
-  bool      _isPrint        = false;        //  enable output to ASCII dump
   bool      _printACGTorder = false;        //  fix canonical ordering
 
-  bool      _isHistogram    = false;        //  enable histogram output
-  bool      _isStatistics   = false;        //  enable statistics output
-
-  //  If _needsValue or _needsConstant is set, the current selector or current
-  //  action needs an integer parameter in the next word.
-
-  bool      _needsValue     = false;
-  bool      _needsConstant  = false;
+  bool      _needsValue     = false;        //  These get set if the next word is required
+  bool      _needsConstant  = false;        //  is required to be a constant.
 
   //  If _invertNextSelector is set, the sense of the next selector encountered
   //  is inverted.  Example: 's1 and not s2'.

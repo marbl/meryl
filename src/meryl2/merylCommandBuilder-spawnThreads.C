@@ -91,14 +91,6 @@ merylOpCompute::addSliceStatistics(merylOpTemplate *ot, uint32 slice) {
 void
 merylCommandBuilder::spawnThreads(uint32 allowedThreads) {
 
-  //  Tell all the actions to do their final initialization - this will
-  //  create master input/output objects, query histograms to get any
-  //  paramters based on those, and anything else that needs to be done once
-  //  per action.
-
-  for (uint32 rr=0; rr<numTrees(); rr++)
-    getTree(rr)->finalizeTemplateParameters();
-
   //  Allocate compute objects for each of our 64 file slices, then copy the
   //  list of templates into each slice.  These need to exist before we start
   //  creating inputs.

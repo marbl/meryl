@@ -66,44 +66,34 @@ merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
   if (nter == 0)              return true;    //  Successfully terminated the requested number.
   if (_opStack.size() == 0)   return false;   //  Oops, too many terminates requested.
 
-  if (_curClass != opClass::clNone)
-    sprintf(_errors, "terminateOperations()- Terminate operation #%u at stack position %ld has set _curClass '%s'.\n",
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "terminateOperations()- Terminate action #%u at stack position %ld.\n",
+            op->_ident, _opStack.size()-1);
+
+ if (_curClass != opClass::clNone)
+    sprintf(_errors, "terminateOperations()- Action #%u at stack position %ld did not process _curClass '%s'.\n",
             op->_ident, _opStack.size()-1, toString(_curClass));
   if (_curPname != opPname::pnNone)
-    sprintf(_errors, "terminateOperations()- Terminate operation #%u at stack position %ld has set _curPname '%s'.\n",
+    sprintf(_errors, "terminateOperations()- Action #%u at stack position %ld did not process _curPname '%s'.\n",
             op->_ident, _opStack.size()-1, toString(_curPname));
+
+  if ((op->_isCounting == false) &&    //  If neither set, this action might be doing nothing.
+      (op->_isSelector == false)) {    //  It could still be doing just histo/stats or output.
+    fprintf(stderr, "terminateOperations()- Action #%u at stack position %ld possibly does nothing.\n",
+            op->_ident, _opStack.size()-1);
+    op->_isSelector = true;
+  }
 
   //assert(_curClass == opClass::clNone);       //  If either of these are set, the action
   //assert(_curPname == opPname::pnNone);       //  was never fully parsed/added.
 
-  if (globals.showConstruction() == true)
-    fprintf(stderr, "terminateOperations()- Terminate operation #%u at stack position %ld.\n",
-            op->_ident, _opStack.size()-1);
-
-  //  Set unset things in the action to defaults.
-
-  if ((op->_isCounting == false) &&
-      (op->_isSelector == false))
-    fprintf(stderr, "terminateOperations()- Terminate operation #%u at stack position %ld is unset?\n",
-            op->_ident, _opStack.size()-1);
 
   if (op->_valueAssign == merylAssignValue::valueNOP)  op->_valueAssign = merylAssignValue::valueFirst;
   if (op->_labelAssign == merylAssignLabel::labelNOP)  op->_labelAssign = merylAssignLabel::labelFirst;
 
-  //  Finish file operations.
-
-#if 0
-  if (_isPrint)       op->addPrinter(nullptr, _printACGTorder, _errors);
-  if (_isHistogram)   op->addHistogram("-", false, _errors);
-  if (_isStatistics)  op->addHistogram("-", true, _errors);
-#endif
-
   //  Forget any files we've been remembering.
 
-  _isPrint        = false;
   _printACGTorder = false;
-  _isHistogram    = false;
-  _isStatistics   = false;
 
   //  Pop the action if told to, then recursively call to handle the
   //  remaining terminates.
@@ -147,88 +137,49 @@ merylCommandBuilder::isCountingWord(void) {
 
 
 
-//  This doesn't really build the trees, since they're built as words are
-//  added.
+//  We've buit the processing tree structure.  Walk through it looking for
+//  errors or inconsistencies and opening inputs.
 //
-//  This does go through all the actions to make sure the inputs, outputs and
-//  selectors are appropriate for that action, generating error messagess if
-//  needed.
+//   - terminateOperations() will close any still-open operations.  This can
+//     be from (valid, legacy) usage or from (invalid but allowed) usage:
+//       meryl act in1 in2
+//       meryl [ act1 [ act2 in1 in2
+//
+//   - Tell each action that it has all of its inputs, and it is safe to open
+//     them.  This will also check that the number of inputs is valid and add
+//     an error if not.
+//
+//   - ensure that a kmer size is known
 //
 void
-merylCommandBuilder::buildTrees(void) {
-
-  //
-  //  Clear the stack, we're done with it.  This handles, I think, only the
-  //  case where the command line has no '[' or ']' symbols:
-  //    meryl act in1 in2
-  //  but does allow technically invalid commands that do not explicitly
-  //  terminate any actions:
-  //    meryl [ act1 [ act2 in1 in2
-  //
+merylCommandBuilder::finalizeTrees(void) {
 
   terminateOperations(_opStack.size(), true);
 
-  //  Tell each action that it has all the inputs it is going to get,
-  //  and add errors if there are too many or too few of them.
+  for (uint32 oo=0; oo<_opList.size(); oo++)
+    _opList[oo]->finalizeTemplateInputs(oo, _errors);
 
-  for (uint32 oo=0; oo<_opList.size(); oo++) {
-    merylOpTemplate  *ot = _opList[oo];
-
-    ot->finalizeTemplateInputs(_errors);
-
-    if (ot->_inputs.size() < ot->_inputsMin)
-      sprintf(_errors, "ERROR: operation at position %u has %u inputs, but requires at least %u.\n",
-               oo, ot->_inputs.size(), ot->_inputsMin);
-
-    if (ot->_inputs.size() > ot->_inputsMax)
-      sprintf(_errors, "ERROR: operation at position %u has %u inputs, but requires at most %u.\n",
-               oo, ot->_inputs.size(), ot->_inputsMax);
-  }
-
-  //  Check COUNTING operations:
-  //   - the mer size must be known
-  //   - an output must be defined
-  //   - inputs must be only 'sequence' types
-  //
-  //  Check SELECTOR operations:
-  //   - inputs must not be 'sequence' type
-
-  for (uint32 oo=0; oo<_opList.size(); oo++) {
-    merylOpTemplate  *ot = _opList[oo];
-
-    //  Check COUNTING
-    if (ot->_isCounting == true) {
-      if (kmer::merSize() == 0)  //  ERROR: Kmer size not supplied with modifier k=<kmer-size>
-        sprintf(_errors, "ERROR: counting operation at position %u doesn't have a mer size set.\n", oo);
-      if (ot->_outDbseName == nullptr)
-        sprintf(_errors, "ERROR: counting operation at position %u must have an output database.\n", oo);
-
-      for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
-        if ((ot->_inputs[ii]->isFromSequence() == false) &&
-            (ot->_inputs[ii]->isFromStore()    == false))
-          sprintf(_errors, "ERROR: counting operation at position %u input %u must be from a sequence file or Canu seqStore.", oo, ii);
-    }
-
-    //  Check SELECTOR
-    else if (ot->_isSelector) {
-      for (uint32 ii=0; ii<ot->_inputs.size(); ii++)
-        if ((ot->_inputs[ii]->isFromTemplate() == false) &&
-            (ot->_inputs[ii]->isFromDatabase() == false))
-          sprintf(_errors, "ERROR: select operation at position %u input %u must be from a meryl database or another operation.", oo, ii);
-    }
-
-    else {
-    }
-  }
+  if (kmer::merSize() == 0)
+    sprintf(_errors, "ERROR: mer size not set.\n");
 }
 
 
-
+//  Do counting.
 void
 merylCommandBuilder::performCounting(uint64 allowedMemory, uint32 allowedThreads) {
-  for (uint32 oo=0; oo<numOperations(); oo++)
-    getOperation(oo)->doCounting(allowedMemory, allowedThreads);
+  for (uint32 oo=0; oo<_opList.size(); oo++)
+    _opList[oo]->doCounting(allowedMemory, allowedThreads);
 }
+
+
+//  Tell all the actions to do their final initialization.
+void
+merylCommandBuilder::finalizeParameters(void) {
+  for (uint32 oo=0; oo<_opList.size(); oo++)
+    _opList[oo]->finalizeTemplateParameters();
+}
+
+
 
 
 
