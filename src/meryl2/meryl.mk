@@ -6,6 +6,7 @@ SOURCES  := meryl.C \
             merylCommandBuilder-isOption.C \
             merylCommandBuilder-isSelect.C \
             merylCommandBuilder-printTree.C \
+            merylCommandBuilder-processText.C \
             merylCommandBuilder-processWord.C \
             merylCommandBuilder-spawnThreads.C \
             merylCommandBuilder.C \

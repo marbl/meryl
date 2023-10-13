@@ -45,7 +45,6 @@ public:
 
   bool    processDebugOption (int &arg, char **argv, std::vector<char const *> &err);
   bool    processGlobalOption(int &arg, char **argv, std::vector<char const *> &err);
-  bool    processLegacyOption(int &arg, char **argv, std::vector<char const *> &err);
 
   void    beQuiet(void)               { _v = 0; }
   void    increaseVerbosity(void)     { _v++;   }
@@ -69,6 +68,9 @@ public:
 private:
   uint32 _v  = 1;       //  Verbosity level, 'standard'.
   bool   _p  = false;   //  Show progress, does nothing yet.
+
+  //nt32 _k  = 0;       //  Both k-mer size and label size are
+  //nt32 _l  = 0;       //  stored in the kmer class.
 
   bool   _c  = false;   //  Stop after configure.
 

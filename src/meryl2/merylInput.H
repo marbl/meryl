@@ -159,7 +159,7 @@ public:
 private:
   void openinputSeqStore(void);
 public:
-  void openInput(void);
+  void openInput(std::vector<char const *> &err);
 
   //
   //  All the data!

@@ -60,6 +60,83 @@
 //  nodes which will close and open files, etc.
 //
 
+
+
+
+//  Program text from an input file presents a challenge.  We need
+//  to recognize and parse single and double quotes to allow
+//  filenames with spaces.
+//
+//    output:database "file with spaces"
+//    output:database "file'with'ticks"
+//
+//  Like appendProgramWords, 
+void
+merylCommandBuilder::loadProgramText(char const *f) {
+  compressedFileReader  *cft = new compressedFileReader(f);
+
+  bool        esc   = false;
+  bool        quote = false;
+  bool        tick  = false;
+
+  while (cft->readLine() == true) {
+    char const *line  = cft->line();
+    uint32      lineL = cft->lineLen();
+
+    for (uint32 ll=0; ll < lineL; ll++) {
+      char  ch = line[ll];
+
+      if      ((ch == '\\') && (esc == false)) {  //  Escape the next character.
+        esc = true;
+      }
+      else if ((ch == '"') && (esc == false)) {   //  If a non-escaped quote, toggle
+        quote = !quote;                           //  the quote-block state.
+      }
+      else {                                      //  See comments below about increaseArray().
+        increaseArray(_pTxt, _pTxtLen+2, _pTxtMax, 16384);
+
+        if ((quote == false) && (ch == ' '))      //  If not in a quote-block, and we see a
+          ch = '\v';                              //  space, insert a word separator instead.
+
+        _pTxt[_pTxtLen++] = ch;
+
+        esc = false;
+      }
+    }
+  }
+
+  delete cft;
+
+  _pTxt[_pTxtLen++] = '\v';
+  _pTxt[_pTxtLen]   = '\0';
+}
+
+
+//  Words are separated by a vertical-tab, VT, \v.
+//
+//  Words are appended to the program text verbatim.  This will
+//  pass filenames correctly, but will NOT pass quoted command
+//  line options correctly:
+//    meryl2 "output : database " <file>
+//  but this is only a problem for malicious users, and we don't
+//  support those.
+//
+void
+merylCommandBuilder::appendProgramWord(char const *w) {
+
+  if (w == nullptr)
+    return;
+
+  while (*w) {                                           //  Copy word to program text.
+    increaseArray(_pTxt, _pTxtLen+2, _pTxtMax, 16384);   //  Get space for this letter and
+    _pTxt[_pTxtLen++] = *w++;                            //  the '\n\0' terminating letters,
+  }                                                      //  grabbing 16KB more as needed.
+
+  _pTxt[_pTxtLen++] = '\v';
+  _pTxt[_pTxtLen]   = '\0';
+}
+
+
 int
 main(int argc, char **argv) {
   merylCommandBuilder  *B = new merylCommandBuilder;
@@ -68,13 +145,20 @@ main(int argc, char **argv) {
 
   std::vector<char const *>  err;
   for (int32 arg=1; arg < argc; arg++) {
-    if ((globals.processDebugOption (arg, argv, err) == true) ||
-        (globals.processGlobalOption(arg, argv, err) == true) ||
-        (globals.processLegacyOption(arg, argv, err) == true))
-      ;  //  Do nothing, process() has already done the work,
-    else //  Otherwise, let the command builder do the work.
-      B->processWord(argv[arg]);
+    if ((globals.processDebugOption (arg, argv, err) == true) ||   //  The process() function
+        (globals.processGlobalOption(arg, argv, err) == true))     //  handles the option;
+      ;                                                            //  nothing for us to do.
+#if 0
+    else if (strcmp(argv[arg], "-p") == 0)
+      B->loadProgramText(argv[++arg]);
+#endif
+    else
+      B->appendProgramWord(argv[arg]);
   }
+
+  B->processProgramText();
+
+  exit(1);
 
   B->finalizeTrees();   //  Finalize the processing tree and check for errors.
 
@@ -92,8 +176,8 @@ main(int argc, char **argv) {
     exit(1);
   }
 
-  if (B->displayTreesAndErrors() == true)  //  Halt on errors.
-    return 1;
+  if (B->displayTreesAndErrors() == true)  //  Halt on errors (and
+    return 1;                             //  leak B).
 
   if (globals.stopAfterConfigure())  //  Print message and return success.
     return fprintf(stderr, "Stopping after configuration.\n"), 0;
@@ -112,6 +196,5 @@ main(int argc, char **argv) {
   if (globals.showStandard() == true)
     fprintf(stderr, "\n"
                     "Bye.\n");
-
   return 0;
 }

@@ -83,12 +83,33 @@ char const *toString(opPname n) {
 class merylCommandBuilder {
 public:
   merylCommandBuilder()  {
+    compileRegExes();
   }
   ~merylCommandBuilder() {
     delete [] _optString;
     for (uint32 ss=0; ss<64; ss++)   //  Delete the arrays of pointers to compute
       delete [] _thList[ss];         //  objects; the objects are deleted elsewhere
   }
+
+public:
+  void    loadProgramText(char const *filename);
+  void    appendProgramWord(char const *w);
+  void    processProgramText(void);
+
+private:
+  void    compileRegExes(void);
+  uint32  matchProgramText(uint64 pp);
+
+private:
+  uint64     _pTxtLen = 0;            //  The meryl program we need to run,
+  uint64     _pTxtMax = 0;            //  in text form.
+  char      *_pTxt    = nullptr;      //
+
+  uint64     _regexLen = 0;
+  uint64     _regexMax = 0;
+  regEx      _regex[256];             //  Regular Expressions we'll use to parse the program text.
+
+
 
 private:
   void    addNewOperation(void);
@@ -119,6 +140,7 @@ private:
     _curPname = opPname::pnNone;
     _curParam = nullptr;
   }
+
 
 private:
   uint32  findCreateTerminate(void);
@@ -177,6 +199,7 @@ public:
 
   //  Storage and flags we use for processing a command line word.
 private:
+
   uint32    _optStringLen = 0;              //  A copy of the command line word,
   uint32    _optStringMax = 0;              //  with any '[' and ']' removed.
   char     *_optString = nullptr;           //

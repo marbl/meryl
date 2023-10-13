@@ -45,7 +45,7 @@
 //  the other input kmers through the _act inputs.
 //
 //  addNewSelectorProduct() will add a new product term to the sum list.
-//  addSelectorToProduce()  will add a new selector to the most recent product term.
+//  addSelectorToProduct()  will add a new selector to the most recent product term.
 
 class merylOpTemplate {
 public:
@@ -180,7 +180,6 @@ inline
 void
 merylOpTemplate::addSelectorToProduct(merylSelector const f) {
 
-  //_type = merylOpType::opFilter;    //  This op processes kmers.
   _isSelector = true;
 
   if (_select.size() == 0)          //  If there are no selectors yet,

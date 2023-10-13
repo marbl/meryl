@@ -35,15 +35,10 @@
 //
 //  2) If _curParam is defined but empty (*curParam == 0) then we have an
 //     option word that only describes the parameter class/name, e.g.,
-//     'output:database'.  All we can do here is remember remember that we
-//     still need to get the parameter value from the next word.  This is
-//     done by setting _curParam to nullptr and leaving _curClass and
-//     _curPname set.  The next time through processWord() we'll handle the
-//     left-over _curClass/_curPname BEFORE we try to decode it from the
-//     current word, and end up back here for the last case...
+//     'output:database='.  This is an error.
 //
-//  3) ...where we handle the continuation of the above.  _curParam is
-//     nullptr, and the filename is in _optString.
+//  3) If _curParam is nullptr, then the option word was 'bare'; 'output:database'.
+//     This is an error, except for pnShow, pnHisto and pnStats.
 //
 
 bool
@@ -54,82 +49,74 @@ merylCommandBuilder::isInOut(void) {
       (_curClass != opClass::clInput))
     return false;
 
-  char const *fpath = (_curParam == nullptr) ? _optString :            //  Case 3
-                      (_curParam[0] != 0)    ? _curParam  : nullptr;   //  Case 1 : Case 2
+  //
+  //  Check for error conditions.
+  //
 
-  //fprintf(stderr, "isInOut() enter with '%s' '%s' '%s' fpath '%s'\n", toString(_curClass), toString(_curPname), _curParam, fpath);
-
-  if ((fpath != nullptr) && (fpath[0] == 0))  //  Blow up if the name is empty.
-    sprintf(_errors, "Operation #%u has no output path name supplied.\n", op->_ident);
-
-  //  For pnShow, there will never be a filename.  Unlike the other Pnames,
-  //  we need to accept and complete this one immediately.
-
-  if ((_curClass == opClass::clOutput) &&
-      (_curPname == opPname::pnShow)) {
-    op->addOutputToList(nullptr, false, _errors);
-
-    if (fpath != nullptr)
-      sprintf(_errors, "Operation #%u specified a file path for output:display in '%s'.\n", op->_ident, _optString);
-
-    _curClass = opClass::clNone;
-    _curPname = opPname::pnNone;
-    _curParam = nullptr;
-
-    return true;
+  if      ((_curPname == opPname::pnShow) &&    //  pnShow will never have a filename.
+           (_curParam != nullptr)) {
+    sprintf(_errors, "Operation #%u specified a file path for output:show in '%s'.\n", op->_ident, _optString);
+    goto finish;
+  }
+  else if ( (_curClass == opClass::clOutput) &&  //  pnHisto and pnStats are allowed to have or
+           ((_curPname == opPname::pnHisto) ||   //  not have a filename, ignore them for now.
+            (_curPname == opPname::pnStats))) {
+  }
+  else if ((_curParam == nullptr) ||            //  Everything else must have a filename.
+           (_curParam[0] == 0)) {
+    sprintf(_errors, "Operation #%u %s:%s has no output path name supplied.\n",
+            op->_ident, toString(_curClass), toString(_curPname));
+    goto finish;
   }
 
-  //  For cases 1 and 3, we have a filepath, and can finish setting up the
-  //  output for this operation.  At the end, forget all about the output
-  //  parameter, because we're completely done with it.
+  //
+  //  With errors out of the way, process as normal.  This does, however, still create
+  //  the outputs with error conditions - pnShow could have a filename - which will
+  //  be a problem if we ever stop stopping on error conditions.
+  //
 
-  if (fpath) {
-    if (_curClass == opClass::clOutput) {
-      switch (_curPname) {
-        case opPname::pnDB:      op->addOutputToDB  (fpath,          _errors);  break;
-        case opPname::pnList:    op->addOutputToList(fpath,   false, _errors);  break;
-        case opPname::pnShow:    op->addOutputToList(nullptr, false, _errors);  break;  //  Should never happen!
-        case opPname::pnPipe:    op->addOutputToPipe(fpath,          _errors);  break;
-        case opPname::pnHisto:   op->addHistoOutput (fpath,          _errors);  break;
-        case opPname::pnStats:   op->addStatsOutput (fpath,          _errors);  break;
-        default:
-          sprintf(_errors, "Got Pname '%s' for clOutput.\n", toString(_curPname));
-          break;
-      }
+  if (_curClass == opClass::clOutput) {
+    switch (_curPname) {
+      case opPname::pnDB:      op->addOutputToDB  (_curParam,        _errors);  break;
+      case opPname::pnList:    op->addOutputToList(_curParam, false, _errors);  break;
+      case opPname::pnShow:    op->addOutputToList(_curParam, false, _errors);  break;
+      case opPname::pnPipe:    op->addOutputToPipe(_curParam,        _errors);  break;
+      case opPname::pnHisto:   op->addHistoOutput (_curParam,        _errors);  break;
+      case opPname::pnStats:   op->addStatsOutput (_curParam,        _errors);  break;
+      default:
+        sprintf(_errors, "Got Pname '%s' for clOutput.\n", toString(_curPname));
+        break;
     }
-
-    if (_curClass == opClass::clInput) {
-      merylInput *in = new merylInput;
-      bool        sx = false;
-
-      switch (_curPname) {
-        case opPname::pnDB:      sx = in->registerMerylDB   (fpath,   _errors);   break;
-        case opPname::pnList:    sx = in->registerMerylList (fpath,   _errors);   break;
-        case opPname::pnPipe:    sx = in->registerActionPipe(fpath,   _errors);   break;
-        //se opPname::pnAction:  sx = in->registerTemplate  (nullptr, _errors);   break;
-        default:
-          sprintf(_errors, "Got Pname '%s' for clInput.\n", toString(_curPname));
-          break;
-      }
-
-      if (sx)
-        op->addInput(in);
-      else
-        delete in;
-    }
-
-    _curClass = opClass::clNone;
-    _curPname = opPname::pnNone;
-    _curParam = nullptr;
-    return true;
   }
 
-  //  For case 2, leave _curClass and _curPname alone, but forget all about
-  //  the (empty) _curParam.
+  if (_curClass == opClass::clInput) {
+    merylInput *in = new merylInput;
+    bool        sx = false;
 
+    switch (_curPname) {
+      case opPname::pnDB:      sx = in->registerMerylDB   (_curParam, _errors);   break;
+      case opPname::pnList:    sx = in->registerMerylList (_curParam, _errors);   break;
+      case opPname::pnPipe:    sx = in->registerActionPipe(_curParam, _errors);   break;
+      //se opPname::pnAction:  sx = in->registerTemplate  (nullptr,   _errors);   break;
+      default:
+        sprintf(_errors, "Got Pname '%s' for clInput.\n", toString(_curPname));
+        break;
+      }
+
+    if (sx)
+      op->addInput(in);
+    else
+      delete in;
+  }
+
+ finish:
+  _curClass = opClass::clNone;
+  _curPname = opPname::pnNone;
   _curParam = nullptr;
+
   return true;
 }
+
 
 
 

@@ -45,13 +45,6 @@ merylCommandBuilder::isOptionWord(void) {
   }
 #endif
 
-  //  Some options have no value, unfortunately.
-
-  if (strcmp(_optString, "compress") == 0) {
-    _doCompression = true;
-    return(true);
-  }
-
   //  The rest should be key=value options.
 
   KeyAndValue   kv(_optString);

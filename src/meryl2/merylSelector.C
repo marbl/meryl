@@ -29,12 +29,26 @@ merylSelector::merylSelector(merylSelectorQuantity type,
   _r = rela;      //  result _t is true when 'invert' is false, and
   _t = !invert;   //  false when 'invert' is true.
 
-  memcpy(_str, str, sizeof(char) * (FILENAME_MAX+1));
+  //fprintf(stderr, "Create merylSelector for '%s'\n", str);
+
+  _str = duplicateString(str);
+}
+
+
+merylSelector::merylSelector(const merylSelector &that) {
+  _q   = that._q;
+  _r   = that._r;
+  _t   = that._t;
+
+  //fprintf(stderr, "Copy merylSelector for '%s'\n", that._str);
+
+  _str = duplicateString(that._str);
 }
 
 
 
 merylSelector::~merylSelector()  {
+  delete [] _str;
   delete [] _presentInNum;
   delete [] _presentInIdx;
   delete [] _presentInList;

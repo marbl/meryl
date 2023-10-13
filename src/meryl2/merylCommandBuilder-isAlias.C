@@ -55,7 +55,7 @@ merylCommandBuilder::isAliasConstant(void) {
   }
 
   else if (_needsValue) {
-    if     (strncmp(_optString, "distinct=", 9) == 0)
+    if      (strncmp(_optString, "distinct=", 9) == 0)
       op->getLastSelector()._vValue2Distinct = strtodouble(_optString + 9);
 
     else if (strncmp(_optString, "word-freq=", 10) == 0)
