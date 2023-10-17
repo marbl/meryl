@@ -100,6 +100,8 @@ define SET_DEFAULT_FLAGS
     endif
 
     ifeq ($$(BUILDDEBUG), 1)
+      CXXFLAGS += -Og
+      CFLAGS   += -Og
     else ifeq ($$(TOOLCHAIN), GNU)
       CXXFLAGS += -O4 -funroll-loops -fexpensive-optimizations -finline-functions -fomit-frame-pointer
       CFLAGS   += -O4 -funroll-loops -fexpensive-optimizations -finline-functions -fomit-frame-pointer

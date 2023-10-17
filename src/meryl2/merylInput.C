@@ -137,7 +137,7 @@ merylInput::loadBasesFromCanu(char    *seq,
 
 
 void
-merylInput::openInput(void) {
+merylInput::openInput(std::vector<char const *> &err) {
 
   switch (_type) {
     case merylInputType::inNowhere:
@@ -153,7 +153,7 @@ merylInput::openInput(void) {
 #warning not opening pipe inputs
       break;
     case merylInputType::inDB:
-      _db = new merylFileReader(_dbName);
+      _db = new merylFileReader(_dbName, false, &err);
       break;
     case merylInputType::inList:
 #warning not opening list inputs

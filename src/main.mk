@@ -22,6 +22,14 @@ SOURCES      := utility/src/align/align-ksw2-driver.C \
                 utility/src/bits/wordArray-v1.C \
                 \
                 utility/src/datastructures/keyAndValue-v1.C \
+                \
+                utility/src/datastructures/regex-v1.C \
+                utility/src/datastructures/regex-v2.C \
+                utility/src/datastructures/regex-v2-build.C \
+                utility/src/datastructures/regex-v2-convert.C \
+                utility/src/datastructures/regex-v2-match.C \
+                utility/src/datastructures/regex-v2-parse.C \
+                \
                 utility/src/datastructures/splitToWords-v1.C \
                 utility/src/datastructures/stringList-v1.C \
                 utility/src/datastructures/strings-v1.C \
@@ -113,5 +121,6 @@ SUBMAKEFILES += meryl2/meryl.mk \
 ifeq ($(BUILDTESTS), 1)
 SUBMAKEFILES += tests/merylCountArrayTest.mk \
                 tests/merylExactLookupTest.mk \
-                tests/matchTokenTest.mk
+                tests/matchTokenTest.mk \
+                tests/regexTest.mk
 endif

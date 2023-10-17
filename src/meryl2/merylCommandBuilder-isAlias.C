@@ -22,7 +22,7 @@
 
 
 
-
+#if 0
 
 //  If the previous word was an alias and it needs a value,
 //  Check for _needsValue and _needsConstant.  If set, assume this word is
@@ -55,7 +55,7 @@ merylCommandBuilder::isAliasConstant(void) {
   }
 
   else if (_needsValue) {
-    if     (strncmp(_optString, "distinct=", 9) == 0)
+    if      (strncmp(_optString, "distinct=", 9) == 0)
       op->getLastSelector()._vValue2Distinct = strtodouble(_optString + 9);
 
     else if (strncmp(_optString, "word-freq=", 10) == 0)
@@ -282,3 +282,4 @@ merylCommandBuilder::isAliasWord(void) {
 }
 
 
+#endif

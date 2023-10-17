@@ -51,6 +51,27 @@ merylGlobals::processGlobalOption(int &arg, char **argv,
     return true;
   }
 
+  if (strncmp(argv[arg], "k=", 2) == 0) {
+    fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-k %s' instead.\n",
+            argv[arg], argv[arg]+2);
+    kmerTiny::setSize(strtouint32(argv[arg]+2));
+    return true;
+  }
+
+  if ((strcmp(argv[arg],  "-c")      == 0) ||
+      (strcmp(argv[arg], "--hpc") == 0) ||
+      (strcmp(argv[arg], "--homopoly-compress") == 0)) {
+    sprintf(err, "Global '%s' not yet supported; use 'compress' instead.", argv[arg]);
+    //_doCompression = true;
+    return true;
+  }
+
+  if (strcmp(argv[arg], "--ssr") == 0) {
+    sprintf(err, "Global '%s %s' not yet supported; only local homopoly compression with 'compress' supported.", argv[arg], argv[arg+1]);
+    arg++;
+    return true;
+  }
+
   if (strcmp(argv[arg], "-l") == 0) {
     kmerTiny::setLabelSize(strtouint32(argv[++arg]));
     return true;
@@ -63,10 +84,25 @@ merylGlobals::processGlobalOption(int &arg, char **argv,
     return true;
   }
 
+
+  if (strncmp(argv[arg], "memory=", 7) == 0) {
+    fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-m %s' instead.\n",
+            argv[arg], argv[arg]+7);
+    allowedMemory() = getAllowedMemory(argv[arg]+7, err);
+    return true;
+  }
+
   if ((strcmp(argv[arg],  "-t")       == 0) ||
       (strcmp(argv[arg],  "-threads") == 0) ||
       (strcmp(argv[arg], "--threads") == 0)) {
     allowedThreads() = getAllowedThreads(argv[++arg], err);
+    return true;
+  }
+
+  if (strncmp(argv[arg], "threads=", 8) == 0) {
+    fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-t %s' instead.\n",
+            argv[arg], argv[arg]+8);
+    allowedThreads() = getAllowedThreads(argv[arg]+8, err);
     return true;
   }
 
@@ -93,38 +129,8 @@ merylGlobals::processGlobalOption(int &arg, char **argv,
 
   if ((strcmp(argv[arg], "-h")     == 0) ||
       (strcmp(argv[arg], "-help")  == 0) ||
-      (strcmp(argv[arg], "--help") == 0) ||
-      (strcmp(argv[arg], "help")   == 0)) {
-    err.push_back(NULL);
-    return true;
-  }
-
-  return false;
-}
-
-
-bool
-merylGlobals::processLegacyOption(int &arg, char **argv,
-                                  std::vector<char const *> &err) {
-
-  if (strncmp(argv[arg], "k=", 2) == 0) {
-    fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-k %s' instead.\n",
-            argv[arg], argv[arg]+2);
-    kmerTiny::setSize(strtouint32(argv[arg]+2));
-    return true;
-  }
-
-  if (strncmp(argv[arg], "memory=", 7) == 0) {
-    fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-m %s' instead.\n",
-            argv[arg], argv[arg]+7);
-    allowedMemory() = getAllowedMemory(argv[arg]+7, err);
-    return true;
-  }
-
-  if (strncmp(argv[arg], "threads=", 8) == 0) {
-    fprintf(stderr, "WARNING: obsolete '%s' supplied; use '-t %s' instead.\n",
-            argv[arg], argv[arg]+8);
-    allowedThreads() = getAllowedThreads(argv[arg]+8, err);
+      (strcmp(argv[arg], "--help") == 0)) {
+    err.push_back(nullptr);
     return true;
   }
 

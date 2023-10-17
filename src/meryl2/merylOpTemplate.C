@@ -169,6 +169,9 @@ merylOpTemplate::addOutputToList(char const *prName, bool ACGTorder, std::vector
 void
 merylOpTemplate::addStatsOutput(char const *hiName, std::vector<char const *> &err) {
 
+  if ((hiName == nullptr) || (hiName[0] == 0))
+    hiName = "-";
+
   if (globals.showConstruction() == true)
     fprintf(stderr, "addOutput()-- action #%u -> statistics to '%s'\n", _ident, hiName);
 
@@ -185,6 +188,9 @@ merylOpTemplate::addStatsOutput(char const *hiName, std::vector<char const *> &e
 
 void
 merylOpTemplate::addHistoOutput(char const *hiName, std::vector<char const *> &err) {
+
+  if ((hiName == nullptr) || (hiName[0] == 0))
+    hiName = "-";
 
   if (globals.showConstruction() == true)
     fprintf(stderr, "addOutput()-- action #%u -> histogram to '%s'\n", _ident, hiName);
@@ -220,7 +226,7 @@ void
 merylOpTemplate::finalizeTemplateInputs(uint32 oo, std::vector<char const *> &err) {
 
   for (uint32 ii=0; ii<_inputs.size(); ii++) {
-    _inputs[ii]->openInput();
+    _inputs[ii]->openInput(err);
 
     if ((_isCounting == true) &&
         (_inputs[ii]->isFromSequence() == false) &&

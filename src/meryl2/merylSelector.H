@@ -99,6 +99,7 @@ public:
                 merylSelectorRelation rela,
                 bool                  invert,
                 char const           *str);
+  merylSelector(const merylSelector &that);
   ~merylSelector();
 
 private:
@@ -177,7 +178,7 @@ public:
   bool                   _t = true;                        //  Desired result for a 'true' selector result.
 
   //  A copy of the command line string, for reporting errors.
-  char                           _str[FILENAME_MAX + 1] = { 0 };
+  char    *_str = nullptr;
 
   //  Source for left side of comparison:
   //
@@ -186,31 +187,31 @@ public:
   //           if 0,         compare against the output kmer
   //           otherwise,    compare against the input kmer from that db
 
-  uint32               _vIndex1 = uint32max;   //  from kmer in specified database
-  kmvalu               _vValue1 = 0;           //  from constant 'value' stored here
-  kmlabl               _vLabel1 = 0;           //  from constant 'label' stored here
-  uint32               _vBases1 = 0;           //  from constant 'bases' stored here ('bases count')
+  uint32   _vIndex1 = uint32max;   //  from kmer in specified database
+  kmvalu   _vValue1 = 0;           //  from constant 'value' stored here
+  kmlabl   _vLabel1 = 0;           //  from constant 'label' stored here
+  uint32   _vBases1 = 0;           //  from constant 'bases' stored here ('bases count')
 
   //  Source for right side of comparison:
 
-  uint32               _vIndex2 = uint32max;   //  from kmer in specified database
-  kmvalu               _vValue2 = 0;           //  from constant 'value' stored here
-  kmlabl               _vLabel2 = 0;           //  from constant 'label' stored here
-  uint32               _vBases2 = 0;           //  from constant 'bases' stored here ('bases count')
+  uint32   _vIndex2 = uint32max;   //  from kmer in specified database
+  kmvalu   _vValue2 = 0;           //  from constant 'value' stored here
+  kmlabl   _vLabel2 = 0;           //  from constant 'label' stored here
+  uint32   _vBases2 = 0;           //  from constant 'bases' stored here ('bases count')
 
   //  For selectors on the value, the _vValue2 can be set to a constant or set
   //  based on the histogram of the input database.
 
-  double               _vValue2Distinct = -1;
-  double               _vValue2WordFreq = -1;
+  double   _vValue2Distinct = -1;
+  double   _vValue2WordFreq = -1;
 
   //  Some flags on what to compare, so we don't explode the
   //  merylSelectorQuantity enum with 15 more types.
 
-  bool                 _countA = false;  //  These four tell us if we need to count the
-  bool                 _countC = false;  //  number of A's etc in the kmer (_q == isBases).
-  bool                 _countG = false;  //  If so we then compare this count against
-  bool                 _countT = false;  //  vBases above.
+  bool     _countA = false;  //  These four tell us if we need to count the
+  bool     _countC = false;  //  number of A's etc in the kmer (_q == isBases).
+  bool     _countG = false;  //  If so we then compare this count against
+  bool     _countT = false;  //  vBases above.
 
   //  The 'input' selector needs to store a bunch of info until the whole
   //  command tree is constructed so that it can figure out what 'all inputs'
@@ -243,12 +244,12 @@ public:
   //    _input_idx - a list of specific input indexes a kmer must occur in
   //               - 'first', '@a', '@a-@b'
   //
-  std::vector<uint32>            _input_num;
-  uint32                         _input_num_at_least = uint32max;
-  uint32                         _input_num_all      = false;
-  uint32                         _input_num_any      = false;
+  std::vector<uint32>  _input_num;
+  uint32               _input_num_at_least = uint32max;
+  uint32               _input_num_all      = false;
+  uint32               _input_num_any      = false;
 
-  std::vector<uint32>            _input_idx;
+  std::vector<uint32>  _input_idx;
 
   //  After the command line is parsed, finalizeSelectorInputs() converts the
   //  above into convenient lookup structures.
@@ -261,11 +262,11 @@ public:
   //
   //  The second condition tests if the kmer is present in all of the specified inputs.
   //
-  bool                          *_presentInNum = nullptr;
-  bool                          *_presentInIdx = nullptr;
+  bool     *_presentInNum = nullptr;
+  bool     *_presentInIdx = nullptr;
 
-  uint32                         _presentInLen  = 0;
-  uint32                        *_presentInList = nullptr;
+  uint32    _presentInLen  = 0;
+  uint32   *_presentInList = nullptr;
 };
 
 

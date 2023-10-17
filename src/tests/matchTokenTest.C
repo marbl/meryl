@@ -44,17 +44,17 @@ main(int argc, char **argv) {
 
   //  True cases: opt does not end with a separator.
 
-  assert(matchToken("output", optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
-  assert(matchToken("out",    optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
-  assert(matchToken("o",      optout, "output:") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("output", optout, "output:") == true);   assert(optout == nullptr);
+  assert(matchToken("out",    optout, "output:") == true);   assert(optout == nullptr);
+  assert(matchToken("o",      optout, "output:") == true);   assert(optout == nullptr);
 
-  assert(matchToken("output", optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
-  assert(matchToken("out",    optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
-  assert(matchToken("o",      optout, "output=") == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("output", optout, "output=") == true);   assert(optout == nullptr);
+  assert(matchToken("out",    optout, "output=") == true);   assert(optout == nullptr);
+  assert(matchToken("o",      optout, "output=") == true);   assert(optout == nullptr);
 
-  assert(matchToken("output", optout, "output")  == true);   assert(optout != nullptr);   assert(optout[0] == 0);
-  assert(matchToken("out",    optout, "output")  == true);   assert(optout != nullptr);   assert(optout[0] == 0);
-  assert(matchToken("o",      optout, "output")  == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("output", optout, "output")  == true);   assert(optout == nullptr);
+  assert(matchToken("out",    optout, "output")  == true);   assert(optout == nullptr);
+  assert(matchToken("o",      optout, "output")  == true);   assert(optout == nullptr);
 
   //  False cases: opt ends with a separator and pat does not.
 
@@ -96,12 +96,13 @@ main(int argc, char **argv) {
 
   //  Exact cases.
 
-  assert(matchToken("output",    optout, "output:", true) == true);   assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("output",    optout, "output:", true) == true);   assert(optout == nullptr);
+  assert(matchToken("output:",   optout, "output:", true) == true);   assert(optout != nullptr);   assert(optout[0] == 0);
   assert(matchToken("output:b",  optout, "output:", true) == true);   assert(optout != nullptr);   assert(optout[0] == 'b');
   assert(matchToken("out",       optout, "output:", true) == false);
   assert(matchToken("out:b",     optout, "output:", true) == false);
 
-  assert(matchToken("output",    optout, "output",  true) == true);    assert(optout != nullptr);   assert(optout[0] == 0);
+  assert(matchToken("output",    optout, "output",  true) == true);    assert(optout == nullptr);
   assert(matchToken("output:b",  optout, "output",  true) == false);   assert(optout == nullptr);
   assert(matchToken("out",       optout, "output",  true) == false);   assert(optout == nullptr);
   assert(matchToken("out:b",     optout, "output",  true) == false);   assert(optout == nullptr);

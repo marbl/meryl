@@ -83,12 +83,33 @@ char const *toString(opPname n) {
 class merylCommandBuilder {
 public:
   merylCommandBuilder()  {
+    compileRegExes();
   }
   ~merylCommandBuilder() {
-    delete [] _optString;
+    //delete [] _optString;
     for (uint32 ss=0; ss<64; ss++)   //  Delete the arrays of pointers to compute
       delete [] _thList[ss];         //  objects; the objects are deleted elsewhere
   }
+
+public:
+  void    loadProgramText(char const *filename);
+  void    appendProgramWord(char const *w);
+  void    processProgramText(void);
+
+private:
+  void    compileRegExes(void);
+  uint32  matchProgramText(uint64 pp);
+
+private:
+  uint64     _pTxtLen = 0;            //  The meryl program we need to run,
+  uint64     _pTxtMax = 0;            //  in text form.
+  char      *_pTxt    = nullptr;      //
+
+  uint64     _regexLen = 0;
+  uint64     _regexMax = 0;
+  regEx      _regex[256];             //  Regular Expressions we'll use to parse the program text.
+
+
 
 private:
   void    addNewOperation(void);
@@ -120,10 +141,11 @@ private:
     _curParam = nullptr;
   }
 
+
 private:
-  uint32  findCreateTerminate(void);
+  //uint32  findCreateTerminate(void);
 public:
-  void    processWord(char const *opt);         //  Add a command line word to the builder
+  //void    processWord(char const *opt);         //  Add a command line word to the builder
   void    finalizeTrees(void);                  //  Notify us that all words have been added
   void    performCounting(uint64 allowedMemory,
                           uint32 allowedThreads);
@@ -132,13 +154,13 @@ public:
   void    runThreads(uint32 allowedThreads);
 
 private:
-  bool    isEmptyWord(void)      { return(_optString[0] == 0); }
-  bool    isOptionWord(void);
-  bool    isAliasConstant(void);
-  bool    isAliasWord(void);
+  //bool    isEmptyWord(void)      { return(_optString[0] == 0); }
+  //bool    isOptionWord(void);
+  //bool    isAliasConstant(void);
+  //bool    isAliasWord(void);
 
-  bool    isInOut(void);
-  bool    isInput(void);
+  //bool    isInOut(void);
+  bool    isInput(char const *word);
 
   bool    isAssignValue(void);
   bool    isAssignLabel(void);
@@ -151,12 +173,10 @@ private:
   bool    isSelect(void);
   bool    isSelectConnective(void);
 
-  bool    isCountingWord(void);
+  //bool    isCountingWord(void);
 
-  bool    isHistogram(void);
-  bool    isStatistics(void);
-
-
+  //bool    isHistogram(void);
+  //bool    isStatistics(void);
 
 public:
   uint32           numOperations(void)           { return _opList.size(); };
@@ -177,6 +197,7 @@ public:
 
   //  Storage and flags we use for processing a command line word.
 private:
+
   uint32    _optStringLen = 0;              //  A copy of the command line word,
   uint32    _optStringMax = 0;              //  with any '[' and ']' removed.
   char     *_optString = nullptr;           //
@@ -190,8 +211,8 @@ private:
 
   bool      _printACGTorder = false;        //  fix canonical ordering
 
-  bool      _needsValue     = false;        //  These get set if the next word is required
-  bool      _needsConstant  = false;        //  is required to be a constant.
+  //bool      _needsValue     = false;        //  These get set if the next word is required
+  //bool      _needsConstant  = false;        //  is required to be a constant.
 
   //  If _invertNextSelector is set, the sense of the next selector encountered
   //  is inverted.  Example: 's1 and not s2'.

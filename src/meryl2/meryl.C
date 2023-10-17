@@ -60,6 +60,111 @@
 //  nodes which will close and open files, etc.
 //
 
+
+
+//  Parse text from a file into our pTxt string.
+//
+//  Single and double quotes behave as expected, joining
+//  multiple words into a single token and allowing the other quote
+//  mark.  These are all single words and the outer-most quotes are
+//  removed:
+//    "one word"      -> |one word|
+//    "it's here"     -> |it's here|
+//    'sample "A"'    -> |sample "A"|
+//
+//  Escapes can be used for the same effect:
+//     one\ word         |one word|
+//     it\'s here        |it's here|
+//     sample\ \"A\"  -> |sample "A"|
+//
+//  Note that the escape symbol '\' is treated as plain text
+//  in a quoted string:
+//    "one\ word"     -> |one\ word"
+//  
+//  An escape at the end of a line 
+
+void
+merylCommandBuilder::loadProgramText(char const *f) {
+  bool        esc = false;   //  Escape mode
+  bool        sgl = false;   //  In a single-quoted word
+  bool        dbl = false;   //  In a double-quoted word
+
+  compressedFileReader  *cft = new compressedFileReader(f);
+
+  while (cft->readLine() == true) {
+    char const *line  = cft->line();
+    uint32      lineL = cft->lineLen();
+
+    //  Grow the array by 16 KB if appending the new line would exceed allocated space.
+    increaseArray(_pTxt, _pTxtLen+lineL+2, _pTxtMax, 16384);
+
+    for (uint32 ll=0; ll < lineL; ll++) {
+      char  ch = line[ll];
+
+      //  Handle mode switches.
+      //
+      //   - If not in an escape mode and a backslash, single or double quote
+      //     is encountered, enter the appropriate mode.
+      //   - If in a quote mode and a close quote is seen, exit the mode.
+      //
+      if      ((esc == false) && (sgl == false) && (dbl == false) && (ch == '\\'))  esc = true;
+      else if ((esc == false) && (sgl == false) && (dbl == false) && (ch == '\''))  sgl = true;
+      else if ((esc == false) && (sgl == false) && (dbl == false) && (ch == '"'))   dbl = true;
+      else if ((esc == false) && (sgl == true)  && (dbl == false) && (ch == '\''))  sgl = false;
+      else if ((esc == false) && (sgl == false) && (dbl == true)  && (ch == '"'))   dbl = false;
+
+      //  Add a letter.
+      //
+      //   - If in an escape or quote mode, add letters verbatim, otherwise,
+      //     replace whitespace with word separators.
+      //   - Exit escape mode.
+      //
+      else {
+        if ((esc == false) && (sgl == false) && (dbl == false) && (ch == ' '))
+          ch = '\v';
+
+        _pTxt[_pTxtLen++] = ch;
+      }
+    }
+
+    if ((sgl == true) || (dbl == true))
+      fprintf(stderr, "WARNING: end-of-line encountered in quoted string.\n");
+
+    if (esc == false)             //  Add a word-sep at the end of each line,
+      _pTxt[_pTxtLen++] = '\v';   //  unless it is escaped.
+
+    _pTxt[_pTxtLen]   = '\0';
+  }
+
+  delete cft;
+}
+
+
+//  Words are separated by a vertical-tab, VT, \v.
+//
+//  Words are appended to the program text verbatim.  This will
+//  pass filenames correctly, but will NOT pass quoted command
+//  line options correctly:
+//    meryl2 "output : database " <file>
+//  but this is only a problem for malicious users, and we don't
+//  support those.
+//
+void
+merylCommandBuilder::appendProgramWord(char const *w) {
+
+  if (w == nullptr)
+    return;
+
+  while (*w) {                                           //  Copy word to program text.
+    increaseArray(_pTxt, _pTxtLen+2, _pTxtMax, 16384);   //  Get space for this letter and
+    _pTxt[_pTxtLen++] = *w++;                            //  the '\n\0' terminating letters,
+  }                                                      //  grabbing 16KB more as needed.
+
+  _pTxt[_pTxtLen++] = '\v';
+  _pTxt[_pTxtLen]   = '\0';
+}
+
+
 int
 main(int argc, char **argv) {
   merylCommandBuilder  *B = new merylCommandBuilder;
@@ -68,13 +173,16 @@ main(int argc, char **argv) {
 
   std::vector<char const *>  err;
   for (int32 arg=1; arg < argc; arg++) {
-    if ((globals.processDebugOption (arg, argv, err) == true) ||
-        (globals.processGlobalOption(arg, argv, err) == true) ||
-        (globals.processLegacyOption(arg, argv, err) == true))
-      ;  //  Do nothing, process() has already done the work,
-    else //  Otherwise, let the command builder do the work.
-      B->processWord(argv[arg]);
+    if ((globals.processDebugOption (arg, argv, err) == true) ||   //  The process() function
+        (globals.processGlobalOption(arg, argv, err) == true))     //  handles the option;
+      ;                                                            //  nothing for us to do.
+    else if (strcmp(argv[arg], "-f") == 0)
+      B->loadProgramText(argv[++arg]);
+    else
+      B->appendProgramWord(argv[arg]);
   }
+
+  B->processProgramText();
 
   B->finalizeTrees();   //  Finalize the processing tree and check for errors.
 
@@ -92,8 +200,8 @@ main(int argc, char **argv) {
     exit(1);
   }
 
-  if (B->displayTreesAndErrors() == true)  //  Halt on errors.
-    return 1;
+  if (B->displayTreesAndErrors() == true)  //  Halt on errors (and
+    return 1;                             //  leak B).
 
   if (globals.stopAfterConfigure())  //  Print message and return success.
     return fprintf(stderr, "Stopping after configuration.\n"), 0;
@@ -112,6 +220,5 @@ main(int argc, char **argv) {
   if (globals.showStandard() == true)
     fprintf(stderr, "\n"
                     "Bye.\n");
-
   return 0;
 }

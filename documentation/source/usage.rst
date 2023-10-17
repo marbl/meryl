@@ -1,10 +1,269 @@
 .. _usage:
 
+
 ====================
 Command Line Options
 ====================
 
+DEBUG OPTIONS
+-------------
 
+'dumpIndex <merylDB>'
+ - reports encoding parameters
+        > meryl2 dumpIndex basic-dh-1.meryl
+        Opened 'basic-dh-1.meryl'.
+          magic          0x646e496c7972656d33302e765f5f7865 'merylIndex__v.03'
+          prefixSize     10
+          suffixSize     104
+          numFilesBits   6 (64 files)
+          numBlocksBits  4 (16 blocks)
+
+'dumpFile <merylDB/0x######>>'
+ - reports encoding blocks
+
+        > meryl2 dumpFile basic-dh-1.meryl/0x000000
+
+            prefix    blkPos    nKmers
+        ---------- --------- ---------
+        0x00000000         0     22363
+        0x00000001    345448     16486
+        0x00000002    601248     17345
+        [...]
+
+                    prefix   nKmers kCode uBits bBits                 k1 cCode                 c1                 c2
+        ------------------ -------- ----- ----- ----- ------------------ ----- ------------------ ------------------
+        0x0000000000000000    22363     1    15    89 0x0000000000000000     1 0x0000000000000000 0x0000000000000000
+        0x0000000000000001    16486     1    15    89 0x0000000000000000     1 0x0000000000000000 0x0000000000000000
+        0x0000000000000002    17345     1    15    89 0x0000000000000000     1 0x0000000000000000 0x0000000000000000
+        [...]
+
+         kmerIdx prefixDelta      prefix |--- suffix-size and both suffixes ---|    value
+        -------- ----------- ----------- -- ---------------- -- ---------------- --------
+               0          41 00000000029 25 00000000005026f2 64 f6a920a6cc0a36dd        1
+               1           4 0000000002d 25 00000000010001f5 64 b1ec24342aaa4faa        1
+               2           0 0000000002d 25 00000000015276f4 64 faaa2c6000702827        1
+        [...]
+
+
+
+----------------------------------------
+
+Take whole command line and merge into a single string,
+then pass that to regex to pull out options with spaces.
+
+But caution!  Files with spaces mess this up.
+  meryl count "input one.fasta" "input two.fasta"
+
+So we need to use some different separator in the regex.
+Or somehow remember that specific words are possibly
+files?
+  meryl \1 count \1 input one.fasta \1 input two.fasta
+  meryl \1 s:v \1 greater-than \1 1
+But need to allow matches to both \1 and space, so
+that an quoted terms ("s:v > 1") work too.
+
+Or maybe just surround everything with quotes?  But then
+what about files with quotes in them?  Nah, that won't work.
+
+  meryl \1 s:v:greater-than 1 \1 input database.meryl
+
+but still left with the confusion over
+  meryl output:statistics     in.meryl
+  meryl output:statistics out in.meryl
+so need to enfore an = before parameters
+  meryl output:statistics=out   in.meryl
+  meryl output:statistics= out  in.meryl
+  meryl output:statistics = out in.meryl
+
+  meryl s:v greater-than 1     in.meryl output x
+  meryl s:v:greater-than 1 i:d=in.meryl o:d=x
+  meryl s:v greater-than 1     in.meryl output=x
+
+ "o:s" "=" "stats out" "i:d=in db.meryl"
+  o:s\1=\1stats\2out\1i:d=in\2db.meryl
+
+ "o:s = stats out" "i:d=in db.meryl"
+  o:s\2=\2stats\2out\1i:d=in\2db.meryl
+
+  o:s = "stats out" i:d= "in db.meryl"
+  o:s\1=\1stats\2out\1i:d=\1in\2db.meryl
+
+  output:statistics \s* = \s* \w+ \W+   #  out stats to file
+  \w+ \W+                               #  input database
+  o:d \s* = \s* \w+ \W+                 #  out database
+
+  \1 == \W == word boundary (or newline)
+  \2 ==       space internal to token
+  \s == internal space or word boundary - \2 or \1
+  \w == anything but word boundary
+
+  s:v:@1:lt:@4
+  s:v @1 lt @4
+  s:v:@1lt@4
+  s:v:@1-less-than-@4
+
+  if input program from file, need to find quotes and parse
+      input  file  .fasta  -> \Winput\Wfile\W.fasta\W
+     "input  file  .fasta" -> \Winput\2file\2.fasta\W
+     "input\"file\".fasta" -> \Winput"file".fasta\W
+
+  if fail to match, report rest of string up to first \W
+   - last case is inout database or file, which must exist
+     in filesystem
+
+  really need to define a grammar for this.
+
+----------------------------------------
+
+OPTIONS
+  'compress'
+  'n=N'
+  'count-suffix=ACGT'
+  'd=D'
+  'distinct=D'
+  'f=F'
+  'word-frequency=F'
+  't=T'
+  'threshold=T'
+  'segment=a/b'
+
+ALIASES that take parameters
+  distinct=
+  word-freq=
+  word-frequency=
+  threashold=
+
+ALIASES
+  union
+  union-min
+  union-max
+  union-sum
+
+  intersect
+  intersect-min
+  intersect-max
+  intersect-sum
+
+  subtract
+  difference
+
+  less-than
+  greater-than
+  at-least
+  at-most
+  equal-to
+  not-equal-to
+  increase
+  decrease
+  multiply
+  divide
+  divide-round
+  modulo
+
+assign:value=
+  #X       - constant X
+  @X       - the value of the k-mer in the Xth input
+  first    - the value of the k-mer in the 1st input
+  selected - the value of the k-mer used to set the label;
+             if multiple are k-mers were used, the value of the first
+  count    - the number of inputs the k-mer is present in
+
+  min(#X)
+  max(#X)
+  add(#X) and sum(#X)
+  sub(#X) and dif(#X)
+  mul(#X)
+  div(#X) and divzero(#X)
+  mod(#X)
+  rem(#X)
+
+assign:label=
+  #X         - constant X
+  @X         - the label of the k-mer in the Xth input
+  first      - the label of the k-mer in the 1st input
+  selected   - the label of the k-mer used to set the value;
+               if multiple are k-mers were used, the label of the first
+
+  min(#X)    - the minimum of all labels interpreted as an unsigned integer
+  max(#X)    - the maximum of all labels interpreted as an unsigned integer
+
+  lightest(#X) - the label with the fewest bits set
+  heaviest(#X) - the label with the most bits set
+
+  and(#X)    - the bitwise AND of all input labels
+  or(#X)     - the bitwise OR  of all input labels
+  xor(#X)    - the bitwise XOR of all input labels
+
+  complement - the bitwise complement of the first input label
+               equivalent to xor(#1111...11)
+
+  difference(#X) - the label in the first input bitwise minus
+                   all other labels
+
+  shift-left(#X)
+  shift-right(#X)
+  rotate-left(#X)
+  rotate-right(#X)
+
+  GENERAL LABEL ASSIGNMENT
+
+----------
+select:value:
+  ARG1      OP    ARG2
+  @n              @n         - value in the nth input
+  first           first      - value in the 1st input
+  #n or n         #n or n    - constant n
+  <omitted>                  - output kmer
+  output                     - output kmer
+                  distinct=f
+                  word-freq=f
+                  threshold=n
+
+  OPERATORS
+            ==, =, eq, equal
+            !=, <>, ne, neq
+            <=, le, less-than-or-equal, at-most
+            >=, ge, more-than-or-equal, at-least
+            <,  lt, less-than
+            >,  gt, greater-than
+
+  allow spaces, or underscores or dashes?
+
+  s:v:output<4     - ok
+  s:v:outputlt4    - this is awkward
+  s:v:@1:lt:@4
+  s:v:@1-lt-@4
+  s:v:output-<-4   - this is awkward
+  s:v:output-lt-4  - 
+  s:v:<4           - shell problems, needs quotes anyway
+  s:v:less-than4   - this is awkward
+  s:v:less-than-4
+  s:v less-than 4
+  s:v first == 4
+  s:v first-==-4   - this is awkward
+  s:v first equal 4
+  s:v first-equal-to-4
+  s:v "first equal 4"
+  s:v "first <= 4"
+
+----------
+select:label:
+
+
+
+
+
+
+
+
+
+
+
+
+
+====================
+Command Line Options
+====================
 
 meryl2 Global Options
 ---------------------

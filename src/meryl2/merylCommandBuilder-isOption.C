@@ -18,7 +18,7 @@
 
 #include "meryl.H"
 
-
+#if 0
 
 //  Process options for any current command.
 //
@@ -44,13 +44,6 @@ merylCommandBuilder::isOptionWord(void) {
     return(true);
   }
 #endif
-
-  //  Some options have no value, unfortunately.
-
-  if (strcmp(_optString, "compress") == 0) {
-    _doCompression = true;
-    return(true);
-  }
 
   //  The rest should be key=value options.
 
@@ -122,3 +115,4 @@ merylCommandBuilder::isOptionWord(void) {
 
   return(false);
 }
+#endif

@@ -4,93 +4,36 @@
 What is Meryl?
 ==============
 
-Meryl is a tool for creating and working with DNA sequence k-mers.  K-mers
-are typically created by **counting** how many times each k-mer sequence
-occurs in some collection of sequences.  Meryl refers to this as the
-**value** of the k-mer.  Each k-mer can also be annotated with a **label** of
-up to 64-bits of arbitrary binary data.  The label can be interpreted as a
-collection of yes/no flags or binary-coded data, for example, 7 bits could be
-used to indicate which of 7 samples the k-mer is present in, or a set of 10
-bits could be used to `unary encode
+Meryl is a tool for creating and working with DNA sequence k-mers.  Each
+k-mer is annotated with an integer **value** and a binary **label**.  Sets of
+k-mers are stored in binary **databases**, which can be combined using
+**actions**.  An action **assigns** a new value and label to each output
+k-mer and also **selects** which k-mers are to be output to a new databae or
+passed as input to another action.
+
+Initial values are determined by **counting** how many times each k-mer
+sequence occurs in some collection of sequences.  Assigned values 
+are computed from input values.
+Values are usually intepreted as a quantity -- the number of times a k-mer
+occurs in a sequence, the number of sequences that contain the k-mer -- and
+this is reflected in the operations that can be performed on them; add,
+subtract, minimum, maximum, etc.
+
+Initial labels can set to a user-supplied constant counting k-mers; like values, they are
+computed from input labels.
+Labels can be interpreted as a set of single-bit yes/no flags or multi-bit
+values.  For example, 7 bits could be used to indicate which of 7 samples the
+k-mer is present in, or a set of 10 bits could be used to `unary encode
 <https://en.wikipedia.org/wiki/Unary_coding>`_ the `melting temperature
 <https://www.sigmaaldrich.com/US/en/technical-documents/protocol/genomics/pcr/oligos-melting-temp>`_
-of the k-mer.  Databases are filtered and combined using **actions**.  An
-action tells how to **assign** the output value and label of a k-mer, and how
-to **select** desired k-mers for output to an output **database**.
+of the k-mer.
 
-.. note::
-  The original meryl used order ACTG for a reason that turned out to be
-  incorrect.  It was believed that complementing a binary sequence would be
-  easier in that order, but it is just as easy in the normal order.  The
-  revised order does have the appealing property that GC content can be
-  computed by counting the number of low-order bits set in each base, where the
-  more standard ACGT order requires additional operations.
+.. include:: reference-kmer.rst
 
-  In the revised (ACTG) order, flipping the first bit of each two-bit encoded base will
-  complement the base.  This can be done with an exclusive or against b101010.
-
-  .. code-block:: none
-
-    A  C  T  G
-    00 01 10 11
-    v| v| v| v| -- flip first bit to complement
-    10 11 00 01
-     T  G  A  C
-
-    compl = kmer ^ 0b101010
-    NumGC = popcount(kmer & b010101)
-
-  In the usual (ACGT) order, complementation can be accomplished by flipping
-  every bit; an exclusive-or against b111111.  GC content can be computed by
-  counting bits also, but we need to count the number of two-bit encoded
-  bases where the first and second bits differ.  This requires shifting the
-  encoded k-mer one place, comparing the -- now overlapping -- adjacent bits
-  with XOR, and finally counting the number of set bits.
-
-  .. code-block:: none
-
-    A  C  G  T
-    00 01 10 11
-    vv vv vv vv -- flip every bit to complement
-    11 10 01 00
-     T  G  C  A
-
-    compl = kmer ^ 0b111111
-    NumGC = popcount( (kmer>>1 ^ kmer) & 0b010101 )
-
-  It is yet to be decided if meryl2 will also use the same order (maintaining
-  compatibility with meryl1) or if it will use the more typical order
-  (maintaining compatibility with the rest of the world)..
-
-
-
-
-.. note::
-  A k-mer is a short sequence of nucleotide bases.  The **forward k-mer** is
-  from the supplied sequence orientation, while the **reverse-k-mer** is from
-  the reverse-complemented sequence.  The **canonical k-mer** is the
-  lexicographically smaller of the forward-mer and reverse-mer.
-
-  For example, the sequence GATCTCA has five forward 3-mers: GAT, ATC, TCT,
-  CTC and TCA.  The canonical k-mers are found by reverse-complementing each
-  of those and picking the lexicographically smaller:
-
-  .. code-block:: none
-    :caption: Forward, reverse and canonical 3-mers.
-    :linenos:
-
-    G
-    A (GAT, ATC) -> ATC
-    T (ATC, GAT) -> ATC
-    C (TCT, AGA) -> AGA
-    T (CTC, GAG) -> CTC
-    C (TCA, TGA) -> TCA
-    A
-
-  In meryl, k-mers can be up to 64 bases long and are canonical by default.
+.. include:: reference-acgt-order.rst
 
 Given at least one sequence file, meryl will find the list of k-mers present
-in it and count how many times each one occurs.  The count becomes the
+in it and ``count`` how many times each one occurs.  This number becomes the
 ``value`` of the k-mer.  These are stored in a meryl database.  The example
 in the sidebar would store:
 
@@ -101,9 +44,11 @@ in the sidebar would store:
    CTC 1
    TCA 1
 
-While values are typically interpreted as the frequency of the k-mer
-in some set of sequences, they are simply unsigned 32-bit integers (a maximum value of
-4,294,967,295) and cane be used to store any arithmetic data.
+Values are typically interpreted as the frequency of the k-mer in some set of
+sequences, however, they are simply unsigned 32-bit integers (a maximum value
+of 4,294,967,295) and can be used to store any arithmetic data.  Note that a
+k-mer **cannot** have a value of zero - this is interpreted as meaning the
+k-mer does not exist.
 
 The (optional) label of a k-mer can contain up to 64 bits worth of
 non-arithmetic data.  The label can, for example, be used to assign a
@@ -123,18 +68,7 @@ action, and emitting k-mers to other nodes or output databases.
 Databases
 =========
 
-.. sidebar:: Database Implementation Details
-
-  Each k-mer is stored by breaking the binary represntation into three
-  pieces: a file prefix, a block prefix, and a suffix.  A k-mer needs 2*k bits
-  to represent it.  The file prefix is 6 bits wide, representing one of the 64
-  possible files in a database.  Inside a file, k-mers are stored in blocks,
-  each k-mer in a block will have the same block prefix.  The suffix data for a
-  block is stored using Elias-Fano encoding (CITE) where each suffix is split
-  into two pieces.  The first piece is encoded as a unary offset from the last
-  piece, and the second piece is a N-log2(N)+1 binary value.  At present,
-  values are stored as plain 32-bit integers, stored immediately after the k-mer
-  data.
+.. include:: reference-database-details.rst
 
 A set of k-mers, each k-mer with a value and a label, is stored in a
 **database**.  The database is a directory with 129 binary files in it -- 64
@@ -315,6 +249,9 @@ Aliases exist to support common operations.  An alias sets the ``value``,
 ``label`` and ``input`` options and so these are not allowed to be used with
 aliases.  Examples of aliases and their explicit configuration:
 
+.. warning::
+  OBSOLETE!
+
 .. table:: Action Aliases
   :widths: 25 30 45
 
@@ -372,7 +309,7 @@ aliases.  Examples of aliases and their explicit configuration:
   +--------------------+--------------------+----------------------------------------------+
 
 .. warning::
-  This table has not been verified!
+  OBSOLETE!  This table has not been verified!
 
 .. table:: Action Aliases
   :widths: 19 19 19 16 14 13
@@ -382,7 +319,7 @@ aliases.  Examples of aliases and their explicit configuration:
   | Alias          +------------------------------------+--------------------------------------------+
   |                + Assignment                         | Selector                                   |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
-  | union          | value=sum         | label=or       | input:any    | value:       | label:       |
+  | union          | value=count       | label=or       | input:any    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
   | union-min      | value=min         | label=min-value| input:any    | value:       | label:       |
   +----------------+-------------------+----------------+--------------+--------------+--------------+
@@ -692,7 +629,7 @@ based on the input values and possibly a single integer constant.
 .. warning::
   value=selected isn't implemented.
 
-.. table:: Value Selectors
+.. table:: Value Assignments
   :widths: 20 80
 
   +--------------------+-------------------------------------------------+

@@ -197,5 +197,6 @@ merylCommandBuilder::printTree(merylOpTemplate *op, uint32 tID, uint32 iID, char
     fprintf(stderr, "\n");
   }
 
+  delete [] kstr;
   delete [] jstr;
 }

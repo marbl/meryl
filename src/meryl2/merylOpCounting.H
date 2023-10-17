@@ -30,10 +30,12 @@ typedef uint16 lowBits_t;
 
 class merylOpCounting {
 public:
-  merylOpCounting(char const *optString)  {
-    _countCanonical = (strcmp(optString, "count")         == 0);
-    _countForward   = (strcmp(optString, "count-forward") == 0);
-    _countReverse   = (strcmp(optString, "count-reverse") == 0);
+  merylOpCounting(char mode)  {
+    switch (mode) {
+      case 'f':  case 'F':  _countForward   = true;  break;
+      case 'r':  case 'R':  _countReverse   = true;  break;
+      default:              _countCanonical = true;  break;
+    }
   };
   ~merylOpCounting() {};
 

@@ -5,6 +5,7 @@ Meryl
    :hidden:
 
    quick-start
+   grammar
    reference
    usage
    history
@@ -49,6 +50,7 @@ actions is much simpler.
 
 *  :ref:`Quick Start             <quick-start>` - no experience or data required, download and analyze *Escherichia coli* repeats today!
 *  :ref:`Usage                   <usage>`       - command line usage cheat sheet
+*  :ref:`Grammar                 <grammar>`     - action grammar
 *  :ref:`Reference               <reference>`   - all the details
 *  :ref:`History                 <history>`     - the history of meryl
 *  :ref:`FAQ                     <faq>`         - Frequently asked questions

@@ -87,6 +87,9 @@ merylCommandBuilder::decodeRelation(char const *s, uint32 p) {
     sprintf(_errors, "");
   }
 
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "decodeRelation()- Found relation '%s'\n", toString(relation));
+
   return relation;
 }
 

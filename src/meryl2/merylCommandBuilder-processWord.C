@@ -24,6 +24,7 @@
 //  Detect and strip action create '[' and terminate ']' symbols from the
 //  word, returning the number of terminate symbols found.
 //
+#if 0
 uint32
 merylCommandBuilder::findCreateTerminate(void) {
   uint32  t = 0;
@@ -65,6 +66,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
 
   //  Handle legacy 'output' usage.
 
+#if 0
   if ((strcmp(opt, "output") == 0) ||   //  If we see just 'output' or 'out', instead of
       (strcmp(opt, "out")    == 0)) {   //  output:database, assume this is a database
     _curClass = opClass::clOutput;      //  output and a well-trained meryl-v1 user.
@@ -81,6 +83,7 @@ merylCommandBuilder::decodeWord(char const *opt) {
 
     return true;
   }
+#endif
 
   //  Decode the parameter class.
 
@@ -91,11 +94,15 @@ merylCommandBuilder::decodeWord(char const *opt) {
   else if (matchToken(opt, pn, "get:", true)  == true)  _curClass = opClass::clSelect;
   else if (matchToken(opt, pn, "input:")      == true)  _curClass = opClass::clInput;
   else
-    return false;
+    goto returnfailure;
 
-  if ((pn == nullptr) ||                //  If we matched something without a separator,
-      (*pn == 0))                       //  or with a missing Pname,
-    return false;                       //  we didn't decode the word successfully.
+#warning improve error handling here
+
+  if ((pn == nullptr) ||                      //  If we matched something without a separator,
+      (*pn == 0)) {                           //  or with a missing Pname, warn and fail.
+    sprintf(_errors, "Expecting class:name in parameter '%s'.", opt);
+    goto returnfailure;
+  }
 
   //  Decode the OUTPUT parameter name.
 
@@ -110,8 +117,9 @@ merylCommandBuilder::decodeWord(char const *opt) {
     else if (matchToken(pn, pv, "statistics=")  == true)  _curPname = opPname::pnStats;
     else if (matchToken(pn, pv, "stats=", true) == true)  _curPname = opPname::pnStats;
     else {
-      sprintf(_errors, "Expecting clOutput Pname in '%s'\n", opt);
-      return false;
+      sprintf(_errors, "Expecting output:database=, output:list=, output:show, output:pipe=,");
+      sprintf(_errors, "  output:histogram[=] or output:statistics[=] in parameter '%s'.", opt);
+      goto returnfailure;
     }
 
     _curParam = pv;
@@ -120,11 +128,20 @@ merylCommandBuilder::decodeWord(char const *opt) {
   //  Decode the ASSIGN parameter name.
 
   if (_curClass == opClass::clAssign) {
+    if ((matchToken(pn, pv, "value:") == true) ||
+        (matchToken(pn, pv, "label:") == true) ||
+        (matchToken(pn, pv, "bases:") == true) ||
+        (matchToken(pn, pv, "input:") == true)) {
+      sprintf(_errors, "Expecting assign:value= or assign:label= in paramter '%s'.", opt);
+      sprintf(_errors, "  Note '=' instead of ':'.", opt);
+      goto returnfailure;
+    }
+
     if      (matchToken(pn, pv, "value=")       == true)  _curPname = opPname::pnValue;
     else if (matchToken(pn, pv, "label=")       == true)  _curPname = opPname::pnLabel;
     else {
-      sprintf(_errors, "Expecting clAssign Pname in '%s'\n", opt);
-      return false;
+      sprintf(_errors, "Expecting assign:value= or assign:label= in parameter '%s'.", opt);
+      goto returnfailure;
     }
 
     _curParam = pv;
@@ -133,13 +150,23 @@ merylCommandBuilder::decodeWord(char const *opt) {
   //  Decode the SELECT parameter name.
 
   if (_curClass == opClass::clSelect) {
+    if ((matchToken(pn, pv, "value=") == true) ||
+        (matchToken(pn, pv, "label=") == true) ||
+        (matchToken(pn, pv, "bases=") == true) ||
+        (matchToken(pn, pv, "input=") == true)) {
+      sprintf(_errors, "Expecting select:value:, select:label:, select:bases: or select:input:");
+      sprintf(_errors, "  in parameter '%s'.  Note ':' instead of '='.", opt);
+      goto returnfailure;
+    }
+
     if      (matchToken(pn, pv, "value:")       == true)  _curPname = opPname::pnValue;
     else if (matchToken(pn, pv, "label:")       == true)  _curPname = opPname::pnLabel;
     else if (matchToken(pn, pv, "bases:")       == true)  _curPname = opPname::pnBases;
     else if (matchToken(pn, pv, "input:")       == true)  _curPname = opPname::pnInput;
     else {
-      sprintf(_errors, "Expecting clSelect Pname in '%s' (select:Pname:)\n", opt);
-      return false;
+      sprintf(_errors, "Expecting select:value:, select:label:, select:bases: or select:input:");
+      sprintf(_errors, "  in parameter '%s'.\n", opt);
+      goto returnfailure;
     }
 
     _curParam = pv;
@@ -155,26 +182,39 @@ merylCommandBuilder::decodeWord(char const *opt) {
     else if (matchToken(pn, pv, "pipe=")        == true)  _curPname = opPname::pnPipe;
     else if (matchToken(pn, pv, "action=")      == true)  _curPname = opPname::pnAction;
     else {
-      sprintf(_errors, "Expecting clInput Pname in '%s'\n", opt);
-      return false;
+      sprintf(_errors, "Expecting input:database=, input:list=, input:stdin, input:pipe=");
+      sprintf(_errors, "  or input:action= in paramter '%s'\n", opt);
+      goto returnfailure;
     }
 
     _curParam = pv;
   }
 
-  return true;
-}
+  if (globals.showConstruction() == true)
+    fprintf(stderr, "decodeWord()- '%s' -> %s::%s with param '%s'\n", opt, toString(_curClass), toString(_curPname), _curParam);
 
+  return true;
+
+ returnfailure:
+  _curClass = opClass::clNone;
+  _curPname = opPname::pnNone;
+  _curParam = nullptr;
+
+  return false;
+}
+#endif
 
 
 //
 //  
+#if 0
 void
 merylCommandBuilder::processWord(char const *rawWord) {
 
   if (globals.showConstruction() == true)
     fprintf(stderr, "processWord()- '%s'\n", rawWord);
 
+#if 1
   duplicateString(rawWord,              //  Make a copy of the word and count the length.
                   _optString, _optStringLen, _optStringMax);
 
@@ -188,12 +228,12 @@ merylCommandBuilder::processWord(char const *rawWord) {
   if (_opStack.size() == 0)             //  If stack is still empty, tsk, tsk, user didn't
     addNewOperation();                  //  explicitly make an action, so make one for them.
 
-  if ((isEmptyWord()  == true) ||       //  If the word is now empty (it was a single '[' or
-      (isOptionWord() == true))         //  multiple ']'), or if the word is a recognized option,
-    goto finishWord;                    //  we're done.
+  //if ((isEmptyWord()  == true) ||       //  If the word is now empty (it was a single '[' or
+  //    (isOptionWord() == true))         //  multiple ']'), or if the word is a recognized option,
+  //  goto finishWord;                    //  we're done.
 
-  if ((isAliasConstant() == true))      //  If an alias constant -- or _expecting_ a constant
-    goto finishWord;                    //  but one not found, we're done.
+  //if ((isAliasConstant() == true))      //  If an alias constant -- or _expecting_ a constant
+  //  goto finishWord;                    //  but one not found, we're done.
 
   if (_curClass != opClass::clNone) {   //  If we already have a class/pname set, we're waiting
     if ((isInOut()  == false) &&        //  for another argument for a previous word - usually
@@ -203,19 +243,14 @@ merylCommandBuilder::processWord(char const *rawWord) {
     goto finishWord;
   }
 
-#warning o:stats and o:histo need special case here when no file is supplied
-
-  //if (isInput() == true)                //  Handle merylDBs, canu seqStores and sequence
-  //  goto finishWord;                    //  files.  This MUST come after _curClass != clNone!
-
-  if ((isAliasWord()    == true) ||     //  Handle aliases and count operations.  Ideally,
-      (isCountingWord() == true))       //  these are only encountered with a completely empty
-    goto finishWord;                    //  operation on the stack, but that isn't enforced.
+  //if ((isAliasWord()    == true) ||     //  Handle aliases and count operations.  Ideally,
+  //    (isCountingWord() == true))       //  these are only encountered with a completely empty
+  //  goto finishWord;                    //  operation on the stack, but that isn't enforced.
 
   if (decodeWord(_optString) == true) { //  If we decode a word, try to parse it.
-    if ((isInOut()  == false) &&        //  If all fail, report an error but still
-        (isAssign() == false) &&        //  consume the word (since we decoded
-        (isSelect() == false))          //  successfully).
+    if ((isInOut()   == false) &&       //  If all fail, report an error but still
+        (isAssign()  == false) &&       //  consume the word (since we decoded
+        (isSelect()  == false))         //  successfully).
       fprintf(stderr, "Failed to parse decoded word '%s'.\n", rawWord);
     goto finishWord;
   }
@@ -234,7 +269,8 @@ merylCommandBuilder::processWord(char const *rawWord) {
 
   if (globals.showConstruction() == true)
     fprintf(stderr, "----------\n");
+#endif
 }
 
 
-
+#endif

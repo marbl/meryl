@@ -106,6 +106,7 @@ merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
 
 
 
+#if 0
 bool
 merylCommandBuilder::isCountingWord(void) {
   merylOpTemplate  *op = getCurrent();
@@ -128,7 +129,7 @@ merylCommandBuilder::isCountingWord(void) {
 
   return true;  //  Always consume the word, even if it triggered an error above.
 }
-
+#endif
 
 
 
