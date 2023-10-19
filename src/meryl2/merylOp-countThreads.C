@@ -164,8 +164,10 @@ loadBases(void *G) {
 
   //  If no more inputs, we're done.
 
-  if (g->_inputPos >= g->_inputs.size())
+#warning does this leave stuff in the buffer?
+  if (g->_inputPos >= g->_inputs.size()) {
     return(NULL);
+  }
 
   //  Update the number of threads used for loading.  If the input is
   //  compressed, reserve 2 threads, otherwise reserve 1.

@@ -101,17 +101,29 @@ merylCommandBuilder::loadProgramText(char const *f) {
     for (uint32 ll=0; ll < lineL; ll++) {
       char  ch = line[ll];
 
+      bool  nesc = ((esc == false) && (sgl == false) && (dbl == false));
+      bool  osgl = ((esc == false) && (sgl == true)  && (dbl == false));
+      bool  odbl = ((esc == false) && (sgl == false) && (dbl == true ));
+
+      bool  com1 = ((ll == 0) &&                        (line[ll] == '#'));
+      bool  com2 = ((ll >  1) && (line[ll-1] == ' ') && (line[ll] == '#'));
+
       //  Handle mode switches.
       //
       //   - If not in an escape mode and a backslash, single or double quote
       //     is encountered, enter the appropriate mode.
       //   - If in a quote mode and a close quote is seen, exit the mode.
       //
-      if      ((esc == false) && (sgl == false) && (dbl == false) && (ch == '\\'))  esc = true;
-      else if ((esc == false) && (sgl == false) && (dbl == false) && (ch == '\''))  sgl = true;
-      else if ((esc == false) && (sgl == false) && (dbl == false) && (ch == '"'))   dbl = true;
-      else if ((esc == false) && (sgl == true)  && (dbl == false) && (ch == '\''))  sgl = false;
-      else if ((esc == false) && (sgl == false) && (dbl == true)  && (ch == '"'))   dbl = false;
+      if      (nesc && (ch == '\\'))  esc = true;
+      else if (nesc && (ch == '\''))  sgl = true;
+      else if (nesc && (ch == '"'))   dbl = true;
+      else if (osgl && (ch == '\''))  sgl = false;
+      else if (odbl && (ch == '"'))   dbl = false;
+
+      //  Handle comments.
+      //
+      else if (nesc && (com1 || com2))
+        break;
 
       //  Add a letter.
       //
@@ -120,7 +132,7 @@ merylCommandBuilder::loadProgramText(char const *f) {
       //   - Exit escape mode.
       //
       else {
-        if ((esc == false) && (sgl == false) && (dbl == false) && (ch == ' '))
+        if (nesc && (ch == ' '))
           ch = '\v';
 
         _pTxt[_pTxtLen++] = ch;
@@ -155,19 +167,21 @@ merylCommandBuilder::appendProgramWord(char const *w) {
   if (w == nullptr)
     return;
 
-  while (*w) {                                           //  Copy word to program text.
-    increaseArray(_pTxt, _pTxtLen+2, _pTxtMax, 16384);   //  Get space for this letter and
-    _pTxt[_pTxtLen++] = *w++;                            //  the '\n\0' terminating letters,
-  }                                                      //  grabbing 16KB more as needed.
+  for (uint32 l=strlen(w)+2; _pTxtLen+l >= _pTxtMax; ) //  Get space for the word
+    increaseArray(_pTxt, _pTxtLen+l, _pTxtMax, 16384); //  and terminating bytes.
 
-  _pTxt[_pTxtLen++] = '\v';
-  _pTxt[_pTxtLen]   = '\0';
+  while (*w)                                           //  Copy word to program text.
+    _pTxt[_pTxtLen++] = *w++;                          //
+
+  _pTxt[_pTxtLen++] = '\v';                            //  Separate the word from any next
+  _pTxt[_pTxtLen]   = '\0';                            //  word and terminate the string.
 }
 
 
 int
 main(int argc, char **argv) {
   merylCommandBuilder  *B = new merylCommandBuilder;
+  int                   r = 0;
 
   argc = globals.initialize(argc, argv);  //  Handles --version, initializes max memory and threads.
 
@@ -186,6 +200,9 @@ main(int argc, char **argv) {
 
   B->finalizeTrees();   //  Finalize the processing tree and check for errors.
 
+  //
+  //  Report command line usage if any errors so far.
+  //
   if ((argc == 1) ||                //  No commands
       (B->numTrees() == 0) ||       //  No actions
       (err.size() > 0)) {           //  Command line errors
@@ -197,28 +214,41 @@ main(int argc, char **argv) {
       if (err[ii] != NULL)
         fprintf(stderr, "%s\n", err[ii]);
 
-    exit(1);
+    r=1;  //  Exit fail.
   }
 
-  if (B->displayTreesAndErrors() == true)  //  Halt on errors (and
-    return 1;                             //  leak B).
+  //
+  //  Or report the tree and fail if there are errors.
+  //
+  else if (B->displayTreesAndErrors() == true) {
+    r=1;
+  }
 
-  if (globals.stopAfterConfigure())  //  Print message and return success.
-    return fprintf(stderr, "Stopping after configuration.\n"), 0;
+  //
+  //  Or just stop after showing a successful tree.
+  //
+  else if (globals.stopAfterConfigure()) {
+    fprintf(stderr, "Stopping after configuration.\n");
+  }
 
-  B->performCounting(globals.allowedMemory(), globals.allowedThreads());
-  B->finalizeParameters();
-  B->spawnThreads(globals.allowedThreads());
-  B->runThreads(globals.allowedThreads());
+  //
+  //  Or actually run!
+  //
+  else {
+    B->performCounting(globals.allowedMemory(), globals.allowedThreads());
+    B->finalizeParameters();
+    B->spawnThreads(globals.allowedThreads());
+    B->runThreads(globals.allowedThreads());
 
-  if (globals.showStandard() == true)
-    fprintf(stderr, "\n"
-                    "Cleaning up.\n");
+    if (globals.showStandard() == true)
+      fprintf(stderr, "\n"
+                      "Cleaning up.\n");
+  }
 
   delete B;
 
   if (globals.showStandard() == true)
     fprintf(stderr, "\n"
                     "Bye.\n");
-  return 0;
+  return r;
 }

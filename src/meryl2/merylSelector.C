@@ -25,24 +25,22 @@ merylSelector::merylSelector(merylSelectorQuantity type,
                              merylSelectorRelation rela,
                              bool                  invert,
                              char const           *str)   {
-  _q = type;      //  Type and Relation are obvious. The desired
-  _r = rela;      //  result _t is true when 'invert' is false, and
-  _t = !invert;   //  false when 'invert' is true.
-
-  //fprintf(stderr, "Create merylSelector for '%s'\n", str);
-
+  _q   = type;      //  Type and Relation are obvious. The desired
+  _r   = rela;      //  result _t is true when 'invert' is false, and
+  _t   = !invert;   //  false when 'invert' is true.
   _str = duplicateString(str);
 }
 
 
 merylSelector::merylSelector(const merylSelector &that) {
-  _q   = that._q;
-  _r   = that._r;
-  _t   = that._t;
 
-  //fprintf(stderr, "Copy merylSelector for '%s'\n", that._str);
+  *this = that;
 
-  _str = duplicateString(that._str);
+  _str = duplicateString(that._str);   //  Replace with our own copy.
+
+  assert(_presentInNum  == nullptr);
+  assert(_presentInIdx  == nullptr);
+  assert(_presentInList == nullptr);
 }
 
 

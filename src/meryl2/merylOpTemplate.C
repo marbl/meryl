@@ -33,6 +33,8 @@ merylOpTemplate::~merylOpTemplate() {
   for (uint32 ii=0; ii<64; ii++)
     delete _computes[ii];
 
+  delete    _counting;
+
   delete [] _outDbseName;   delete _outDbse;
   delete [] _outListName;   delete _outList;
   delete [] _outShowName;   delete _outShow;
@@ -359,6 +361,7 @@ merylOpTemplate::doCounting(uint64 allowedMemory,
   delete [] _outDbseName;   _outDbseName = nullptr;
   delete    _outDbse;       _outDbse     = nullptr;
 
+  delete    _counting;      _counting    = nullptr;
   //_inputs.push_back(new merylInput(new merylFileReader(name)));
 };
 

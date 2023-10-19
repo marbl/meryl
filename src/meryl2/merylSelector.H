@@ -173,9 +173,9 @@ public:
 
   //  What and how to compare:
 
-  merylSelectorRelation  _r = merylSelectorRelation::isNOP;  //  Relation we need to satisfy.
   merylSelectorQuantity  _q = merylSelectorQuantity::isNOP;  //  Quantity we're comparing against.
-  bool                   _t = true;                        //  Desired result for a 'true' selector result.
+  merylSelectorRelation  _r = merylSelectorRelation::isNOP;  //  Relation we need to satisfy.
+  bool                   _t = true;                          //  Desired result for a 'true' selector result.
 
   //  A copy of the command line string, for reporting errors.
   char    *_str = nullptr;

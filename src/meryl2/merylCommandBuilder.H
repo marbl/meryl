@@ -86,7 +86,8 @@ public:
     compileRegExes();
   }
   ~merylCommandBuilder() {
-    //delete [] _optString;
+    delete [] _pTxt;
+
     for (uint32 ss=0; ss<64; ss++)   //  Delete the arrays of pointers to compute
       delete [] _thList[ss];         //  objects; the objects are deleted elsewhere
   }
@@ -98,16 +99,16 @@ public:
 
 private:
   void    compileRegExes(void);
-  uint32  matchProgramText(uint64 pp);
+  uint32  matchProgramText(uint64 &pp);
 
 private:
-  uint64     _pTxtLen = 0;            //  The meryl program we need to run,
-  uint64     _pTxtMax = 0;            //  in text form.
-  char      *_pTxt    = nullptr;      //
+  uint64     _pTxtLen = 0;                    //  The meryl program we need
+  uint64     _pTxtMax = 16384;                //  to run, in text form.
+  char      *_pTxt    = new char [_pTxtMax];  //
 
-  uint64     _regexLen = 0;
-  uint64     _regexMax = 0;
-  regEx      _regex[256];             //  Regular Expressions we'll use to parse the program text.
+  uint64     _regexLen = 0;                   //  Regular Expressions we'll
+  uint64     _regexMax = 0;                   //  use to parse the
+  regEx      _regex[256];                     //  program text.
 
 
 
@@ -154,12 +155,6 @@ public:
   void    runThreads(uint32 allowedThreads);
 
 private:
-  //bool    isEmptyWord(void)      { return(_optString[0] == 0); }
-  //bool    isOptionWord(void);
-  //bool    isAliasConstant(void);
-  //bool    isAliasWord(void);
-
-  //bool    isInOut(void);
   bool    isInput(char const *word);
 
   bool    isAssignValue(void);
@@ -172,11 +167,6 @@ private:
   bool    isInputSelector(void);
   bool    isSelect(void);
   bool    isSelectConnective(void);
-
-  //bool    isCountingWord(void);
-
-  //bool    isHistogram(void);
-  //bool    isStatistics(void);
 
 public:
   uint32           numOperations(void)           { return _opList.size(); };

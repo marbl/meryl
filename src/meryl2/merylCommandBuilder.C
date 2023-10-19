@@ -31,10 +31,17 @@ void
 merylCommandBuilder::addNewOperation(void) {
   merylOpTemplate *eop = getCurrent();
 
-  if ((eop != nullptr) &&                    //  If an operation exists and it is
-      (eop->_isSelector == false) &&         //  unused, use it instead of making
-      (eop->_isCounting == false))           //  a new one.
-    return;                                  //
+  if (globals.showConstruction() == true) {
+    if      (eop == nullptr)
+      fprintf(stderr, "addNewOperation()- no current operation\n");
+    else if (eop->isEmpty() == true)
+      fprintf(stderr, "addNewOperation()- current operation is empty\n");
+    else
+      fprintf(stderr, "addNewOperation()- current operation is empty\n");
+  }
+
+  if ((eop) && (eop->isEmpty() == true))     //  Reuse existing empty operation
+    return;                                  //  instead of making a new one.
 
   merylOpTemplate *nop = new merylOpTemplate(_opList.size() + 1);
 
@@ -70,23 +77,9 @@ merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
     fprintf(stderr, "terminateOperations()- Terminate action #%u at stack position %ld.\n",
             op->_ident, _opStack.size()-1);
 
- if (_curClass != opClass::clNone)
-    sprintf(_errors, "terminateOperations()- Action #%u at stack position %ld did not process _curClass '%s'.\n",
-            op->_ident, _opStack.size()-1, toString(_curClass));
-  if (_curPname != opPname::pnNone)
-    sprintf(_errors, "terminateOperations()- Action #%u at stack position %ld did not process _curPname '%s'.\n",
-            op->_ident, _opStack.size()-1, toString(_curPname));
-
-  if ((op->_isCounting == false) &&    //  If neither set, this action might be doing nothing.
-      (op->_isSelector == false)) {    //  It could still be doing just histo/stats or output.
+  if (op->isEmpty() == true)
     fprintf(stderr, "terminateOperations()- Action #%u at stack position %ld possibly does nothing.\n",
             op->_ident, _opStack.size()-1);
-    op->_isSelector = true;
-  }
-
-  //assert(_curClass == opClass::clNone);       //  If either of these are set, the action
-  //assert(_curPname == opPname::pnNone);       //  was never fully parsed/added.
-
 
   if (op->_valueAssign == merylAssignValue::valueNOP)  op->_valueAssign = merylAssignValue::valueFirst;
   if (op->_labelAssign == merylAssignLabel::labelNOP)  op->_labelAssign = merylAssignLabel::labelFirst;
@@ -106,30 +99,38 @@ merylCommandBuilder::terminateOperations(uint32 nter, bool pop) {
 
 
 
-#if 0
+
+//  Handle input files that do not have a class/pname supplied; that is,
+//  command words that are a meryl database, a canu seqStore or a sequence file.
+//
 bool
-merylCommandBuilder::isCountingWord(void) {
+merylCommandBuilder::isInput(char const *word) {
+
   merylOpTemplate  *op = getCurrent();
+  merylInput       *in = new merylInput;
 
-  if ((strcmp(_optString, "count")         != 0) &&
-      (strcmp(_optString, "count-forward") != 0) &&
-      (strcmp(_optString, "count-reverse") != 0))
-    return(false);
+  bool as = op->acceptsSequenceInputs();
 
-  if      (op->_isCounting)
-    sprintf(_errors, "ERROR: operation is already a counting operation.\n");
+  bool im =                  (as == false) && (in->registerMerylDB (word,                        _errors, false));
+  bool ic = (im == false) && (as == true)  && (in->registerSeqStore(word, _segment, _segmentMax, _errors, false));
+  bool is = (ic == false) && (as == true)  && (in->registerSeqFile (word, _doCompression,        _errors, false));
 
-  else if (op->_isSelector)
-    sprintf(_errors, "ERROR: operation is a select operation, cannot also be a counting operation.\n");
+  fprintf(stderr, "isInput()- '%s' -> as:%d im:%d ic:%d is:%d\n", word, as, im, ic, is);
 
-  else {
-    op->_isCounting = true;
-    op->_counting   = new merylOpCounting(_optString);
+  if ((im == false) &&
+      (ic == false) &&
+      (is == false)) {
+    delete in;
+    return false;
   }
 
-  return true;  //  Always consume the word, even if it triggered an error above.
+  op->addInput(in);
+
+  //_segment    = 1;   //  These only apply to Canu inputs, but no harm
+  //_segmentMax = 1;   //  in resetting them for every input.
+
+  return true;
 }
-#endif
 
 
 

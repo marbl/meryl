@@ -54,6 +54,19 @@ public:
   ~merylOpTemplate();
 
 public:
+  bool    isEmpty(void) {
+    return ((_isCounting == false) && (_counting == nullptr) &&
+            (_isSelector == false) &&
+            (_inputs.size() == 0) &&
+            (_select.size() == 0) &&
+            (_outDbse == nullptr) &&
+            (_outList == nullptr) &&
+            (_outShow == nullptr) &&
+            (_outStats == nullptr) &&
+            (_outHisto == nullptr));
+  }
+
+public:
   void    addInput(merylInput *in) {;
     _inputs.push_back(in);
   }
