@@ -120,22 +120,20 @@ merylCommandBuilder::loadProgramText(char const *f) {
       else if (osgl && (ch == '\''))  sgl = false;
       else if (odbl && (ch == '"'))   dbl = false;
 
-      //  Handle comments.
+      //  Handle comments.  Just bail on the rest of this line.
       //
       else if (nesc && (com1 || com2))
         break;
 
       //  Add a letter.
       //
-      //   - If in an escape or quote mode, add letters verbatim, otherwise,
-      //     replace whitespace with word separators.
-      //   - Exit escape mode.
+      //   - If not in an escape/quote mode, replace spaces with word-separators.
+      //   - Otherwise, add the letter verbatim and exit escape mode.
       //
+      else if (nesc && (ch == ' '))  _pTxt[_pTxtLen++] = '\v';
       else {
-        if (nesc && (ch == ' '))
-          ch = '\v';
-
         _pTxt[_pTxtLen++] = ch;
+        esc = false;
       }
     }
 
@@ -144,6 +142,7 @@ merylCommandBuilder::loadProgramText(char const *f) {
 
     if (esc == false)             //  Add a word-sep at the end of each line,
       _pTxt[_pTxtLen++] = '\v';   //  unless it is escaped.
+    esc = false;                  //  Exit escape mode.
 
     _pTxt[_pTxtLen]   = '\0';
   }
