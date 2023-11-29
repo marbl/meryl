@@ -278,14 +278,14 @@ insertKmers(void *G, void *T, void *S) {
     //  We need exclusive access to this specific merylCountArray, so busy
     //  wait on a lock until we get it.
 
-    while (g->_lock[pp].test_and_set(std::memory_order_relaxed) == true)
+    while (g->_lock[pp].test_and_set(std::memory_order_acquire) == true)
       ;
 
     s->_memUsed        += g->_data[pp].add(mm);
     s->_kmersAdded     += 1;
     s->_kmersAddedMax   = std::max(s->_kmersAddedMax, g->_data[pp].numKmers());
 
-    g->_lock[pp].clear(std::memory_order_relaxed);
+    g->_lock[pp].clear(std::memory_order_release);
   }
 }
 
@@ -339,7 +339,7 @@ writeBatch(void *G, void *S) {
   g->_dumping = true;
 
   for (uint32 pp=0; pp<g->_params->_nPrefix; pp++)
-    while (g->_lock[pp].test_and_set(std::memory_order_relaxed) == true)
+    while (g->_lock[pp].test_and_set(std::memory_order_acquire) == true)
       ;
 
   //  Write data!  For reasons I don't understand, we need to reset the max
@@ -384,7 +384,7 @@ writeBatch(void *G, void *S) {
   //  Signal that threads can proceeed.
 
   for (uint32 pp=0; pp<g->_params->_nPrefix; pp++)
-    g->_lock[pp].clear(std::memory_order_relaxed);
+    g->_lock[pp].clear(std::memory_order_release);
 
   g->_dumping = false;
 }
