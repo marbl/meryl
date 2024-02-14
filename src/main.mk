@@ -1,4 +1,7 @@
-MODULE       :=    meryl
+MODULE       := meryl
+VERSION      := snapshot 1.3
+VERSION_H    := utility/src/version.H
+
 TARGET       := libmeryl.a
 SOURCES      := utility/src/align/align-ksw2-driver.C \
                 utility/src/align/align-ksw2-extz.C \

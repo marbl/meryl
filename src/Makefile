@@ -52,27 +52,36 @@ define INIT_SUBMODULE
   ifeq ($$(wildcard ${1}),${1})
   ifeq ($$(wildcard ${1}/*),)
     $$(info Fetching submodule '${1}')
-    $$(shell git submodule update --init ${1} 2>&1 | awk '{ print " - "$$$$0 }' 1>&2)
+    $$(shell cd $$(dir ${1}) ; git submodule update --init ${2} $$(notdir ${1}) 2>&1 | awk '{ print " - "$$$$0 }' 1>&2)
     $$(info )
   endif
   endif
 endef
 
-$(eval $(call INIT_SUBMODULE,utility))
-$(eval $(call INIT_SUBMODULE,meryl))
-$(eval $(call INIT_SUBMODULE,seqrequester))
+$(eval $(call INIT_SUBMODULE,utility,))
+#$(eval $(call INIT_SUBMODULE,meryl,))
+#$(eval $(call INIT_SUBMODULE,seqrequester,))
 
 #
 #  Set compiler and flags based on operating system and compiler toolchain.
 #  This must be called AFTER the compiler is chosen, and after the decision
 #  to include stack trace support is make.
 #
-#  By default, debug symbols are included in all builds (even optimized).
+#  User-supplied flags are handled:
+#    If a parameter to make ("make CXXFLAGS=whatever"):
+#      flags are used exclusively; no default flags are supplied
+#    If an environment variable ("CXXFLAGS=whatever make"):
+#      flags are appended to the end of the default flags.
 #
-#  BUILDOPTIMIZED  will disable debug symbols (leaving it just optimized)
-#  BUILDDEBUG      will disable optimization  (leaving it just with debug symbols)
-#  BUILDSTACKTRACE will enable stack trace on crashes, only works for Linux
-#                  set to 0 on command line to disable (it's enabled by default for Linux)
+#  Parameters to the function:
+#    $1 - extra flags for CFLAGS/CXXFLAGS (e.g., -I/path)
+#    $2 - extra flags for LDFLAGS (e.g., -L/path)
+#
+#  Options:
+#    BUILDOPTIMIZED  will disable debug symbols (leaving it just optimized)
+#    BUILDDEBUG      will disable optimization  (leaving it just with debug symbols)
+#    BUILDSTACKTRACE will enable stack trace on crashes, only works for Linux
+#                    set to 0 on command line to disable (it's enabled by default for Linux)
 #
 #  BUILDPROFILE used to add -pg to LDFLAGS, and remove -D_GLIBCXX_PARALLE from CXXFLAGS and LDFLAGS,
 #  and remove -fomit-frame-pointer from CXXFLAGS.  It added a bunch of complication and wasn't
@@ -80,95 +89,106 @@ $(eval $(call INIT_SUBMODULE,seqrequester))
 #
 #  BUILDJEMALLOC will enable jemalloc library support.
 #
-#  For TOOLCHAINVERSION, GCC seems to want '-dumpfullversion' instead of
-#  '-dumpversion' to return the full X.Y.Z version number.
-#
 define SET_DEFAULT_FLAGS
+  CFLAGSUSER   := $${CFLAGS}
+  CXXFLAGSUSER := $${CXXFLAGS}
+  LDFLAGSUSER  := $${LDFLAGS}
+
+  #  Figure out which tool chain we're using and set up initial flags.
+  #   - GCC seems to want '-dumpfullversion' instead of '-dumpversion'
+  #     to return the full X.Y.Z version number.
+  #   - GCC has deprecated c++2a but gcc-9 doesn't know the correct
+  #     option c++20.
+
   ifeq ($$(shell echo `$$(CXX) --version 2>&1 | grep -c clang`), 0)
-    TOOLCHAIN        := GNU
-    TOOLCHAINVERSION := $$(shell ${CXX} -dumpfullversion)
+    TOOLCHAIN  := GNU
+    TOOLCHAINV := $$(shell ${CXX} -dumpfullversion)
+    CFLAGS     := -pthread -fopenmp -fPIC -std=c17   ${1}
+    CXXFLAGS   := -pthread -fopenmp -fPIC -std=c++2a ${1}
+    LDFLAGS    := -pthread -fopenmp                  ${2} -lm
   else
-    TOOLCHAIN        := Clang
-    TOOLCHAINVERSION := $$(shell ${CXX} -dumpversion)
+    TOOLCHAIN  := LLVM
+    TOOLCHAINV := $$(shell ${CXX} -dumpversion)
+    CFLAGS     := -pthread -fopenmp -fPIC -std=c17   ${1}
+    CXXFLAGS   := -pthread -fopenmp -fPIC -std=c++20 ${1}
+    LDFLAGS    := -pthread -fopenmp                  ${2} -lm
   endif
 
-  ifeq ($$(origin CXXFLAGS), undefined)
-    ifeq ($$(BUILDOPTIMIZED), 1)
-    else
-      CXXFLAGS += -g3
-      CFLAGS   += -g3
-    endif
+  #  Build up our preferred set of flags.
 
-    ifeq ($$(BUILDDEBUG), 1)
-      CXXFLAGS += -Og
-      CFLAGS   += -Og
-    else ifeq ($$(TOOLCHAIN), GNU)
-      CXXFLAGS += -O4 -funroll-loops -fexpensive-optimizations -finline-functions -fomit-frame-pointer
-      CFLAGS   += -O4 -funroll-loops -fexpensive-optimizations -finline-functions -fomit-frame-pointer
-    else ifeq ($$(TOOLCHAIN), Clang)
-      CXXFLAGS += -O3 -funroll-loops -finline-functions -fomit-frame-pointer
-      CFLAGS   += -O3 -funroll-loops -finline-functions -fomit-frame-pointer
-    else
-      CXXFLAGS += -O3
-      CFLAGS   += -O3
-    endif
+  ifeq ($$(BUILDOPTIMIZED), 1)   #  Enable debugging and add debug-aware
+  else                           #  optimization unless BUILDOPTIMIZED is set.
+    CXXFLAGS += -Og -g3
+    CFLAGS   += -Og -g3
+  endif
 
-    ifeq ($${BUILDSTACKTRACE}, 1)
-      CXXFLAGS += -DLIBBACKTRACE
-      CFLAGS   += -DLIBBACKTRACE
-    else
-      CXXFLAGS += -DNOBACKTRACE
-      CFLAGS   += -DNOBACKTRACE
-    endif
-
-    ifeq ($$(BUILDJEMALLOC), 1)
-      CXXFLAGS += -DJEMALLOC -I`jemalloc-config --includedir`
-      LDFLAGS  += -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` -ljemalloc `jemalloc-config --libs`
-    endif
-
-    #  htslib and meryl-utility need this for SIMD support.
-
-    ifeq ($$(MACHINETYPE), amd64)
-      CFLAGS   += -mxsave
-      CXXFLAGS += -mxsave
-    endif
-
-    #  Enable gobs of warnings.
-
-    #CFLAGS   += -pedantic
-    CFLAGS   += -Wall -Wextra -Wformat
-    CFLAGS   += -Wno-char-subscripts
-    CFLAGS   += -Wno-sign-compare
-    CFLAGS   += -Wno-unused-function
-    CFLAGS   += -Wno-unused-parameter
-    CFLAGS   += -Wno-unused-variable
-    CFLAGS   += -Wno-deprecated-declarations
-
-    #CXXFLAGS += -pedantic
-    CXXFLAGS += -Wall -Wextra -Wformat
-    CXXFLAGS += -Wno-char-subscripts
-    CXXFLAGS += -Wno-sign-compare
-    CXXFLAGS += -Wno-unused-function
-    CXXFLAGS += -Wno-unused-parameter
-    CXXFLAGS += -Wno-unused-variable
-    CXXFLAGS += -Wno-deprecated-declarations
-
-    ifeq ($$(TOOLCHAIN), Clang)
-      CFLAGS   += -Wno-format
-
-      CXXFLAGS += -Wno-format
-      CXXFLAGS += -std=c++20
-    endif
-
-    ifeq ($$(TOOLCHAIN), GNU)
-      CFLAGS   += -Wno-format-truncation
-
-      CXXFLAGS += -Wno-format-truncation   #  Disable 'sprintf() into possibly smaller buffer'
-      CXXFLAGS += -std=c++2a
-    endif
-
+  ifeq ($$(BUILDDEBUG), 1)       #  Add full optimization unless BUILDDEBUG is set.
+  else ifeq ($$(TOOLCHAIN), GNU)
+    CXXFLAGS += -O4 -funroll-loops -finline-functions -fomit-frame-pointer -fexpensive-optimizations
+    CFLAGS   += -O4 -funroll-loops -finline-functions -fomit-frame-pointer -fexpensive-optimizations
+  else ifeq ($$(TOOLCHAIN), LLVM)
+    CXXFLAGS += -O3 -funroll-loops -finline-functions -fomit-frame-pointer
+    CFLAGS   += -O3 -funroll-loops -finline-functions -fomit-frame-pointer
   else
-    CXXFLAGSUSER := $${CXXFLAGS}
+    CXXFLAGS += -O3
+    CFLAGS   += -O3
+  endif
+
+  ifeq ($${BUILDSTACKTRACE}, 1)  #  Add (or disable) stacktrace support.
+    CXXFLAGS += -DLIBBACKTRACE
+    CFLAGS   += -DLIBBACKTRACE
+  else
+    CXXFLAGS += -DNOBACKTRACE
+    CFLAGS   += -DNOBACKTRACE
+  endif
+
+  ifeq ($$(BUILDJEMALLOC), 1)    #  Add jemalloc support.
+    CXXFLAGS += -DJEMALLOC -I`jemalloc-config --includedir`
+    LDFLAGS  += -L`jemalloc-config --libdir` -Wl,-rpath,`jemalloc-config --libdir` -ljemalloc `jemalloc-config --libs`
+  endif
+
+  ifeq ($$(MACHINETYPE), amd64)  #  Add SIMD support (htslib and meryl-utility need this)
+    CFLAGS   += -mxsave
+    CXXFLAGS += -mxsave
+  endif
+
+  #  Enable gobs of warnings, but then disable some of the annoying ones, a
+  #  few of which are compiler dependent.
+
+  DEFAULTWARNINGS  =
+  #EFAULTWARNINGS += -DMACHINETYPE_${MACHINETYPE}
+  #EFAULTWARNINGS += -pedantic
+  DEFAULTWARNINGS += -Wall -Wextra -Wformat
+  DEFAULTWARNINGS += -Wno-char-subscripts
+  DEFAULTWARNINGS += -Wno-sign-compare
+  DEFAULTWARNINGS += -Wno-unused-function
+  DEFAULTWARNINGS += -Wno-unused-parameter
+  DEFAULTWARNINGS += -Wno-unused-variable
+  DEFAULTWARNINGS += -Wno-deprecated-declarations
+  #EFAULTWARNINGS += -Wno-format -Wno-format-truncation  #  Disable 'sprintf() into possibly smaller buffer'
+
+  ifeq ($$(TOOLCHAIN), LLVM)
+    CFLAGS   += $${DEFAULTWARNINGS} -Wno-format
+    CXXFLAGS += $${DEFAULTWARNINGS} -Wno-format
+  endif
+
+  ifeq ($$(TOOLCHAIN), GNU)
+    CFLAGS   += $${DEFAULTWARNINGS} -Wno-format-truncation
+    CXXFLAGS += $${DEFAULTWARNINGS} -Wno-format-truncation
+  endif
+
+  DEFAULTWARNINGS =
+
+  #  Append user-supplied flags, if any exist.
+
+  ifneq ($${CFLAGSUSER}, )
+    CFLAGS   += $${CFLAGSUSER}
+  endif
+  ifneq ($${CXXFLAGSUSER}, )
+    CXXFLAGS += $${CXXFLAGSUSER}
+  endif
+  ifneq ($${LDFLAGSUSER}, )
+    LDFLAGS += $${LDFLAGSUSER}
   endif
 endef
 
@@ -182,12 +202,7 @@ ifeq (${OSTYPE}, Linux)
 
   BUILDSTACKTRACE ?= 1
 
-  $(eval $(call SET_DEFAULT_FLAGS,))
-
-  CXXFLAGS  += -pthread -fopenmp -fPIC
-  CFLAGS    += -pthread -fopenmp -fPIC
-
-  LDFLAGS   += -pthread -fopenmp -lm
+  $(eval $(call SET_DEFAULT_FLAGS,,))
 endif
 
 
@@ -213,20 +228,14 @@ ifeq (${CANU_BUILD_ENV}, ports)
 
   CXXFLAGS  += -pthread -fopenmp -fPIC
   CFLAGS    += -pthread -fopenmp -fPIC
-
-  LDFLAGS   += -pthread -fopenmp
+  LDFLAGS   += -pthread -fopenmp -lm
 else
   CC        ?= cc
   CXX       ?= c++
 
   BUILDSTACKTRACE ?= 1
 
-  $(eval $(call SET_DEFAULT_FLAGS,))
-
-  CXXFLAGS  += -I/usr/local/include -pthread -fopenmp -fPIC
-  CFLAGS    += -I/usr/local/include -pthread -fopenmp -fPIC
-
-  LDFLAGS   += -L/usr/local/lib     -pthread -fopenmp -lm -lexecinfo
+  $(eval $(call SET_DEFAULT_FLAGS,-I/usr/local/include,-L/usr/local/lib -lexecinfo))
 endif
 endif
 
@@ -316,12 +325,7 @@ ifeq (${OSTYPE}, Darwin)
   $(eval $(call FIND_MACOS_COMPILER,9))
   $(eval $(call FIND_MACOS_COMPILER,8))
 
-  $(eval $(call SET_DEFAULT_FLAGS))
-
-  CXXFLAGS += -fopenmp -pthread -fPIC
-  CFLAGS   += -fopenmp -pthread -fPIC
-
-  LDFLAGS  += -fopenmp -pthread -lm
+  $(eval $(call SET_DEFAULT_FLAGS,,))
 endif
 
 
@@ -332,12 +336,7 @@ ifneq (,$(findstring CYGWIN, ${OSTYPE}))
   CC        ?= gcc
   CXX       ?= g++
 
-  $(eval $(call SET_DEFAULT_FLAGS,))
-
-  CXXFLAGS  := -fopenmp -pthread
-  CFLAGS    := -fopenmp -pthread
-
-  LDFLAGS   := -fopenmp -pthread -lm
+  $(eval $(call SET_DEFAULT_FLAGS,,))
 endif
 
 
@@ -352,15 +351,17 @@ endif
 #  the otherhand, this does mean we can clean up temporary files right after.
 #
 
-COMPILETEST := $(shell echo "int main(void) { return 0; }" | $(CXX) $(CXXFLAGS) -x c++ -o /tmp/test-fopenmp - && echo pass ; rm -f /tmp/test-fopenmp /tmp/test-fopenmp.C)
+COMPILETEST := $(shell echo "int main(void) { return 0; }" | ${CXX} ${CXXFLAGS} ${LDFLAGS} -x c++ -o /tmp/test-fopenmp - && echo pass ; rm -f /tmp/test-fopenmp /tmp/test-fopenmp.C)
 
 ifneq ($(COMPILETEST), pass)
   $(warning )
   $(warning Unable to compile OpenMP programs with with:)
-	$(warning $_    ${TOOLCHAIN} ${CXX} ${TOOLCHAINVERSION}.)
-  $(warning and flags:)
+  $(warning $_    ${TOOLCHAIN} ${CXX} ${TOOLCHAINV}.)
+  $(warning $_  CXXFLAGS flags:)
   $(foreach FLAG,${CXXFLAGS},$(warning $_    ${FLAG}))
-  $(warning Please install GCC or Clang with OpenMP support and)
+  $(warning $_  LDFLAGS flags:)
+  $(foreach FLAG,${LDFLAGS},$(warning $_    ${FLAG}))
+  $(warning Please install GCC or LLVM with OpenMP support and)
   $(warning specify this compiler on the command line, e.g.,)
   $(warning $_    make CC=/path/to/gcc CXX=/path/to/g++)
   $(warning )
@@ -368,28 +369,45 @@ ifneq ($(COMPILETEST), pass)
 endif
 
 #
-# Recursively include user-supplied submakefiles.
+# Define the two exported targets, 'all' and 'clean' as phony rules that
+# point to the real rules.  This is done before including main.mk so that it
+# can define any weird one-off special-case targets without them becoming the
+# first (and thus default) rule.
 #
-
-$(eval $(call INCLUDE_SUBMAKEFILE,main.mk))
-
+# Then recursively include user-supplied submakefiles.
 #
-# Define the two exported targets: 'all' (default) and 'clean'.
+# Then define the real 'all' and 'clean' targets.
+#
+# Targets 'doall' and 'doclean' are used internally to add more targets to
+# the global build.  'doclean-final' is a trouble maker because it needs to
+# run after all the other 'doclean' steps, and the only way to ensure that is
+# to give it a new target.
 #
 
 .PHONY: all
-all: $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
+all: doall
+
+.PHONY: clean
+clean: doclean-final
+
+$(eval $(call INCLUDE_SUBMAKEFILE,main.mk))
+
+.PHONY: doall
+doall: $(addprefix ${TARGET_DIR}/,${ALL_TGTS})
 	@echo ""
 	@echo "Success!"
 	@echo "${MODULE} installed in ${TARGET_DIR}/bin/${MODULE}"
 	@echo ""
 
-.PHONY: clean
-clean:
-	if [ -d ../build ] ; then find ../build -type d -print | sort -r | xargs -n 100 rmdir ; fi
+.PHONY: doclean-final
+doclean-final: doclean
+	if [ -d ${TARGET_DIR} ] ; then find ${TARGET_DIR} -type d -print | sort -r | xargs -n 100 rmdir ; fi
 	@echo ""
 	@echo "Cleaned."
 	@echo ""
+
+.PHONY: doclean
+doclean:
 
 #
 #  Let boilermake do its thing.
@@ -400,8 +418,8 @@ $(eval $(call BOILERMAKE))
 #
 #  Generate a version number.  This needs to come AFTER submakefiles are
 #  included (so we know what ${MODULE} is) but before we build anything
-#  (because this generates 'utility/src/version.H' and also prints
-#  information about submodule versions).
+#  (because this generates 'version.H' and also prints information about
+#  submodule versions).
 #
 #  But, because make helpfully squashes all the lines to a single line we
 #  need to do something funky and write the version information for C++ and
@@ -411,12 +429,19 @@ $(eval $(call BOILERMAKE))
 #  For projects that include meryl-utility as a submodule (the usual case)
 #  write version.H in the submodule src/ directory; for meryl-utility itself,
 #  write in the current directory.
+#   - This _should_ be indentifying if the submodule exists in
+#     utility/src, but on the very first build (when the submodules
+#     are initialized above) a file-based detection was reliably failing,
+#     as if `ifeq ($(wildcard utility/src), utility/src)` was tested
+#     before the submodule was init'd.  Rather than deal with all
+#     that baloney, we just assume that any build using this build
+#     system is either meryl-utility itself or something that uses it.
 #
 
-ifeq ($(wildcard utility/src), utility/src)
-  VERSION_H := $(shell ../scripts/version_update.pl ${MODULE} utility/src/version.H)
-else
-  VERSION_H := $(shell ../scripts/version_update.pl ${MODULE} version.H)
+VERSION_H := $(shell ./${VERSION_H:.H=.pl} ${MODULE} ${VERSION} ${VERSION_H})
+
+ifeq (${VERSION_H}, )
+$(error Failed to create version.H, possibly missing the 'meryl-utility' submodule)
 endif
 
 include ${VERSION_H}
@@ -427,8 +452,14 @@ include ${VERSION_H}
 
 $(info ${BUILDING})
 $(info For '${OSTYPE}' '${OSVERSION}' as '${MACHINETYPE}' into '${TARGET_DIR}/{bin,obj}'.)
-$(info Using ${TOOLCHAIN} '$(shell which ${CXX})' version '${TOOLCHAINVERSION}'.)
-ifneq ($(origin CXXFLAGSUSER), undefined)
+$(info Using ${TOOLCHAIN} '$(shell which ${CXX})' version '${TOOLCHAINV}'.)
+ifneq (${CFLAGSUSER},)
+$(info Using user-supplied CFLAGS   '${CFLAGSUSER}'.)
+endif
+ifneq (${CXXFLAGSUSER},)
 $(info Using user-supplied CXXFLAGS '${CXXFLAGSUSER}'.)
+endif
+ifneq (${LDFLAGSUSER},)
+$(info Using user-supplied LDFLAGS  '${LDFLAGSUSER}'.)
 endif
 $(info )
