@@ -160,7 +160,7 @@ merylInput::openInput(std::vector<char const *> &err) {
       assert(0);
       break;
     case merylInputType::inSequence:
-      _sequence = new dnaSeqFile(_sequenceName);
+      _sequence = openSequenceFile(_sequenceName);
       break;
     case merylInputType::inCanu:
       openInputSeqStore();

@@ -74,7 +74,7 @@ public:
 
   bool   isMultiSet(void)         { return(_isMultiSet);        };
 
-  bool   isCompressedFile(void)   { return((_sequence != NULL) &&
+  bool   isCompressed(void)       { return((_sequence != NULL) &&
                                            (_sequence->isCompressed())); };
 
   merylOperation           *_operation;

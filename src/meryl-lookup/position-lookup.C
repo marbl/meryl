@@ -77,11 +77,11 @@ public:
 
 private:
   bool      openInputFile(void) {
-    if (inputFile != nullptr)                 return(true);       //  we have an input file already
-    if (inputNamesPos >= inputNames.size())   return(false);      //  no more input files
+    if (inputFile != nullptr)                 return(true);   //  we have an input file already
+    if (inputNamesPos >= inputNames.size())   return(false);  //  no more input files
 
-    inputFile = new dnaSeqFile(inputNames[inputNamesPos]);  //  open next file
-    inputNamesPos++;                                        //  point to the next file name
+    inputFile = openSequenceFile(inputNames[inputNamesPos]);  //  open next file
+    inputNamesPos++;                                          //  point to the next file name
 
     return(true);
   }
@@ -133,7 +133,7 @@ posLookGlobal::~posLookGlobal() {
 void
 posLookGlobal::initialize(void) {
   merylFileReader   *refKmers    = new merylFileReader(refMerName);
-  dnaSeqFile        *refSequence = new dnaSeqFile(refSeqName);
+  dnaSeqFile        *refSequence = openSequenceFile(refSeqName);
 
   refLookup = new merylExactLookup();
 

@@ -162,7 +162,7 @@ loadBases(void *G) {
   //  Update the number of threads used for loading.  If the input is
   //  compressed, reserve 2 threads, otherwise reserve 1.
 
-  if (g->_inputs[g->_inputPos]->isCompressedFile())
+  if (g->_inputs[g->_inputPos]->isCompressed())
     g->_loadThreads = 2;
   else
     g->_loadThreads = 1;

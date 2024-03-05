@@ -155,7 +155,7 @@ main(int argc, char **argv) {
   fprintf(stderr, "==  Stream kmers from '%s'.\n", inputSeqName);
   fprintf(stderr, "==\n");
 
-  dnaSeqFile  *seqFile    = new dnaSeqFile(inputSeqName);
+  dnaSeqFile  *seqFile    = openSequenceFile(inputSeqName);
 
   dnaSeq   seq;
   char     fString[64];

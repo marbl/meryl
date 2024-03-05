@@ -197,7 +197,7 @@ merylOperation::addInputFromSeq(char *sqName, bool doCompression) {
     fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
             sqName, toString(_operation));
 
-  dnaSeqFile *sq = new dnaSeqFile(sqName);
+  dnaSeqFile *sq = openSequenceFile(sqName);
 
   _inputs.push_back(new merylInput(sq->filename(), sq, doCompression));
 

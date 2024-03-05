@@ -98,7 +98,7 @@ main(int argc, char **argv) {
   //  allocate a gigantic array.  We could just reallocate and copy,
   //  but then we're limited to 1/2 the memory.
 
-  dnaSeqFile   *seqFile  = new dnaSeqFile(sInput, false);
+  dnaSeqFile   *seqFile  = openSequenceFile(sInput, false);
   dnaSeq       *seq      = new dnaSeq;
   uint64        kmersLen = 0;
   uint64        kmersMax = 0;
@@ -125,7 +125,7 @@ main(int argc, char **argv) {
   fprintf(stderr, "-- Allocating space for %lu kmers (%lu MB).\n", kmersMax, memUsed >> 20);
 
   kmers   = new kmdata [kmersMax];
-  seqFile = new dnaSeqFile(sInput, false);
+  seqFile = openSequenceFile(sInput, false);
   seq     = new dnaSeq;
 
   fprintf(stderr, "-- Loading kmers.\n");
