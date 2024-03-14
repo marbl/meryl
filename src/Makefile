@@ -59,8 +59,8 @@ define INIT_SUBMODULE
 endef
 
 $(eval $(call INIT_SUBMODULE,utility,))
-#$(eval $(call INIT_SUBMODULE,meryl,))
-#$(eval $(call INIT_SUBMODULE,seqrequester,))
+#(eval $(call INIT_SUBMODULE,meryl,))
+#(eval $(call INIT_SUBMODULE,seqrequester,))
 
 #
 #  Set compiler and flags based on operating system and compiler toolchain.
@@ -235,7 +235,7 @@ else
 
   BUILDSTACKTRACE ?= 1
 
-  $(eval $(call SET_DEFAULT_FLAGS,-I/usr/local/include,-L/usr/local/lib -lexecinfo))
+  $(eval $(call SET_DEFAULT_FLAGS,,))
 endif
 endif
 
