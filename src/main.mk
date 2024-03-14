@@ -61,16 +61,6 @@ SOURCES      := utility/src/align/align-ksw2-driver.C \
                 utility/src/kmers-v1/kmers-writer.C \
                 utility/src/kmers-v1/kmers.C \
                 \
-                utility/src/kmers-v2/kmers-exact.C \
-                utility/src/kmers-v2/kmers-files.C \
-                utility/src/kmers-v2/kmers-histogram.C \
-                utility/src/kmers-v2/kmers-reader-dump.C \
-                utility/src/kmers-v2/kmers-reader.C \
-                utility/src/kmers-v2/kmers-writer-block.C \
-                utility/src/kmers-v2/kmers-writer-stream.C \
-                utility/src/kmers-v2/kmers-writer.C \
-                utility/src/kmers-v2/kmers.C \
-                \
                 utility/src/math/md5-v1.C \
                 utility/src/math/mt19937ar-v1.C \
                 utility/src/math/sampledDistribution-v1.C \
@@ -87,6 +77,16 @@ SOURCES      := utility/src/align/align-ksw2-driver.C \
                 utility/src/system/system-stackTrace-v1.C \
                 utility/src/system/system-v1.C \
                 utility/src/system/time-v1.C
+
+#SOURCES      += utility/src/kmers-v2/kmers-exact.C \
+#                utility/src/kmers-v2/kmers-files.C \
+#                utility/src/kmers-v2/kmers-histogram.C \
+#                utility/src/kmers-v2/kmers-reader-dump.C \
+#                utility/src/kmers-v2/kmers-reader.C \
+#                utility/src/kmers-v2/kmers-writer-block.C \
+#                utility/src/kmers-v2/kmers-writer-stream.C \
+#                utility/src/kmers-v2/kmers-writer.C \
+#                utility/src/kmers-v2/kmers.C
 
 SOURCES      += utility/src/htslib/hts/bcf_sr_sort.c \
                 utility/src/htslib/hts/bgzf.c \
@@ -170,11 +170,12 @@ SUBMAKEFILES := meryl/meryl.mk \
                 meryl-lookup/meryl-lookup.mk \
                 meryl-lookup/position-lookup.mk
 
-SUBMAKEFILES += meryl2/meryl.mk \
-                meryl2-analyze/meryl-analyze.mk \
-                meryl2-simple/meryl-simple.mk \
-                meryl2-import/meryl-import.mk \
-                meryl2-lookup/meryl-lookup.mk
+#SUBMAKEFILES += meryl2/meryl.mk \
+#                meryl2-analyze/meryl-analyze.mk \
+#                meryl2-ploidy/meryl-ploidy.mk \
+#                meryl2-simple/meryl-simple.mk \
+#                meryl2-import/meryl-import.mk \
+#                meryl2-lookup/meryl-lookup.mk
 
 ifeq ($(BUILDTESTS), 1)
 SUBMAKEFILES += tests/merylCountArrayTest.mk \
