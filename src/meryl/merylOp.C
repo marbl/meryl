@@ -209,7 +209,6 @@ merylOperation::addInputFromSeq(char *sqName, bool doCompression) {
 }
 
 
-
 void
 merylOperation::addInputFromCanu(char *sqName, uint32 segment, uint32 segmentMax) {
 
@@ -229,6 +228,20 @@ merylOperation::addInputFromCanu(char *sqName, uint32 segment, uint32 segmentMax
     fprintf(stderr, "ERROR: operation '%s' cannot use sqStore as inputs.\n", toString(_operation)), exit(1);
 #else
 #endif
+}
+
+
+void
+merylOperation::addInputFromFile(char *fiName) {
+
+  if (_verbosity >= sayConstruction)
+    fprintf(stderr, "Adding input from file '%s' to operation '%s'\n",
+            fiName, toString(_operation));
+
+  _inputs.push_back(new merylInput(fiName));
+
+  if (_operation != opPloidy)
+    fprintf(stderr, "ERROR: operation '%s' cannot use text files as inputs.\n", toString(_operation)), exit(1);
 }
 
 
@@ -335,6 +348,8 @@ toString(merylOp op) {
 
     case opHistogram:            return("opHistogram");            break;
     case opStatistics:           return("opStatistics");           break;
+
+    case opPloidy:               return("opPloidy");               break;
 
     case opCompare:              return("opCompare");              break;
 

@@ -611,6 +611,9 @@ merylOperation::nextMer(void) {
         _value = _actCount[0];
       break;
 
+    case opPloidy:
+      break;
+
     case opCompare:
       if       (_actLen == 1) {
         char  str[65];

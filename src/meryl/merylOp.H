@@ -66,6 +66,7 @@ enum merylOp {
 
   opHistogram,
   opStatistics,
+  opPloidy,
 
   opCompare,
 
@@ -116,6 +117,7 @@ public:
   void    addInputFromDB  (char *dbName);
   void    addInputFromCanu(char *stName, uint32 segment, uint32 segmentMax);
   void    addInputFromSeq (char *sqName, bool doCompression);
+  void    addInputFromFile(char *fiName);
 
   void    addOutput(char *wrName);
   void    addPrinter(char *prName, bool ACGTorder);
@@ -216,6 +218,7 @@ public:
 
   void    reportHistogram(void);
   void    reportStatistics(void);
+  void    reportPloidy(void);
 
   static
   void    onlyConfigure(void)               { _onlyConfig   = true;       };

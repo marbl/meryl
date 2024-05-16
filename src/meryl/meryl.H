@@ -45,6 +45,7 @@ public:
   bool    isMerylInput(void);
   bool    isCanuInput(std::vector<char *> &err);
   bool    isSequenceInput(void);
+  bool    isFileInput(void);
 
   void    finalize(void);
   void    spawnThreads(void);
