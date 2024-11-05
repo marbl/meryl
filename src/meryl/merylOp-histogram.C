@@ -115,33 +115,40 @@ merylOperation::reportPloidy(void) {
 
   merylHistogram  *stats        = nullptr;
   merylHistogram  *statsPrivate = nullptr;
+  bool             debugPloidy  = (_verbosity >= sayDetails);
 
   if      (_inputs[0]->isFromDatabase() == true) {
     stats = _inputs[0]->_stream->stats();
-    stats->computePloidyPeaks();
+    stats->computePloidyPeaks(debugPloidy);
   }
   else if (_inputs[0]->isFromFile() == true) {
     stats = statsPrivate = new merylHistogram();
 
     stats->load(_inputs[0]->_filename);
-    stats->computePloidyPeaks();
+    stats->computePloidyPeaks(debugPloidy);
   }
   else {
     fprintf(stderr, "'ploidy' can't run from input type '%s'.\n", _inputs[0]->inputType()), exit(1);
   }
 
   double no = stats->getNoiseTrough();
-  double p1 = stats->getPloidy(1);
-  double p2 = stats->getPloidy(2);
-  double p3 = stats->getPloidy(3);
-  double p4 = stats->getPloidy(4);
+
+  double c1 = stats->getCoverage(1);
+  double c2 = stats->getCoverage(2);
+  double c3 = stats->getCoverage(3);
+  double c4 = stats->getCoverage(4);
+
+  double p1 = stats->getDepth(1);
+  double p2 = stats->getDepth(2);
+  double p3 = stats->getDepth(3);
+  double p4 = stats->getDepth(4);
 
   fprintf(stderr, "\n");
   fprintf(stderr, "Noise/genomic trough: %6.3f\n", no);
-  fprintf(stderr, "1x coverage peak:     %6.3f\n", p1);
-  fprintf(stderr, "2x coverage peak:     %6.3f\n", p2);
-  fprintf(stderr, "3x coverage peak:     %6.3f\n", p3);
-  fprintf(stderr, "4x coverage peak:     %6.3f\n", p4);
+  fprintf(stderr, "%4.2fx coverage peak:   %6.3f\n", c1, p1);
+  fprintf(stderr, "%4.2fx coverage peak:   %6.3f\n", c2, p2);
+  fprintf(stderr, "%4.2fx coverage peak:   %6.3f\n", c3, p3);
+  fprintf(stderr, "%4.2fx coverage peak:   %6.3f\n", c4, p4);
 
   if (isatty(fileno(stdout)) == 0)
     fprintf(stdout, "noise-trough\t%.3f\tploidy-peaks\t%.3f\t%.3f\t%.3f\t%.3f\n", no, p1, p2, p3, p4);

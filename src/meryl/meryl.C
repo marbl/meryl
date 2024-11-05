@@ -101,9 +101,10 @@ main(int argc, char **argv) {
     fprintf(stderr, "\n");
     fprintf(stderr, "  COMMANDS:\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "    statistics           display total, unique, distinct, present number of the kmers on the screen.  accepts exactly one input.\n");
-    fprintf(stderr, "    histogram            display kmer frequency on the screen as 'frequency<tab>count'.  accepts exactly one input.\n");
-    fprintf(stderr, "    print                display kmers on the screen as 'kmer<tab>count'.  accepts exactly one input.\n");
+    fprintf(stderr, "    statistics           display total, unique, distinct, present number of the kmers of a given database.\n");
+    fprintf(stderr, "    histogram            display kmer frequency ('frequency<tab>count') of a given database.\n");
+    fprintf(stderr, "    print                display kmers ('kmer<tab>count').  accepts exactly one input.\n");
+    fprintf(stderr, "    ploidy               display estimated ploidy of a given database or histogram file.  -VV will output histogram derivative.\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "    count                Count the occurrences of canonical kmers in the input.  must have 'output' specified.\n");
     fprintf(stderr, "    count-forward        Count the occurrences of forward kmers in the input.  must have 'output' specified.\n");
