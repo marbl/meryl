@@ -26,6 +26,7 @@ using namespace merylutil::kmers::v1;
 #define OP_NONE   0
 #define OP_GA     1
 #define OP_GC     2
+#define OP_GT     3
 
 //     T - type of the histogram counters
 //     V - type of the thing we're counting (must be integral)
@@ -160,9 +161,11 @@ histGC(merylFileReader* merylDB,
   uint32             maxCount = UINT32_MAX;
 
   sparseHistogram<uint64,uint32>    GCHist[65];
+  sparseHistogram<uint64,uint32>    ATHist[65];
 
   for (uint32 ii=0; ii<=kmer::merSize(); ii++) {
     GCHist[ii].initialize(0llu, UINT32_MAX);
+    ATHist[ii].initialize(0llu, UINT32_MAX);
   }
 
   while (merylDB->nextMer() == true) {
@@ -170,7 +173,8 @@ histGC(merylFileReader* merylDB,
     kmer    fmer  = merylDB->theFMer();
     kmdata  fbits = fmer;
 
-    uint32  score = 0, g = 0, c = 0;
+    uint32  fscore = 0, g = 0, c = 0;
+    uint32  rscore = 0, a = 0, t = 0;
 
     for (uint32 ii=0; ii<kmer::merSize(); ii++) {
       kmdata fbase = fbits & 0x03;
@@ -182,20 +186,36 @@ histGC(merylFileReader* merylDB,
         case 0x03:  //  G
           g++;
           break;
+        
+        case 0x00:  //  A
+          a++;
+          break;
+        case 0x02:  //  T
+          t++;
+          break;
       }
 
       fbits >>= 2;
     }
 
-    score = c + g;
+    fscore = c + g;
+    rscore = a + t;
 
-    if (verbose)
-      fprintf(stderr, "%s  %8u  AG= %2u TC= %2u\n",
+    if (verbose) {
+      fprintf(stderr, "%s  %8u  C= %2u G= %2u\n",
               fmer.toString(fstr), value,
               c, g);
+      fprintf(stderr, "%s  %8u  A= %2u T= %2u\n",
+              fmer.toString(fstr), value,
+              a, t);
+    }
 
-    if (score < maxCount) {
-      GCHist[score].insert(value);
+    if (fscore < maxCount) {
+      GCHist[fscore].insert(value);
+    }
+
+    if (rscore < maxCount) {
+      ATHist[rscore].insert(value);
     }
 
     if ((++nKmers % 100000000) == 0)
@@ -208,6 +228,9 @@ histGC(merylFileReader* merylDB,
   char    outName[FILENAME_MAX+1];
   sprintf(outName, "%s.GC.hist", outPrefix);
   printHist(outName, GCHist);
+
+  sprintf(outName, "%s.AT.hist", outPrefix);
+  printHist(outName, ATHist);
 
 }
 
@@ -313,6 +336,107 @@ histGA(merylFileReader* merylDB,
 
 }
 
+void
+histGT(merylFileReader* merylDB,
+       char*            outPrefix,
+       bool             verbose ) {
+
+  uint64             nKmers  = 0;
+  char               fstr[65];
+  uint32             maxCount = UINT32_MAX;
+
+  sparseHistogram<uint64,uint32>    CombinedHist[65];
+  sparseHistogram<uint64,uint32>    GThist[65];
+  sparseHistogram<uint64,uint32>    AChist[65];
+
+  for (uint32 ii=0; ii<=kmer::merSize(); ii++) {
+    CombinedHist[ii].initialize(0llu, UINT32_MAX);
+    GThist[ii].initialize(0llu, UINT32_MAX);
+    AChist[ii].initialize(0llu, UINT32_MAX);
+  }
+
+
+  while (merylDB->nextMer() == true) {
+    uint32  value = merylDB->theValue();
+    kmer    fmer  = merylDB->theFMer();
+    kmdata  fbits = fmer;
+
+    uint32  fscore = 0,  fg = 0, ft = 0;
+    uint32  rscore = 0,  ra = 0, rc = 0;
+
+    for (uint32 ii=0; ii<kmer::merSize(); ii++) {
+      kmdata fbase = fbits & 0x03;
+
+      switch (fbase) {
+        case 0x00:  //  A
+          if ((ft > 0) && (fg > 0))   fscore += ft + fg;
+          ft = fg = 0;
+
+          ra++;
+          break;
+        case 0x01:  //  C
+          rc++;
+
+          if ((ft > 0) && (fg > 0))   fscore += ft + fg;
+          ft = fg = 0;
+          break;
+        case 0x02:  //  T
+          ft++;
+
+          if ((ra > 0) && (rc > 0))   rscore += ra + rc;
+          ra = rc = 0;
+          break;
+        case 0x03:  //  G
+          if ((ra > 0) && (rc > 0))   rscore += ra + rc;
+          ra = rc = 0;
+
+          fg++;
+          break;
+      }
+
+      fbits >>= 2;
+    }
+
+    if ((ft > 0) && (fg > 0))   fscore += ft + fg;
+    if ((ra > 0) && (rc > 0))   rscore += ra + rc;
+
+    if (verbose)
+      fprintf(stderr, "%s  %8u  GT= %2u AC= %2u\n",
+              fmer.toString(fstr), value,
+              fscore, rscore);
+
+    if (fscore < maxCount) {
+      GThist[fscore].insert(value);
+    }
+
+    if (rscore < maxCount) {
+      AChist[rscore].insert(value);
+    }
+
+    if (fscore > rscore) {
+      CombinedHist[fscore].insert(value);
+    } else {
+      CombinedHist[rscore].insert(value);
+    }
+
+    if ((++nKmers % 100000000) == 0)
+      fprintf(stderr, "Processed %li kmers.\n", nKmers);
+  }
+  fprintf(stderr, "Processed %li kmers in total.\n\n", nKmers);
+
+  fprintf(stderr, "Output histogram\n");
+
+  char    outName[FILENAME_MAX+1];
+  sprintf(outName, "%s.GT_AC.hist", outPrefix);
+  printHist(outName, CombinedHist);
+
+  sprintf(outName, "%s.GT.hist", outPrefix);
+  printHist(outName, GThist);
+
+  sprintf(outName, "%s.AC.hist", outPrefix);
+  printHist(outName, AChist);
+
+}
 
 
 
@@ -341,6 +465,9 @@ main(int argc, char **argv) {
     } else if (strcmp(argv[arg], "-gc") == 0) {
       reportType = OP_GC;
 
+    } else if (strcmp(argv[arg], "-gt") == 0) {
+      reportType = OP_GT;
+
     } else {
       char *s = new char [1024];
       snprintf(s, 1024, "Unknown option '%s'.\n", argv[arg]);
@@ -354,7 +481,16 @@ main(int argc, char **argv) {
     err.push_back("No query meryl database (-mers) supplied.\n");
 
   if (err.size() > 0) {
-    fprintf(stderr, "usage: %s -mers <meryldb> -prefix <prefix> (-ga | -gc) \n", argv[0]);
+    fprintf(stderr, "usage: %s -mers <meryldb> -prefix <prefix> (-gc | -ga | -gt) \n", argv[0]);
+    fprintf(stderr, "  -mers <meryldb>   : meryl database to analyze.\n");
+    fprintf(stderr, "  -prefix <prefix>  : prefix for output file(s).\n");
+    fprintf(stderr, "  -gc               : generate a histogram of G and C counts. A and T counts will be output as well.\n");
+    fprintf(stderr, "  -ga               : generate a histogram of 2-mer microsatellite GA counts. TC counts and combined GA_TC will be output as well.\n");
+    fprintf(stderr, "                      combined output reports the GA or TC count, whichever is larger, for a given kmer.\n");
+    fprintf(stderr, "  -gt               : generate a histogram of 2-mer microsatellite GT counts. AC counts and combined GT_AC will be output as well.\n");
+    fprintf(stderr, "                      combined output reports the GT or AC count, whichever is larger, for a given kmer.\n");
+    fprintf(stderr, "  -verbose          : print verbose output.\n");
+    fprintf(stderr, "output              : score (out of \"k\" mers) <tab> k-mer multiplicity <tab> count\n");
     fprintf(stderr, "\n");
 
     for (uint32 ii=0; ii<err.size(); ii++)
@@ -367,11 +503,14 @@ main(int argc, char **argv) {
   fprintf(stderr, "Open meryl database '%s'.\n", inputDBname);
   merylFileReader   *merylDB = new merylFileReader(inputDBname);
 
+  if (reportType == OP_GC)
+    histGC(merylDB, outPrefix, verbose);
+
   if (reportType == OP_GA)
     histGA(merylDB, outPrefix, verbose);
 
-  if (reportType == OP_GC)
-    histGC(merylDB, outPrefix, verbose);
+  if (reportType == OP_GT)
+    histGT(merylDB, outPrefix, verbose);
 
   fprintf(stderr, "Clean up..\n\n");
 
