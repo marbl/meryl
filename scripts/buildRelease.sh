@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-#  Before building a release:
+#  Before building a release: See scripts/build-release-action.md
 #
 #  Make a place to work, grab the bits you want to release:
 #    git clone git@github.com:marbl/meryl meryl-release

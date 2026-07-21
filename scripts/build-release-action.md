@@ -14,6 +14,12 @@
   my $minor    = "4.2";          #  Bump before release.
   ```
 
+* documentation/source/conf.py
+  ```
+  version = '1.4.2'    # The short X.Y version.
+  release = '1.4.2'    # The full version, including alpha/beta/rc tags.
+  ```
+
 * README.md
   * Add Change log
   * Bump version-specific links
@@ -45,19 +51,21 @@
 
 ## 5. Restore back to snapshot
 
-* ../src/main.mk
+* src/main.mk
   ```
   VERSION      := snapshot 1.4.2 # X.X.X
   ```
 
-* version_update.pl
+* scripts/version_update.pl
   ```
   my $label    = "snapshot";     #  If not 'release' print this in the version output. Default: 'snapshot'.
   my $major    = "1";            #  Bump before release.
   my $minor    = "4.2";          #  Bump before release.
   ```
 
+* commit
   ```sh
+  git add scripts/version_update.pl src/main.mk
   git commit -m "post-release: bump to snapshot 1.4.2"
   ```
 
