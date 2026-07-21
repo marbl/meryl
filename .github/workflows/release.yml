@@ -120,12 +120,12 @@ jobs:
               set -e
               # Optional dev libraries the meryl build probes with pkg-config.
               yum install -y openssl-devel libcurl-devel xz-devel bzip2-devel zlib-devel >/dev/null
-              # Silence git "dubious ownership" complaints: host uid != container uid.
+              # Silence git "dubious ownership" complaints for snapshot builds
+              # that DO have a .git directory. Harmless when .git is absent.
               git config --global --add safe.directory "*"
               gcc --version
               g++ --version
               ldd --version | head -n1
-              git rev-parse --is-inside-work-tree
               cd src
               gmake -j "$(nproc)"
             '
