@@ -81,28 +81,42 @@ jobs:
             runs_on: ubuntu-24.04-arm
             image: quay.io/pypa/manylinux2014_aarch64
     runs-on: ${{ matrix.runs_on }}
-    container:
-      image: ${{ matrix.image }}
+    # NOTE: we do NOT set `container:` at the job level. manylinux2014's glibc
+    # (2.17) is too old to run Node 24, which every actions/* uses now.
+    # Instead we run actions on the host and invoke the old-glibc container
+    # only for the compile itself. This keeps the produced binaries linkable
+    # against glibc >= 2.17 (RHEL 7+, Ubuntu 14.04+, Debian 8+, ...).
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
 
-      - name: Show toolchain
+      - name: Show host info
         run: |
-          gcc --version
-          g++ --version
-          ldd --version | head -n1
+          uname -a
+          docker --version
 
-      - name: Build
+      - name: Build inside manylinux2014
         run: |
-          cd src
-          gmake -j "$(nproc)"
+          docker run --rm \
+            -v "${PWD}:/work" -w /work \
+            -e MAKEFLAGS="-j $(nproc)" \
+            "${{ matrix.image }}" \
+            bash -c '
+              set -e
+              gcc --version
+              g++ --version
+              ldd --version | head -n1
+              cd src
+              gmake -j "$(nproc)"
+            '
 
       - name: Assemble tarball
         run: |
           ver="${{ needs.version.outputs.version }}"
           dir="meryl-${ver}"
+          # build/ was created by the container; may be owned by root
+          sudo chown -R "$(id -u):$(id -g)" build
           rm -rf build/obj
           mv build "${dir}"
           cp -a README* "${dir}/" 2>/dev/null || true
