@@ -95,6 +95,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+          fetch-depth: 0   # full history + tags so version.pl can `git describe --tags`
 
       - name: Show host info
         run: |
@@ -167,6 +168,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+          fetch-depth: 0   # full history + tags so version.pl can `git describe --tags`
 
       - name: Install build tools
         run: brew install make gcc
@@ -194,6 +196,9 @@ jobs:
           rm -rf build/obj
           mv build "${dir}"
           cp -a README* "${dir}/" 2>/dev/null || true
+          # Homebrew installs dylibs mode 444; make them user-writable so end
+          # users can `xattr -dr com.apple.quarantine` after downloading.
+          chmod -R u+w "${dir}"
           tar -cJf "meryl-${ver}.Darwin-${{ matrix.arch }}.tar.xz" \
               "${dir}/README"* \
               "${dir}/bin" \
