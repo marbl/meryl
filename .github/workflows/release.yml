@@ -23,7 +23,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: v
         run: |
           if [ -n "${{ inputs.version }}" ]; then
@@ -43,7 +43,7 @@ jobs:
     needs: version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -59,7 +59,7 @@ jobs:
           tar -cJf "meryl-${ver}.tar.xz" "${dir}"
           ls -lh "meryl-${ver}.tar.xz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: meryl-source
           path: meryl-*.tar.xz
@@ -84,7 +84,7 @@ jobs:
     container:
       image: ${{ matrix.image }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -113,7 +113,7 @@ jobs:
               $( [ -d "${dir}/share" ] && echo "${dir}/share" )
           ls -lh "meryl-${ver}.Linux-${{ matrix.arch }}.tar.xz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: meryl-linux-${{ matrix.arch }}
           path: meryl-*.Linux-*.tar.xz
@@ -136,8 +136,11 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment_target }}
+      HOMEBREW_NO_REQUIRE_TAP_TRUST: '1'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -174,7 +177,7 @@ jobs:
               $( [ -d "${dir}/share" ] && echo "${dir}/share" )
           ls -lh "meryl-${ver}.Darwin-${{ matrix.arch }}.tar.xz"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: meryl-darwin-${{ matrix.arch }}
           path: meryl-*.Darwin-*.tar.xz
@@ -187,7 +190,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: dist
           merge-multiple: true
