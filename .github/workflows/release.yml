@@ -153,6 +153,17 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # macOS binary tarballs, native on Intel and Apple Silicon runners.
+  #
+  # macos-13 (Intel, macOS 13) was dropped: that runner pool is being
+  # retired and its queue is often multi-hour. We use `macos-15-intel`
+  # instead — Intel hardware running macOS 15, supported through Fall 2027.
+  #
+  # Caveats for the Intel build:
+  #   - Homebrew dylibs are single-arch, so this tarball is x86_64 only
+  #     (no universal binary).
+  #   - Ad-hoc-signed binaries are killed by Gatekeeper on MDM-managed
+  #     Macs regardless of arch; those users must build from source
+  #     (see scripts/build-release-action.md).
   # ---------------------------------------------------------------------------
   macos:
     needs: version
@@ -161,10 +172,10 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runs_on: macos-13     # Intel
-            deployment_target: '10.15'
+            runs_on: macos-15-intel   # Intel, macOS 15 (supported through Fall 2027)
+            deployment_target: '11.0'
           - arch: arm64
-            runs_on: macos-14     # Apple Silicon
+            runs_on: macos-14         # Apple Silicon
             deployment_target: '11.0'
     runs-on: ${{ matrix.runs_on }}
     env:
