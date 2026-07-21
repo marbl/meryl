@@ -18,11 +18,11 @@
 #    git tag -a v1.3-development -m "Development for v1.3."
 #    git push --follow-tags
 #
-#  Make a branch:
+#  Make a branch (avoid naming collision with release tags):
 #    git checkout -b v1.2-maintenance
 #
 #  Commit to branch:
-#    Change 'snapshot' to 'release' in scripts/version_update.pl
+#    Change 'snapshot' to 'release' in scripts/version_update.pl and main.mk (VERSION      := release 1.4.2)
 #    git push --set-upstream origin v1.2-maintenance
 #
 #  Run this script:

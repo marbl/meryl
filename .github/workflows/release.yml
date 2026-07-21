@@ -105,7 +105,7 @@ jobs:
             bash -c '
               set -e
               # Optional dev libraries the meryl build probes with pkg-config.
-              yum install -y openssl-devel libcurl-devel xz-devel >/dev/null
+              yum install -y openssl-devel libcurl-devel xz-devel bzip2-devel zlib-devel >/dev/null
               # Silence git "dubious ownership" complaints: host uid != container uid.
               git config --global --add safe.directory "*"
               gcc --version
