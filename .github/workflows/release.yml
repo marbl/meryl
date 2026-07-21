@@ -192,10 +192,38 @@ jobs:
       - name: Install build tools
         run: brew install make gcc
 
+      - name: Locate Homebrew GCC (Intel only)
+        # meryl's src/Makefile scans Homebrew for gcc@N / llvm@N compilers
+        # in descending version order. The macos-15-intel runner image
+        # ships a preinstalled `llvm@18` whose libomp is missing / not
+        # linkable, so auto-detect picks it and the build fails with
+        #   ld: library 'omp' not found
+        # Short-circuit auto-detect on Intel by pointing CC/CXX at the
+        # brewed GCC. The arm64 runner's LLVM works fine, so leave it
+        # to auto-detect there.
+        if: matrix.arch == 'amd64'
+        run: |
+          set -euo pipefail
+          gcc_prefix="$(brew --prefix gcc)"
+          cc="$(ls "${gcc_prefix}"/bin/gcc-[0-9]*  2>/dev/null | sort -V | tail -n1)"
+          cxx="$(ls "${gcc_prefix}"/bin/g++-[0-9]* 2>/dev/null | sort -V | tail -n1)"
+          if [ -z "${cc}" ] || [ -z "${cxx}" ]; then
+            echo "Failed to locate Homebrew gcc/g++ under ${gcc_prefix}/bin" >&2
+            ls -l "${gcc_prefix}/bin" >&2 || true
+            exit 1
+          fi
+          echo "CC=${cc}"   >> "$GITHUB_ENV"
+          echo "CXX=${cxx}" >> "$GITHUB_ENV"
+          "${cxx}" --version | head -n1
+
       - name: Show toolchain
         run: |
           gmake --version | head -n1
-          clang --version | head -n1
+          if [ -n "${CXX:-}" ]; then
+            "${CXX}" --version | head -n1
+          else
+            clang --version | head -n1
+          fi
 
       - name: Hide .git for release builds
         # version.pl chooses the "release (no git)" path only when .git is
@@ -208,7 +236,11 @@ jobs:
       - name: Build
         run: |
           cd src
-          gmake -j "$(sysctl -n hw.ncpu)"
+          if [ -n "${CC:-}" ] && [ -n "${CXX:-}" ]; then
+            gmake -j "$(sysctl -n hw.ncpu)" CC="${CC}" CXX="${CXX}"
+          else
+            gmake -j "$(sysctl -n hw.ncpu)"
+          fi
 
       - name: Statify (bundle dylibs)
         run: |
