@@ -1,0 +1,212 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version string to embed in tarball names (e.g. 1.4.2). If empty, derived from the tag or commit.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # needed to create the Release and upload assets
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Derive a single version string used by every downstream job.
+  # ---------------------------------------------------------------------------
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            ver="${{ inputs.version }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            ver="${GITHUB_REF_NAME#v}"
+          else
+            ver="$(git describe --tags --always --dirty | sed 's/^v//')"
+          fi
+          echo "version=${ver}" >> "$GITHUB_OUTPUT"
+          echo "Building version: ${ver}"
+
+  # ---------------------------------------------------------------------------
+  # Source-only tarball: src/ + scripts/ + README*, with submodules populated.
+  # ---------------------------------------------------------------------------
+  source:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Assemble source tree
+        run: |
+          ver="${{ needs.version.outputs.version }}"
+          dir="meryl-${ver}"
+          mkdir -p "${dir}"
+          cp -a src scripts "${dir}/"
+          cp -a README* "${dir}/" 2>/dev/null || true
+          # strip any accidental build output
+          rm -rf "${dir}/src/../build" "${dir}"/build 2>/dev/null || true
+          tar -cJf "meryl-${ver}.tar.xz" "${dir}"
+          ls -lh "meryl-${ver}.tar.xz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meryl-source
+          path: meryl-*.tar.xz
+
+  # ---------------------------------------------------------------------------
+  # Linux binary tarballs, built inside manylinux2014 (glibc 2.17)
+  # for maximum portability across distros.
+  # ---------------------------------------------------------------------------
+  linux:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs_on: ubuntu-latest
+            image: quay.io/pypa/manylinux2014_x86_64
+          - arch: arm64
+            runs_on: ubuntu-24.04-arm
+            image: quay.io/pypa/manylinux2014_aarch64
+    runs-on: ${{ matrix.runs_on }}
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show toolchain
+        run: |
+          gcc --version
+          g++ --version
+          ldd --version | head -n1
+
+      - name: Build
+        run: |
+          cd src
+          gmake -j "$(nproc)"
+
+      - name: Assemble tarball
+        run: |
+          ver="${{ needs.version.outputs.version }}"
+          dir="meryl-${ver}"
+          rm -rf build/obj
+          mv build "${dir}"
+          cp -a README* "${dir}/" 2>/dev/null || true
+          tar -cJf "meryl-${ver}.Linux-${{ matrix.arch }}.tar.xz" \
+              "${dir}/README"* \
+              "${dir}/bin" \
+              "${dir}/lib" \
+              $( [ -d "${dir}/share" ] && echo "${dir}/share" )
+          ls -lh "meryl-${ver}.Linux-${{ matrix.arch }}.tar.xz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meryl-linux-${{ matrix.arch }}
+          path: meryl-*.Linux-*.tar.xz
+
+  # ---------------------------------------------------------------------------
+  # macOS binary tarballs, native on Intel and Apple Silicon runners.
+  # ---------------------------------------------------------------------------
+  macos:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs_on: macos-13     # Intel
+            deployment_target: '10.15'
+          - arch: arm64
+            runs_on: macos-14     # Apple Silicon
+            deployment_target: '11.0'
+    runs-on: ${{ matrix.runs_on }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment_target }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build tools
+        run: brew install make gcc
+
+      - name: Show toolchain
+        run: |
+          gmake --version | head -n1
+          clang --version | head -n1
+
+      - name: Build
+        run: |
+          cd src
+          gmake -j "$(sysctl -n hw.ncpu)"
+
+      - name: Statify (bundle dylibs)
+        run: |
+          cd build
+          python3 ../scripts/statifyOSX.py bin lib true true
+          python3 ../scripts/statifyOSX.py lib lib true true
+
+      - name: Assemble tarball
+        run: |
+          ver="${{ needs.version.outputs.version }}"
+          dir="meryl-${ver}"
+          rm -rf build/obj
+          mv build "${dir}"
+          cp -a README* "${dir}/" 2>/dev/null || true
+          tar -cJf "meryl-${ver}.Darwin-${{ matrix.arch }}.tar.xz" \
+              "${dir}/README"* \
+              "${dir}/bin" \
+              "${dir}/lib" \
+              $( [ -d "${dir}/share" ] && echo "${dir}/share" )
+          ls -lh "meryl-${ver}.Darwin-${{ matrix.arch }}.tar.xz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meryl-darwin-${{ matrix.arch }}
+          path: meryl-*.Darwin-*.tar.xz
+
+  # ---------------------------------------------------------------------------
+  # Collect all tarballs and publish a GitHub Release (only on tag pushes).
+  # ---------------------------------------------------------------------------
+  release:
+    needs: [version, source, linux, macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh dist
+
+      - name: Compute checksums
+        run: |
+          cd dist
+          shasum -a 256 *.tar.xz | tee SHA256SUMS
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: meryl ${{ needs.version.outputs.version }}
+          draft: true          # flip to false once you're happy
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          files: |
+            dist/*.tar.xz
+            dist/SHA256SUMS

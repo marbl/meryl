@@ -23,13 +23,13 @@ master_doc = 'index'
 
 # General information about the project.
 project   = u'meryl'
-copyright = u'2018-2023, Brian Walenz, Arang Rhie'
+copyright = u'2018-2026, Brian Walenz, Arang Rhie'
 
 # Version info, acts as replacement for |version| and |release|, also used in
 # various other places throughout the built documents.
 #
-version = '1.3'    # The short X.Y version.
-release = '1.3'    # The full version, including alpha/beta/rc tags.
+version = '1.4.2'    # The short X.Y version.
+release = '1.4.2'    # The full version, including alpha/beta/rc tags.
 
 # There are two options for replacing |today|: either, you set today to
 # some non-false value, then it is used, otherwise, today_fmt is used as
