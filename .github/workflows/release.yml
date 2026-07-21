@@ -77,9 +77,14 @@ jobs:
           - arch: amd64
             runs_on: ubuntu-latest
             image: quay.io/pypa/manylinux2014_x86_64
+          # arm64 needs glibc >= 2.28 because htscodecs' NEON detection uses
+          # HWCAP_ASIMD from <sys/auxv.h>, which is only defined on glibc >= 2.29.
+          # manylinux_2_28 (glibc 2.28 via redhat-lsb) still exposes it, and
+          # covers RHEL 8+, Ubuntu 20.04+, Debian 10+, i.e. every practical
+          # arm64 Linux host.
           - arch: arm64
             runs_on: ubuntu-24.04-arm
-            image: quay.io/pypa/manylinux2014_aarch64
+            image: quay.io/pypa/manylinux_2_28_aarch64
     runs-on: ${{ matrix.runs_on }}
     # NOTE: we do NOT set `container:` at the job level. manylinux2014's glibc
     # (2.17) is too old to run Node 24, which every actions/* uses now.
