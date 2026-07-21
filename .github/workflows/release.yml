@@ -104,9 +104,14 @@ jobs:
             "${{ matrix.image }}" \
             bash -c '
               set -e
+              # Optional dev libraries the meryl build probes with pkg-config.
+              yum install -y openssl-devel libcurl-devel xz-devel >/dev/null
+              # Silence git "dubious ownership" complaints: host uid != container uid.
+              git config --global --add safe.directory "*"
               gcc --version
               g++ --version
               ldd --version | head -n1
+              git rev-parse --is-inside-work-tree
               cd src
               gmake -j "$(nproc)"
             '
