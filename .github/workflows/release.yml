@@ -102,6 +102,14 @@ jobs:
           uname -a
           docker --version
 
+      - name: Hide .git for release builds
+        # version.pl chooses the "release (no git)" path only when .git is
+        # absent. Moving it out of the way produces a clean "meryl 1.4.2"
+        # string instead of the git-derived "master +N changes (rXXXX hash)".
+        # Only do this on tag builds; leave snapshots alone.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: mv .git dot-git-directory
+
       - name: Build inside manylinux2014
         run: |
           docker run --rm \
@@ -177,6 +185,14 @@ jobs:
         run: |
           gmake --version | head -n1
           clang --version | head -n1
+
+      - name: Hide .git for release builds
+        # version.pl chooses the "release (no git)" path only when .git is
+        # absent. Moving it out of the way produces a clean "meryl 1.4.2"
+        # string instead of the git-derived "master +N changes (rXXXX hash)".
+        # Only do this on tag builds; leave snapshots alone.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: mv .git dot-git-directory
 
       - name: Build
         run: |

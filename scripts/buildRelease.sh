@@ -15,18 +15,18 @@
 #    cd src && gmake
 #
 #  Tag the next release development
-#    git tag -a v1.3-development -m "Development for v1.3."
+#    git tag -a v1.4.2-development -m "Development for v1.4.2."
 #    git push --follow-tags
 #
 #  Make a branch (avoid naming collision with release tags):
-#    git checkout -b v1.2-maintenance
+#    git checkout -b v1.4.2-maintenance
 #
 #  Commit to branch:
-#    Change 'snapshot' to 'release' in scripts/version_update.pl and main.mk (VERSION      := release 1.4.2)
-#    git push --set-upstream origin v1.2-maintenance
+#    Change 'snapshot' to 'release' in scripts/version_update.pl and main.mk (VERSION      := release v1.4.2)
+#    git push --set-upstream origin v1.4.2-maintenance
 #
 #  Run this script:
-#    scripts/buildRelease.sh 1.2
+#    scripts/buildRelease.sh 1.4.2
 #
 
 version=$1
