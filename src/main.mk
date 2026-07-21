@@ -1,5 +1,5 @@
 MODULE       := meryl
-VERSION      := release v1.4.2
+VERSION      := snapshot 1.4.2
 VERSION_H    := utility/src/version.H
 
 TARGET       := libmeryl.a
